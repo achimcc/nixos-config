@@ -45,8 +45,9 @@
   services.xserver.enable = true;
 
   # Enable the GNOME Desktop Environment.
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
+  # HINWEIS: Syntax aktualisiert (xserver prefix entfernt wie in Warnung empfohlen)
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
 
   # Configure keymap in X11
   services.xserver.xkb = {
@@ -75,7 +76,6 @@
     isNormalUser = true;
     description = "Achim Schneider";
     extraGroups = [ "networkmanager" "wheel" ];
-    # Pakete werden jetzt primär über Home Manager verwaltet (siehe unten)
     packages = with pkgs; [ ];
   };
 
@@ -84,8 +84,8 @@
 
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
-    wl-clipboard # Wichtig für Copy-Paste im Terminal
-    git # Empfohlen für VS Code Git-Features
+    wl-clipboard
+    git
   ];
 
   # ==========================================
@@ -97,60 +97,108 @@
 
   home-manager.users.achim = { pkgs, ... }: {
 
-    # Version sollte mit system.stateVersion übereinstimmen
     home.stateVersion = "24.11";
 
     # User-spezifische Pakete
     home.packages = with pkgs; [
-      librewolf
 
-      # --- SICHERHEIT ---
-      keepassxc # Der empfohlene Passwortmanager (Offline, Open Source)
+      # --- SICHERHEIT & TOOLS ---
+      keepassxc
 
-      # Tools für Nix-Entwicklung (werden von VS Code genutzt)
-      nil # Der Language Server (Autokorrektur)
-      nixpkgs-fmt # Formatierung
+      # FIX: Das Paket heißt "kdePackages.kleopatra"
+      kdePackages.kleopatra
+
+      # Tools für Nix-Entwicklung
+      nil
+      nixpkgs-fmt
     ];
 
+    # --- PGP KONFIGURATION ---
+    programs.gpg.enable = true;
+
+    services.gpg-agent = {
+      enable = true;
+      pinentryPackage = pkgs.pinentry-gnome3;
+      enableSshSupport = true;
+    };
+
+    # --- EMAIL CLIENT (Thunderbird - Hardened) ---
+    programs.thunderbird = {
+      enable = true;
+      profiles = {
+        "achim" = {
+          isDefault = true;
+          settings = {
+            "privacy.donottrackheader.enabled" = true;
+            "mailnews.message_display.disable_remote_image" = true;
+            "datareporting.healthreport.uploadEnabled" = false;
+            "datareporting.policy.dataSubmissionEnabled" = false;
+            "toolkit.telemetry.enabled" = false;
+            "javascript.enabled" = false;
+            "mailnews.display.html_as" = 3;
+          };
+        };
+      };
+    };
+
+    # --- GIT ---
     programs.git = {
       enable = true;
       userName = "Achim Schneider";
       userEmail = "achim.schneider@posteo.de";
-
-      # Optional: Nützliche Extras
+      # HINWEIS: Syntax für extraConfig hat sich geändert, wenn es Konflikte gibt
       extraConfig = {
         init.defaultBranch = "main";
         pull.rebase = true;
       };
     };
 
-    # VS Code Konfiguration
+    # --- VS CODE ---
     programs.vscode = {
       enable = true;
       package = pkgs.vscode;
 
-      # Extensions automatisch installieren
-      extensions = with pkgs.vscode-extensions; [
-        jnoortheen.nix-ide # Das Nix Plugin
-        # mkhl.direnv        # Optional: Sehr gut für Nix-Umgebungen
-      ];
-
-      # Settings.json automatisch schreiben
-      userSettings = {
-        # Aktiviert den Language Server für Nix Dateien
-        "nix.enableLanguageServer" = true;
-        "nix.serverPath" = "nil";
-        "nix.serverSettings" = {
-          "nil" = {
-            "formatting" = {
-              "command" = [ "nixpkgs-fmt" ];
+      # HINWEIS: Neue Syntax-Struktur für Home Manager (Warnung behoben)
+      profiles.default = {
+        extensions = with pkgs.vscode-extensions; [
+          jnoortheen.nix-ide
+        ];
+        userSettings = {
+          "nix.enableLanguageServer" = true;
+          "nix.serverPath" = "nil";
+          "nix.serverSettings" = {
+            "nil" = {
+              "formatting" = {
+                "command" = [ "nixpkgs-fmt" ];
+              };
             };
           };
+          "editor.formatOnSave" = true;
         };
-        # Optional: Formatieren beim Speichern
-        "editor.formatOnSave" = true;
       };
     };
+
+    # --- BROWSER (LibreWolf) ---
+    programs.librewolf = {
+      enable = true;
+      settings = {
+        "privacy.clearOnShutdown.history" = false;
+        "privacy.resistFingerprinting" = false;
+      };
+      policies = {
+        ExtensionSettings = {
+          "keepassxc-browser@keepassxc.org" = {
+            installation_mode = "force_installed";
+            install_url = "https://addons.mozilla.org/firefox/downloads/latest/keepassxc-browser/latest.xpi";
+          };
+        };
+      };
+    };
+
+    # Browser-Integration für KeePassXC
+    home.file.".librewolf/native-messaging-hosts/org.keepassxc.keepassxc_browser.json".source =
+      "${pkgs.keepassxc}/share/mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json";
+
   };
 
   # This value determines the NixOS release...
