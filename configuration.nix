@@ -76,6 +76,8 @@
     description = "NixOS User";
     extraGroups = [ "networkmanager" "wheel" ];
     packages = with pkgs; [ ];
+    # Nushell als Standard-Login-Shell setzen
+    shell = pkgs.nushell;
   };
 
   # Allow unfree packages
@@ -85,6 +87,8 @@
   environment.systemPackages = with pkgs; [
     wl-clipboard
     git
+    # Nushell muss auch global verfügbar sein
+    nushell
   ];
 
   # ==========================================
@@ -94,6 +98,7 @@
   home-manager.useGlobalPkgs = true;
   home-manager.useUserPackages = true;
 
+  # Start des Home-Manager Blocks für User "user"
   home-manager.users.user = { pkgs, ... }: {
 
     home.stateVersion = "24.11";
@@ -195,6 +200,14 @@
           "rust-analyzer.server.path" = "rust-analyzer";
           # Debugger Pfad
           "lldb.executable" = "lldb";
+
+          # VS Code Terminal auf Nushell setzen
+          "terminal.integrated.defaultProfile.linux" = "nushell";
+          "terminal.integrated.profiles.linux" = {
+            "nushell" = {
+              "path" = "${pkgs.nushell}/bin/nu";
+            };
+          };
         };
       };
     };
@@ -223,7 +236,45 @@
     home.file.".librewolf/native-messaging-hosts/org.keepassxc.keepassxc_browser.json".source =
       "${pkgs.keepassxc}/share/mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json";
 
-  };
+    # --- SHELL CONFIGURATION (Innerhalb von home-manager) ---
+
+    # 1. Starship: Der moderne Prompt (Cross-Shell)
+    programs.starship = {
+      enable = true;
+      # Integration für Nushell automatisch aktivieren
+      enableNushellIntegration = true;
+    };
+
+    # 2. Carapace: Multi-Shell Argument Completer
+    # Sorgt dafür, dass TAB-Vervollständigung für git, docker, cargo etc. funktioniert
+    programs.carapace = {
+      enable = true;
+      enableNushellIntegration = true;
+    };
+
+    # 3. Nushell: Die Shell selbst
+    programs.nushell = {
+      enable = true;
+      # Konfiguration für Aliase und Umgebungsvariablen
+      shellAliases = {
+        ll = "ls -l";
+        la = "ls -a";
+        # Git Abkürzungen
+        gs = "git status";
+        gc = "git commit";
+        gp = "git push";
+      };
+      environmentVariables = {
+        # Damit der Editor (z.B. bei git commit) nano oder hx ist
+        EDITOR = "nano";
+      };
+      extraConfig = ''
+        # Hier deaktivieren wir die Willkommensnachricht
+        $env.config.show_banner = false
+      '';
+    };
+
+  }; # <--- HIER ENDET DER HOME-MANAGER BLOCK FÜR USER user
 
   # This value determines the NixOS release...
   system.stateVersion = "24.11";
