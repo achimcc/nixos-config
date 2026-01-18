@@ -79,9 +79,6 @@
     packages = with pkgs; [ ];
   };
 
-  # Install firefox globally (optional, can also be moved to HM)
-  programs.firefox.enable = true;
-
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
@@ -106,6 +103,9 @@
     # User-spezifische Pakete
     home.packages = with pkgs; [
       librewolf
+
+      # --- SICHERHEIT ---
+      keepassxc # Der empfohlene Passwortmanager (Offline, Open Source)
 
       # Tools für Nix-Entwicklung (werden von VS Code genutzt)
       nil # Der Language Server (Autokorrektur)
@@ -154,8 +154,6 @@
   };
 
   # This value determines the NixOS release...
-  # Hinweis: 25.11 existiert offiziell noch nicht (aktuell 24.11). 
-  # Ich lasse es so, da es in deiner Config so stand.
   system.stateVersion = "24.11";
 
 }
