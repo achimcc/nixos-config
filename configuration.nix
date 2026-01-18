@@ -45,7 +45,6 @@
   services.xserver.enable = true;
 
   # Enable the GNOME Desktop Environment.
-  # HINWEIS: Syntax aktualisiert (xserver prefix entfernt wie in Warnung empfohlen)
   services.displayManager.gdm.enable = true;
   services.desktopManager.gnome.enable = true;
 
@@ -99,18 +98,24 @@
 
     home.stateVersion = "24.11";
 
+    # WICHTIG FÜR RUST:
+    # Fügt ~/.cargo/bin zum Pfad hinzu, damit 'cargo', 'rustc' etc. gefunden werden.
+    home.sessionPath = [ "$HOME/.cargo/bin" ];
+
     # User-spezifische Pakete
     home.packages = with pkgs; [
 
       # --- SICHERHEIT & TOOLS ---
       keepassxc
-
-      # FIX: Das Paket heißt "kdePackages.kleopatra"
       kdePackages.kleopatra
 
-      # Tools für Nix-Entwicklung
+      # --- NIX ENTWICKLUNG ---
       nil
       nixpkgs-fmt
+
+      # --- RUST ENTWICKLUNG ---
+      rustup # Toolchain Manager (installiert cargo, rustc, etc.)
+      gcc # Linker (cc), zwingend notwendig für Rust auf NixOS
     ];
 
     # --- PGP KONFIGURATION ---
@@ -146,7 +151,6 @@
       enable = true;
       userName = "NixOS User";
       userEmail = "user@posteo.de";
-      # HINWEIS: Syntax für extraConfig hat sich geändert, wenn es Konflikte gibt
       extraConfig = {
         init.defaultBranch = "main";
         pull.rebase = true;
@@ -158,12 +162,21 @@
       enable = true;
       package = pkgs.vscode;
 
-      # HINWEIS: Neue Syntax-Struktur für Home Manager (Warnung behoben)
       profiles.default = {
+        # Extensions installieren
         extensions = with pkgs.vscode-extensions; [
+          # Nix
           jnoortheen.nix-ide
+
+          # Rust
+          rust-lang.rust-analyzer # Offizielle Rust Unterstützung
+          tamasfe.even-better-toml # Syntax Highlighting für Cargo.toml
+          vadimcn.vscode-lldb # Debugger für Rust
         ];
+
+        # VS Code Einstellungen (settings.json)
         userSettings = {
+          # -- NIX --
           "nix.enableLanguageServer" = true;
           "nix.serverPath" = "nil";
           "nix.serverSettings" = {
@@ -174,6 +187,14 @@
             };
           };
           "editor.formatOnSave" = true;
+
+          # -- RUST --
+          # Nutze Clippy statt Check für bessere Warnungen
+          "rust-analyzer.check.command" = "clippy";
+          # Pfad explizit angeben, damit VSCode nicht versucht Binaries herunterzuladen
+          "rust-analyzer.server.path" = "rust-analyzer";
+          # Debugger Pfad
+          "lldb.executable" = "lldb";
         };
       };
     };
@@ -184,6 +205,9 @@
       settings = {
         "privacy.clearOnShutdown.history" = false;
         "privacy.resistFingerprinting" = false;
+        "privacy.clearOnShutdown.cookies" = false;
+        "privacy.clearOnShutdown.sessions" = false;
+        "browser.startup.page" = 3;
       };
       policies = {
         ExtensionSettings = {
