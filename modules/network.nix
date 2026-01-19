@@ -37,7 +37,7 @@
     dnssec = "allow-downgrade"; # "true" kann Probleme machen
     domains = [ "~." ];
     dnsovertls = "true";
-    fallbackDns = [ "1.1.1.1" "9.9.9.9" ];
+    # Kein fallbackDns - verhindert DNS-Leaks wenn VPN down
     extraConfig = ''
       DNS=1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net
     '';

@@ -136,7 +136,7 @@
       "privacy.clearOnShutdown.cookies" = false;
       "privacy.clearOnShutdown.sessions" = false;
       "browser.startup.page" = 3;
-      "xpinstall.signatures.required" = false;
+      "xpinstall.signatures.required" = true;
     };
 
     policies = {
