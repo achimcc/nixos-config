@@ -1,7 +1,7 @@
 # Home Manager Konfiguration für User "achim"
 # Ausgelagert aus configuration.nix für bessere Übersichtlichkeit
 
-{ pkgs, ... }:
+{ pkgs, nurPkgs, ... }:
 
 {
   home.stateVersion = "24.11";
@@ -28,9 +28,12 @@
     # --- RUST ENTWICKLUNG ---
     rustup
     gcc
-    # ----- Signal
+
+    # --- KOMMUNIKATION ---
     signal-desktop
-    opencode
+
+    # --- AI CODING ASSISTANT ---
+    nurPkgs.repos.charmbracelet.crush
   ];
 
   # --- PGP KONFIGURATION ---
@@ -77,41 +80,39 @@
     enable = true;
     package = pkgs.vscode;
 
-    profiles.default = {
-      extensions = with pkgs.vscode-extensions; [
-        jnoortheen.nix-ide
-        rust-lang.rust-analyzer
-        tamasfe.even-better-toml
-        vadimcn.vscode-lldb
-      ];
+    extensions = with pkgs.vscode-extensions; [
+      jnoortheen.nix-ide
+      rust-lang.rust-analyzer
+      tamasfe.even-better-toml
+      vadimcn.vscode-lldb
+    ];
 
-      userSettings = {
-        # -- NIX --
-        "nix.enableLanguageServer" = true;
-        "nix.serverPath" = "nil";
-        "nix.serverSettings" = {
-          "nil" = {
-            "formatting" = {
-              "command" = [ "nixpkgs-fmt" ];
-            };
+    userSettings = {
+      # -- NIX --
+      "nix.enableLanguageServer" = true;
+      "nix.serverPath" = "nil";
+      "nix.serverSettings" = {
+        "nil" = {
+          "formatting" = {
+            "command" = [ "nixpkgs-fmt" ];
           };
         };
-        "editor.formatOnSave" = true;
-
-        # -- RUST --
-        "rust-analyzer.check.command" = "clippy";
-        "rust-analyzer.server.path" = "rust-analyzer";
-        "lldb.executable" = "lldb";
-
-        # VS Code Terminal
-        "terminal.integrated.defaultProfile.linux" = "nushell";
-        "terminal.integrated.profiles.linux" = {
-          "nushell" = {
-            "path" = "${pkgs.nushell}/bin/nu";
-          };
-        };
-        "terminal.integrated.fontFamily" = "'Hack Nerd Font Mono'";
       };
+      "editor.formatOnSave" = true;
+
+      # -- RUST --
+      "rust-analyzer.check.command" = "clippy";
+      "rust-analyzer.server.path" = "rust-analyzer";
+      "lldb.executable" = "lldb";
+
+      # VS Code Terminal
+      "terminal.integrated.defaultProfile.linux" = "nushell";
+      "terminal.integrated.profiles.linux" = {
+        "nushell" = {
+          "path" = "${pkgs.nushell}/bin/nu";
+        };
+      };
+      "terminal.integrated.fontFamily" = "'Hack Nerd Font Mono'";
     };
   };
 

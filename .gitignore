@@ -1,2 +1,3 @@
 result
 .env
+# flake.lock sollte NICHT ignoriert werden - es sichert reproduzierbare Builds!

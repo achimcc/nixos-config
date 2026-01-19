@@ -9,8 +9,7 @@
     [
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      # Importiert den Home Manager als NixOS Modul
-      <home-manager/nixos>
+      # Home Manager wird jetzt via flake.nix importiert
     ];
 
   # ==========================================
@@ -22,7 +21,7 @@
   boot.loader.efi.canTouchEfiVariables = true;
 
   boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".device = "/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b";
-  networking.hostName = "nixos";
+  networking.hostName = "achim-laptop";
   networking.enableIPv6 = false;
 
   boot.kernel.sysctl = {
@@ -182,8 +181,8 @@
   services.xserver.enable = true;
 
   # Enable the GNOME Desktop Environment.
-  services.displayManager.gdm.enable = true;
-  services.desktopManager.gnome.enable = true;
+  services.xserver.displayManager.gdm.enable = true;
+  services.xserver.desktopManager.gnome.enable = true;
 
   # Configure keymap in X11
   services.xserver.xkb = {
@@ -198,7 +197,7 @@
   services.printing.enable = true;
 
   # Enable sound with pipewire.
-  services.pulseaudio.enable = false;
+  # services.pulseaudio.enable = false; # Nicht mehr nötig in 24.11
   security.rtkit.enable = true;
   services.pipewire = {
     enable = true;
@@ -227,7 +226,7 @@
   #==========================================
 
   fonts.packages = with pkgs; [
-    nerd-fonts.hack
+    (nerdfonts.override { fonts = [ "Hack" ]; })
   ];
 
   # ==========================================
@@ -261,12 +260,10 @@
   ];
 
   # ==========================================
-  # HOME MANAGER KONFIGURATION
+  # NIX FLAKES AKTIVIEREN
   # ==========================================
 
-  home-manager.useGlobalPkgs = true;
-  home-manager.useUserPackages = true;
-  home-manager.users.achim = import ./home-achim.nix;
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   # ==========================================
   # AUTOMATISCHE UPDATES & WARTUNG
@@ -275,9 +272,9 @@
   # Automatische System-Updates (täglich um 4:00 Uhr)
   system.autoUpgrade = {
     enable = true;
-    allowReboot = false;  # Kein automatischer Reboot - du entscheidest wann
+    allowReboot = false; # Kein automatischer Reboot - du entscheidest wann
     dates = "04:00";
-    flake = null;  # Nutzt den aktuellen Channel
+    flake = "/home/achim/nixos-config#nixos";  # Nutzt jetzt den Flake
   };
 
   # Garbage Collection - alte Generationen automatisch löschen
