@@ -11,6 +11,7 @@
     ./modules/desktop.nix
     ./modules/audio.nix
     ./modules/power.nix
+    ./modules/sops.nix
   ];
 
   # ==========================================
