@@ -44,7 +44,7 @@
   # GNOME Dienste
   services.gnome = {
     gnome-keyring.enable = true;
-    core-shell.enable = true;
+    # core-shell wird automatisch durch desktopManager.gnome aktiviert
   };
 
   # Udev für GUI-Elemente
