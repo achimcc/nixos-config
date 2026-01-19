@@ -25,6 +25,12 @@
   networking.hostName = "nixos";
   networking.enableIPv6 = false;
 
+  boot.kernel.sysctl = {
+    "net.ipv6.conf.all.disable_ipv6" = 1;
+    "net.ipv6.conf.default.disable_ipv6" = 1;
+    "net.ipv6.conf.lo.disable_ipv6" = 1;
+  };
+
   # ==========================================
   # NETZWERK & SICHERHEIT (System-Level)
   # ==========================================
@@ -42,66 +48,63 @@
 
   networking.firewall = {
     enable = true;
+    checkReversePath = "loose"; # Notwendig, damit WireGuard Rückpakete akzeptiert
 
-    # Wichtig für VPN Rückkanal (sonst werden Pakete fälschlicherweise verworfen)
-    checkReversePath = "loose";
+    # Falls du eine sehr neue NixOS Version (24.11+) nutzt, stelle sicher, dass iptables genutzt wird:
+    # networking.nftables.enable = false; 
 
-    # Eingehend: Wir blockieren alles (Standard)
-    allowedTCPPorts = [ ];
-    allowedUDPPorts = [ ];
-
-    # --- DER MANUELLE KILL SWITCH ---
-    # Diese Befehle werden bei jedem Start der Firewall ausgeführt.
     extraCommands = ''
-      # 1. Bestehende Regeln löschen (Sauberer Start)
-      iptables -F OUTPUT
-      ip6tables -F OUTPUT
+      # 1. Standard-Policy: Alles verbieten (IPv4 & IPv6)
+      iptables -P OUTPUT DROP
+      ip6tables -P OUTPUT DROP
 
-      # 2. Loopback erlauben (System-Interne Kommunikation - ZWINGEND)
-      iptables -A OUTPUT -o lo -j ACCEPT
-      ip6tables -A OUTPUT -o lo -j ACCEPT
-
-      # 3. Bereits bestehende Verbindungen erlauben
-      # Sorgt für Stabilität, damit der Handshake nicht abbricht.
+      # 2. Bestehende Verbindungen erlauben (Wichtig für Antwort-Pakete)
       iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
       ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
-      # 4. Traffic DURCH den VPN-Tunnel erlauben (Das Ziel!)
-      # Proton erstellt Interfaces die 'proton0' oder 'tun0' heißen.
-      iptables -A OUTPUT -o proton+ -j ACCEPT
+      # 3. Loopback (Lokale Kommunikation zwischen Apps und Daemon)
+      iptables -A OUTPUT -o lo -j ACCEPT
+      ip6tables -A OUTPUT -o lo -j ACCEPT
+
+      # 4. DHCP (IP-Adresse beziehen)
+      iptables -A OUTPUT -p udp --dport 67:68 --sport 67:68 -j ACCEPT
+
+      # 5. NTP (Zeitsynchronisation) - EXTREM WICHTIG für VPN Handshakes!
+      iptables -A OUTPUT -p udp --dport 123 -j ACCEPT
+
+      # 6. DNS (Lokal & Bootstrap)
+      # Erlaubt Apps, den lokalen Resolver zu fragen
+      iptables -A OUTPUT -d 127.0.0.53 -j ACCEPT
+      # Erlaubt DNS über physisches Interface (um VPN-Server-IP zu finden)
+      iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 53 -j ACCEPT
+      iptables -A OUTPUT -o wlp0s20f3 -p tcp --dport 53 -j ACCEPT
+
+      # 7. VPN Handshake & API (Physisches Interface)
+      # WireGuard
+      iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 51820 -j ACCEPT
+      # OpenVPN (UDP)
+      iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 1194 -j ACCEPT
+      # OpenVPN (TCP) / HTTPS API (Proton App Login/Serverliste)
+      iptables -A OUTPUT -o wlp0s20f3 -p tcp --dport 443 -j ACCEPT
+    
+      # IKEv2 (Manche Proton Server nutzen das als Fallback)
+      iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 500 -j ACCEPT
+      iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 4500 -j ACCEPT
+
+      # 8. ICMP (Ping / MTU)
+      iptables -A OUTPUT -p icmp -j ACCEPT
+
+      # === VPN TUNNEL (Hier darf alles raus) ===
+      # Erlaubt Traffic über tun (OpenVPN) und wg (WireGuard) Interfaces
       iptables -A OUTPUT -o tun+ -j ACCEPT
+      iptables -A OUTPUT -o wg+ -j ACCEPT
+      iptables -A OUTPUT -o proton0 -j ACCEPT 
 
-      # --- AUSNAHMEN FÜR DEN VERBINDUNGSAUFBAU ---
-      
-      # 5. WireGuard (Standard bei Proton, Port 51820 UDP)
-      iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
-      
-      # 6. OpenVPN (Falls du das Protokoll wechselst)
-      iptables -A OUTPUT -p udp --dport 1194 -j ACCEPT
-      iptables -A OUTPUT -p tcp --dport 1194 -j ACCEPT
-
-      # 7. HTTPS & API (Port 443 TCP)
-      # WICHTIG: Ohne das kann die App sich nicht einloggen und keine Serverliste laden!
-      iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
-      iptables -A OUTPUT -p tcp --dport 8443 -j ACCEPT
-
-      # 8. DNS (Port 53 UDP)
-      # WICHTIG: Damit die App "api.protonvpn.ch" finden kann.
-      iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
-
-      # 9. Lokales Netzwerk (Optional)
-      # Erlaubt Zugriff auf Router (192.168.x.x) oder Drucker. 
-      # Falls du das NICHT willst, lösche die nächsten zwei Zeilen.
-      iptables -A OUTPUT -d 192.168.0.0/16 -j ACCEPT
-      iptables -A OUTPUT -d 10.0.0.0/8 -j ACCEPT
-
-      # 10. DER HAMMER: Alles andere wird gnadenlos blockiert.
-      iptables -P OUTPUT DROP
-      ip6tables -P OUTPUT DROP
+      # 9. Logging (Optional: Zeigt blockierte Pakete in dmesg an)
+      # Wenn alles läuft, kannst du diese Zeile auskommentieren, um Logs sauber zu halten.
+      iptables -A OUTPUT -j LOG --log-prefix "FIREWALL-DROP: " --log-level 4
     '';
 
-    # --- DER NOTAUSGANG ---
-    # Wenn du 'sudo systemctl stop firewall' eingibst, hast du wieder normales Internet.
     extraStopCommands = ''
       iptables -P OUTPUT ACCEPT
       iptables -F OUTPUT
@@ -177,6 +180,14 @@
 
   # 2. Udev Pakete für GUI-Elemente
   services.udev.packages = with pkgs; [ gnome-settings-daemon ];
+
+  #==========================================
+  # Hack Nerd Font Mono für Nushell
+  #==========================================
+
+  fonts.packages = with pkgs; [
+    nerd-fonts.hack
+  ];
 
   # ==========================================
   # USER & PACKAGES
@@ -395,7 +406,7 @@
 
   }; # ENDE HOME-MANAGER BLOCK
 
-  # This value determines the NixOS release...
+  # This valu204459e determines the NixOS release...
   system.stateVersion = "24.11";
 
 }
