@@ -1,7 +1,7 @@
 # Home Manager Konfiguration für User "user"
 # Ausgelagert aus configuration.nix für bessere Übersichtlichkeit
 
-{ pkgs, nurPkgs, ... }:
+{ pkgs, llm-agents, ... }: # llm-agents statt nurPkgs
 
 {
   home.stateVersion = "24.11";
@@ -33,7 +33,8 @@
     signal-desktop
 
     # --- AI CODING ASSISTANT ---
-    nurPkgs.repos.charmbracelet.crush
+    # Hier nutzen wir nun den korrekten Flake-Input
+    llm-agents.packages.${pkgs.system}.crush
   ];
 
   # --- PGP KONFIGURATION ---
@@ -70,7 +71,7 @@
     userName = "NixOS User";
     userEmail = "user@posteo.de";
     signing = {
-      key = null;  # GPG wählt automatisch den Key passend zur E-Mail
+      key = null; # GPG wählt automatisch den Key passend zur E-Mail
       signByDefault = true;
     };
     extraConfig = {
@@ -120,7 +121,7 @@
 
       # -- PRIVACY --
       "telemetry.telemetryLevel" = "off";
-      "update.mode" = "none";  # Updates via Nix
+      "update.mode" = "none"; # Updates via Nix
     };
   };
 
