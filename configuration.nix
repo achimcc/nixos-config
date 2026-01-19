@@ -110,6 +110,8 @@
     allowReboot = false;
     dates = "04:00";
     flake = "/home/user/nixos-config#nixos";
+    # Flake-Inputs vor dem Build aktualisieren
+    flags = [ "--update-input" "nixpkgs" "--update-input" "home-manager" ];
   };
 
   # ==========================================
