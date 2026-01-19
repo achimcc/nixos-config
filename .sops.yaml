@@ -1,0 +1,18 @@
+# Sops-nix Konfiguration
+# Definiert welche Keys für welche Secrets genutzt werden
+
+keys:
+  # Benutzer Keys (für lokales Editieren)
+  - &user_achim age1rr0acs6r4eyxv2tlhp8xrj6ktzflh97mqpxcu2uup276cgulavwqt0jv64
+  
+  # Host Keys (werden beim ersten Boot generiert)
+  # Hole den Key mit: cat /etc/ssh/ssh_host_ed25519_key.pub | ssh-to-age
+  # - &host_achim-laptop age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+creation_rules:
+  # Alle Secrets im secrets/ Ordner
+  - path_regex: secrets/.*\.yaml$
+    key_groups:
+      - age:
+          - *user_achim
+          # - *host_achim-laptop  # Aktivieren nach erstem Boot
