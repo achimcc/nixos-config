@@ -453,7 +453,29 @@
 
   }; # ENDE HOME-MANAGER BLOCK
 
-  # This valu204459e determines the NixOS release...
+  # ==========================================
+  # AUTOMATISCHE UPDATES & WARTUNG
+  # ==========================================
+
+  # Automatische System-Updates (täglich um 4:00 Uhr)
+  system.autoUpgrade = {
+    enable = true;
+    allowReboot = false;  # Kein automatischer Reboot - du entscheidest wann
+    dates = "04:00";
+    flake = null;  # Nutzt den aktuellen Channel
+  };
+
+  # Garbage Collection - alte Generationen automatisch löschen
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 30d";
+  };
+
+  # Store optimieren - Deduplizierung von Dateien
+  nix.settings.auto-optimise-store = true;
+
+  # This value determines the NixOS release...
   system.stateVersion = "24.11";
 
 }
