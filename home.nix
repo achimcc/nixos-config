@@ -34,7 +34,17 @@
     gcc
 
     # --- KOMMUNIKATION ---
-    signal-desktop
+    # Wayland-Unterstützung für Signal aktivieren (sonst schwarzer Kasten)
+    (symlinkJoin {
+      name = "signal-desktop-wayland";
+      paths = [ signal-desktop ];
+      buildInputs = [ makeWrapper ];
+      postBuild = ''
+        wrapProgram $out/bin/signal-desktop \
+          --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations" \
+          --add-flags "--ozone-platform=wayland"
+      '';
+    })
 
     # --- AI CODING ASSISTANT ---
     # Hier nutzen wir nun den korrekten Flake-Input
