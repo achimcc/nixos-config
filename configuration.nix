@@ -95,11 +95,13 @@
       iptables -A OUTPUT -p udp --dport 500 -j ACCEPT   # IKEv2
       iptables -A OUTPUT -p udp --dport 4500 -j ACCEPT  # IKEv2 NAT
       
-      # 6. DHCP & DNS erlauben (Sonst keine Verbindung zum WLAN/Internet)
+      # 6. DHCP erlauben (Sonst keine Verbindung zum WLAN)
       iptables -A OUTPUT -p udp --dport 67:68 -j ACCEPT
-      iptables -A OUTPUT -p udp --dport 53 -j ACCEPT    # DNS (UDP)
-      iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT    # DNS (TCP)
-      iptables -A OUTPUT -p tcp --dport 853 -j ACCEPT   # DNS-over-TLS
+      
+      # 7. DNS NUR über systemd-resolved (127.0.0.53) - verhindert DNS-Leaks
+      iptables -A OUTPUT -p udp --dport 53 -d 127.0.0.53 -j ACCEPT
+      iptables -A OUTPUT -p tcp --dport 53 -d 127.0.0.53 -j ACCEPT
+      iptables -A OUTPUT -p tcp --dport 853 -d 127.0.0.53 -j ACCEPT
       
       # 7. Lokales Netzwerk erlauben (Optional, falls du Drucker/NAS brauchst)
       # iptables -A OUTPUT -d 192.168.178.0/24 -j ACCEPT
