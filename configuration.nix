@@ -110,6 +110,8 @@
     allowReboot = false;
     dates = "04:00";
     flake = "/home/achim/nixos-config#achim-laptop";
+    # Flake-Inputs vor dem Build aktualisieren
+    flags = [ "--update-input" "nixpkgs" "--update-input" "home-manager" ];
   };
 
   # ==========================================
