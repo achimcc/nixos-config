@@ -331,6 +331,7 @@
               "path" = "${pkgs.nushell}/bin/nu";
             };
           };
+          "terminal.integrated.fontFamily" = "'Hack Nerd Font Mono'";
         };
       };
     };
