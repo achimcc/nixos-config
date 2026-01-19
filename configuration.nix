@@ -210,6 +210,7 @@
     gnomeExtensions.appindicator
     libsecret
     iptables
+    tor-browser
   ];
 
   # ==========================================
@@ -248,7 +249,6 @@
       gcc
       # ----- Signal
       signal-desktop
-      tor-browser
     ];
 
     # --- PGP KONFIGURATION ---
