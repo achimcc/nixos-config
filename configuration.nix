@@ -17,10 +17,9 @@
   ];
 
   # ==========================================
-  # BOOTLOADER
+  # BOOTLOADER (Secure Boot via Lanzaboote in modules/secureboot.nix)
   # ==========================================
 
-  boot.loader.systemd-boot.enable = true;
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;
 
