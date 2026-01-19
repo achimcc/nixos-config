@@ -285,7 +285,7 @@
     enable = true;
     allowReboot = false; # Kein automatischer Reboot - du entscheidest wann
     dates = "04:00";
-    flake = "/home/achim/nixos-config#nixos";  # Nutzt jetzt den Flake
+    flake = "/home/achim/nixos-config#achim-laptop";
   };
 
   # Garbage Collection - alte Generationen automatisch löschen
