@@ -184,6 +184,20 @@
   services.xserver.displayManager.gdm.enable = true;
   services.xserver.desktopManager.gnome.enable = true;
 
+  # GNOME Bloat entfernen (du nutzt LibreWolf, Thunderbird, etc.)
+  environment.gnome.excludePackages = with pkgs; [
+    epiphany       # GNOME Browser - du nutzt LibreWolf
+    geary          # Mail Client - du nutzt Thunderbird
+    gnome-music    # Musik Player
+    gnome-tour     # Willkommens-Tour
+    totem          # Video Player
+    yelp           # Hilfe-Viewer
+    gnome-contacts # Kontakte
+    gnome-maps     # Karten
+    gnome-weather  # Wetter
+    simple-scan    # Scanner (falls du keinen hast)
+  ];
+
   # Configure keymap in X11
   services.xserver.xkb = {
     layout = "de";
