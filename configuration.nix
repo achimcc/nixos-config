@@ -41,6 +41,21 @@
     # SECURITY: Zufällige MAC-Adresse beim Scannen nach WLANs (erschwert Tracking)
     wifi.scanRandMacAddress = true;
   };
+  # Firejail auf Systemebene aktivieren, um Wrapper zu erstellen
+  programs.firejail = {
+    enable = true;
+    wrappedBinaries = {
+      tor-browser = {
+        # Wir referenzieren das Paket direkt aus den System-Pkgs
+        executable = "${pkgs.tor-browser}/bin/tor-browser";
+        profile = "${pkgs.firejail}/etc/firejail/tor-browser_en-US.profile";
+        extraArgs = [
+          # Hardcoded Pfad, um Rekursionsfehler zu vermeiden
+          "--private=/home/user/Downloads"
+        ];
+      };
+    };
+  };
 
   # ==========================================
   # HARDENED FIREWALL / KILL SWITCH
@@ -233,6 +248,7 @@
       gcc
       # ----- Signal
       signal-desktop
+      tor-browser
     ];
 
     # --- PGP KONFIGURATION ---
@@ -372,6 +388,7 @@
         $env.config.show_banner = false
       '';
     };
+
 
     # AUTORUN: ProtonVPN beim Login starten
     xdg.configFile."autostart/protonvpn-autostart.desktop".text = ''
