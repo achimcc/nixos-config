@@ -13,6 +13,7 @@
     ./modules/power.nix
     ./modules/sops.nix
     ./modules/security.nix
+    ./modules/secureboot.nix
   ];
 
   # ==========================================

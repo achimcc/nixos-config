@@ -17,9 +17,15 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Lanzaboote für Secure Boot
+    lanzaboote = {
+      url = "github:nix-community/lanzaboote/v0.4.2";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, home-manager, llm-agents, sops-nix, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, llm-agents, sops-nix, lanzaboote, ... } @inputs:
     let
       system = "x86_64-linux";
     in
@@ -33,6 +39,9 @@
 
           # Sops-nix Modul
           sops-nix.nixosModules.sops
+
+          # Lanzaboote für Secure Boot
+          lanzaboote.nixosModules.lanzaboote
 
           home-manager.nixosModules.home-manager
           {

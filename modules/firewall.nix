@@ -29,6 +29,9 @@
       # DNS-over-TLS Server (Cloudflare & Quad9)
       define dns_servers = { 1.1.1.1, 9.9.9.9 }
 
+      # ProtonVPN API Server (für Login & Serverliste vor VPN-Aufbau)
+      define proton_api = { 185.159.158.0/24, 185.159.159.0/24 }
+
       chain output {
         # priority 100 = nach NixOS-Firewall (priority 0), damit wir das letzte Wort haben
         type filter hook output priority 100; policy drop;
@@ -62,7 +65,15 @@
         ip daddr 127.0.0.53 udp dport 53 accept
         ip daddr 127.0.0.53 tcp dport 53 accept
 
-        # 8. Lokales Netzwerk erlauben (Optional, falls du Drucker/NAS brauchst)
+        # 8. Standard DNS für VPN-Verbindungsaufbau (Hostname-Auflösung vor VPN)
+        # Notwendig, da VPN-Server als Hostname (z.B. de-123.protonvpn.net) angegeben werden
+        ip daddr $dns_servers udp dport 53 accept
+        ip daddr $dns_servers tcp dport 53 accept
+
+        # 9. ProtonVPN API erlauben (Login, Serverliste, Account-Verwaltung)
+        ip daddr $proton_api tcp dport 443 accept
+
+        # 10. Lokales Netzwerk erlauben (Optional, falls du Drucker/NAS brauchst)
         # ip daddr 192.168.178.0/24 accept
 
         # Alles andere wird durch policy drop blockiert
