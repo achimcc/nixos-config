@@ -31,6 +31,7 @@
 
     # --- RUST ENTWICKLUNG ---
     rustup
+    rust-analyzer # Für VSCode rust-analyzer Extension
     gcc
 
     # --- KOMMUNIKATION ---
