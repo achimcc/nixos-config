@@ -172,6 +172,11 @@
   # 1. Keyring Dienst aktivieren (Damit der Login gespeichert werden kann)
   services.gnome.gnome-keyring.enable = true;
 
+  # Ermöglicht der GUI die Kommunikation mit dem NetworkManager über DBus
+  services.dbus.enable = true;
+  # Wichtig für die Integration in die GNOME Shell
+  services.gnome.core-shell.enable = true;
+
   # 2. Udev Pakete für GUI-Elemente
   services.udev.packages = with pkgs; [ gnome-settings-daemon ];
 
@@ -249,6 +254,7 @@
       gcc
       # ----- Signal
       signal-desktop
+      opencode
     ];
 
     # --- PGP KONFIGURATION ---
