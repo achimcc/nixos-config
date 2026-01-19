@@ -42,7 +42,7 @@
 
   services.gpg-agent = {
     enable = true;
-    pinentryPackage = pkgs.pinentry-gnome3;
+    pinentry.package = pkgs.pinentry-gnome3;
     enableSshSupport = true;
   };
 
@@ -85,43 +85,45 @@
     enable = true;
     package = pkgs.vscode;
 
-    extensions = with pkgs.vscode-extensions; [
-      jnoortheen.nix-ide
-      rust-lang.rust-analyzer
-      tamasfe.even-better-toml
-      vadimcn.vscode-lldb
-    ];
+    profiles.default = {
+      extensions = with pkgs.vscode-extensions; [
+        jnoortheen.nix-ide
+        rust-lang.rust-analyzer
+        tamasfe.even-better-toml
+        vadimcn.vscode-lldb
+      ];
 
-    userSettings = {
-      # -- NIX --
-      "nix.enableLanguageServer" = true;
-      "nix.serverPath" = "nil";
-      "nix.serverSettings" = {
-        "nil" = {
-          "formatting" = {
-            "command" = [ "nixpkgs-fmt" ];
+      userSettings = {
+        # -- NIX --
+        "nix.enableLanguageServer" = true;
+        "nix.serverPath" = "nil";
+        "nix.serverSettings" = {
+          "nil" = {
+            "formatting" = {
+              "command" = [ "nixpkgs-fmt" ];
+            };
           };
         };
-      };
-      "editor.formatOnSave" = true;
+        "editor.formatOnSave" = true;
 
-      # -- RUST --
-      "rust-analyzer.check.command" = "clippy";
-      "rust-analyzer.server.path" = "rust-analyzer";
-      "lldb.executable" = "lldb";
+        # -- RUST --
+        "rust-analyzer.check.command" = "clippy";
+        "rust-analyzer.server.path" = "rust-analyzer";
+        "lldb.executable" = "lldb";
 
-      # VS Code Terminal
-      "terminal.integrated.defaultProfile.linux" = "nushell";
-      "terminal.integrated.profiles.linux" = {
-        "nushell" = {
-          "path" = "${pkgs.nushell}/bin/nu";
+        # VS Code Terminal
+        "terminal.integrated.defaultProfile.linux" = "nushell";
+        "terminal.integrated.profiles.linux" = {
+          "nushell" = {
+            "path" = "${pkgs.nushell}/bin/nu";
+          };
         };
-      };
-      "terminal.integrated.fontFamily" = "'Hack Nerd Font Mono'";
+        "terminal.integrated.fontFamily" = "'Hack Nerd Font Mono'";
 
-      # -- PRIVACY --
-      "telemetry.telemetryLevel" = "off";
-      "update.mode" = "none"; # Updates via Nix
+        # -- PRIVACY --
+        "telemetry.telemetryLevel" = "off";
+        "update.mode" = "none"; # Updates via Nix
+      };
     };
   };
 
