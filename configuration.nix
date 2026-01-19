@@ -48,69 +48,40 @@
 
   networking.firewall = {
     enable = true;
-    checkReversePath = "loose"; # Notwendig, damit WireGuard Rückpakete akzeptiert
 
-    # Falls du eine sehr neue NixOS Version (24.11+) nutzt, stelle sicher, dass iptables genutzt wird:
-    # networking.nftables.enable = false; 
+    # checkReversePath = "loose"; # Nur nötig, wenn du später wieder striktes VPN-Routing machst
 
-    extraCommands = ''
-      # 1. Standard-Policy: Alles verbieten (IPv4 & IPv6)
-      iptables -P OUTPUT DROP
-      ip6tables -P OUTPUT DROP
+    # Die harten Regeln sind hier auskommentiert, damit das Internet wieder geht:
 
-      # 2. Bestehende Verbindungen erlauben (Wichtig für Antwort-Pakete)
-      iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-      ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+    # extraCommands = ''
+    #   iptables -P OUTPUT DROP
+    #   ip6tables -P OUTPUT DROP
+    #   iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+    #   ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+    #   iptables -A OUTPUT -o lo -j ACCEPT
+    #   ip6tables -A OUTPUT -o lo -j ACCEPT
+    #   iptables -A OUTPUT -p udp --dport 67:68 --sport 67:68 -j ACCEPT
+    #   iptables -A OUTPUT -p udp --dport 123 -j ACCEPT
+    #   iptables -A OUTPUT -d 127.0.0.53 -j ACCEPT
+    #   iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 53 -j ACCEPT
+    #   iptables -A OUTPUT -o wlp0s20f3 -p tcp --dport 53 -j ACCEPT
+    #   iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 51820 -j ACCEPT
+    #   iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 1194 -j ACCEPT
+    #   iptables -A OUTPUT -o wlp0s20f3 -p tcp --dport 443 -j ACCEPT
+    #   iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 500 -j ACCEPT
+    #   iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 4500 -j ACCEPT
+    #   iptables -A OUTPUT -p icmp -j ACCEPT
+    #   iptables -A OUTPUT -o tun+ -j ACCEPT
+    #   iptables -A OUTPUT -o wg+ -j ACCEPT
+    #   iptables -A OUTPUT -o proton0 -j ACCEPT 
+    # '';
 
-      # 3. Loopback (Lokale Kommunikation zwischen Apps und Daemon)
-      iptables -A OUTPUT -o lo -j ACCEPT
-      ip6tables -A OUTPUT -o lo -j ACCEPT
-
-      # 4. DHCP (IP-Adresse beziehen)
-      iptables -A OUTPUT -p udp --dport 67:68 --sport 67:68 -j ACCEPT
-
-      # 5. NTP (Zeitsynchronisation) - EXTREM WICHTIG für VPN Handshakes!
-      iptables -A OUTPUT -p udp --dport 123 -j ACCEPT
-
-      # 6. DNS (Lokal & Bootstrap)
-      # Erlaubt Apps, den lokalen Resolver zu fragen
-      iptables -A OUTPUT -d 127.0.0.53 -j ACCEPT
-      # Erlaubt DNS über physisches Interface (um VPN-Server-IP zu finden)
-      iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 53 -j ACCEPT
-      iptables -A OUTPUT -o wlp0s20f3 -p tcp --dport 53 -j ACCEPT
-
-      # 7. VPN Handshake & API (Physisches Interface)
-      # WireGuard
-      iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 51820 -j ACCEPT
-      # OpenVPN (UDP)
-      iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 1194 -j ACCEPT
-      # OpenVPN (TCP) / HTTPS API (Proton App Login/Serverliste)
-      iptables -A OUTPUT -o wlp0s20f3 -p tcp --dport 443 -j ACCEPT
-    
-      # IKEv2 (Manche Proton Server nutzen das als Fallback)
-      iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 500 -j ACCEPT
-      iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 4500 -j ACCEPT
-
-      # 8. ICMP (Ping / MTU)
-      iptables -A OUTPUT -p icmp -j ACCEPT
-
-      # === VPN TUNNEL (Hier darf alles raus) ===
-      # Erlaubt Traffic über tun (OpenVPN) und wg (WireGuard) Interfaces
-      iptables -A OUTPUT -o tun+ -j ACCEPT
-      iptables -A OUTPUT -o wg+ -j ACCEPT
-      iptables -A OUTPUT -o proton0 -j ACCEPT 
-
-      # 9. Logging (Optional: Zeigt blockierte Pakete in dmesg an)
-      # Wenn alles läuft, kannst du diese Zeile auskommentieren, um Logs sauber zu halten.
-      iptables -A OUTPUT -j LOG --log-prefix "FIREWALL-DROP: " --log-level 4
-    '';
-
-    extraStopCommands = ''
-      iptables -P OUTPUT ACCEPT
-      iptables -F OUTPUT
-      ip6tables -P OUTPUT ACCEPT
-      ip6tables -F OUTPUT
-    '';
+    # extraStopCommands = ''
+    #   iptables -P OUTPUT ACCEPT
+    #   iptables -F OUTPUT
+    #   ip6tables -P OUTPUT ACCEPT
+    #   ip6tables -F OUTPUT
+    # '';
   };
 
 
