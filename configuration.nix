@@ -87,7 +87,8 @@
       # Wir erlauben UDP/TCP auf gängigen VPN Ports
       iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT # WireGuard
       iptables -A OUTPUT -p udp --dport 1194 -j ACCEPT  # OpenVPN UDP
-      iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT   # OpenVPN TCP / HTTPS API
+      iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT   # HTTPS API
+      iptables -A OUTPUT -p udp --dport 443 -j ACCEPT   # Stealth Protocol
       iptables -A OUTPUT -p udp --dport 500 -j ACCEPT   # IKEv2
       iptables -A OUTPUT -p udp --dport 4500 -j ACCEPT  # IKEv2 NAT
       
