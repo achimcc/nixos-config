@@ -117,6 +117,10 @@
         };
       };
       "terminal.integrated.fontFamily" = "'Hack Nerd Font Mono'";
+
+      # -- PRIVACY --
+      "telemetry.telemetryLevel" = "off";
+      "update.mode" = "none";  # Updates via Nix
     };
   };
 
