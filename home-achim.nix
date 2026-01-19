@@ -30,8 +30,7 @@
     nixpkgs-fmt
 
     # --- RUST ENTWICKLUNG ---
-    rustup
-    rust-analyzer # Für VSCode rust-analyzer Extension
+    rustup # Enthält rust-analyzer (rustup component add rust-analyzer)
     gcc
 
     # --- KOMMUNIKATION ---
