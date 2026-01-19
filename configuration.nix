@@ -67,6 +67,10 @@
 
     # Hier erlauben wir ausgehende Verbindungen für VPN-Handshake und DNS
     extraCommands = ''
+      # ==========================================
+      # IPv4 REGELN
+      # ==========================================
+      
       # 1. Alles löschen & Standard auf DROP setzen
       iptables -F OUTPUT
       iptables -P OUTPUT DROP
@@ -96,24 +100,61 @@
       iptables -A OUTPUT -p udp --dport 67:68 -j ACCEPT
       iptables -A OUTPUT -p udp --dport 53 -j ACCEPT    # DNS (UDP)
       iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT    # DNS (TCP)
+      iptables -A OUTPUT -p tcp --dport 853 -j ACCEPT   # DNS-over-TLS
       
       # 7. Lokales Netzwerk erlauben (Optional, falls du Drucker/NAS brauchst)
       # iptables -A OUTPUT -d 192.168.178.0/24 -j ACCEPT
+
+      # ==========================================
+      # IPv6 REGELN - Alles blockieren (IPv6 ist deaktiviert)
+      # ==========================================
+      
+      # Alle Chains auf DROP setzen
+      ip6tables -F INPUT
+      ip6tables -F OUTPUT
+      ip6tables -F FORWARD
+      ip6tables -P INPUT DROP
+      ip6tables -P OUTPUT DROP
+      ip6tables -P FORWARD DROP
+      
+      # Nur Loopback erlauben (für lokale Prozesse)
+      ip6tables -A INPUT -i lo -j ACCEPT
+      ip6tables -A OUTPUT -o lo -j ACCEPT
     '';
 
     # Aufräumen beim Stoppen der Firewall
     extraStopCommands = ''
+      # IPv4 aufräumen
       iptables -P OUTPUT ACCEPT
       iptables -F OUTPUT
+      
+      # IPv6 aufräumen
+      ip6tables -P INPUT ACCEPT
+      ip6tables -P OUTPUT ACCEPT
+      ip6tables -P FORWARD ACCEPT
+      ip6tables -F INPUT
+      ip6tables -F OUTPUT
+      ip6tables -F FORWARD
     '';
   };
 
 
 
 
-  # SECURITY: Fallback DNS (verschlüsselt via DNS-over-TLS wird später empfohlen, 
-  # aber hier setzen wir neutrale DNS Server statt die des ISPs)
-  networking.nameservers = [ "1.1.1.1" "9.9.9.9" ];
+  # SECURITY: DNS-over-TLS via systemd-resolved
+  services.resolved = {
+    enable = true;
+    dnssec = "allow-downgrade"; # "true" kann Probleme machen, das ist sicherer
+    domains = [ "~." ];
+    dnsovertls = "true"; # Versucht TLS, fällt auf unverschlüsselt zurück wenn nötig
+    fallbackDns = [ "1.1.1.1" "9.9.9.9" ];
+    extraConfig = ''
+      DNS=1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net
+    '';
+  };
+
+  # NetworkManager soll resolved nutzen
+  networking.networkmanager.dns = "systemd-resolved";
 
   # Set your time zone.
   time.timeZone = "Europe/Berlin";
