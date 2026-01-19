@@ -63,6 +63,5 @@
   # Tor Browser Paket
   environment.systemPackages = with pkgs; [
     tor-browser
-    nftables
   ];
 }
