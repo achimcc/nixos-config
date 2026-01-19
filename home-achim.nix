@@ -137,7 +137,7 @@
     enable = true;
     settings = {
       "privacy.clearOnShutdown.history" = false;
-      "privacy.resistFingerprinting" = false; # Manchmal nötig für Streaming/Captchas
+      "privacy.resistFingerprinting" = true; # Manchmal nötig für Streaming/Captchas
       "privacy.clearOnShutdown.cookies" = false;
       "privacy.clearOnShutdown.sessions" = false;
       "browser.startup.page" = 3;
