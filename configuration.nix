@@ -285,7 +285,7 @@
     enable = true;
     allowReboot = false; # Kein automatischer Reboot - du entscheidest wann
     dates = "04:00";
-    flake = "/home/user/nixos-config#nixos";  # Nutzt jetzt den Flake
+    flake = "/home/user/nixos-config#nixos";
   };
 
   # Garbage Collection - alte Generationen automatisch löschen
