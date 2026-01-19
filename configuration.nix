@@ -36,13 +36,78 @@
     wifi.scanRandMacAddress = true;
   };
 
+  # ==========================================
+  # HARDENED FIREWALL / KILL SWITCH
+  # ==========================================
+
   networking.firewall = {
     enable = true;
-    # Wir lassen keine Ports offen (maximale Sicherheit für Desktop)
+
+    # Wichtig für VPN Rückkanal (sonst werden Pakete fälschlicherweise verworfen)
+    checkReversePath = "loose";
+
+    # Eingehend: Wir blockieren alles (Standard)
     allowedTCPPorts = [ ];
     allowedUDPPorts = [ ];
-    # Wichtig für VPN:
-    checkReversePath = "loose";
+
+    # --- DER MANUELLE KILL SWITCH ---
+    # Diese Befehle werden bei jedem Start der Firewall ausgeführt.
+    extraCommands = ''
+      # 1. Bestehende Regeln löschen (Sauberer Start)
+      iptables -F OUTPUT
+      ip6tables -F OUTPUT
+
+      # 2. Loopback erlauben (System-Interne Kommunikation - ZWINGEND)
+      iptables -A OUTPUT -o lo -j ACCEPT
+      ip6tables -A OUTPUT -o lo -j ACCEPT
+
+      # 3. Bereits bestehende Verbindungen erlauben
+      # Sorgt für Stabilität, damit der Handshake nicht abbricht.
+      iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+      # 4. Traffic DURCH den VPN-Tunnel erlauben (Das Ziel!)
+      # Proton erstellt Interfaces die 'proton0' oder 'tun0' heißen.
+      iptables -A OUTPUT -o proton+ -j ACCEPT
+      iptables -A OUTPUT -o tun+ -j ACCEPT
+
+      # --- AUSNAHMEN FÜR DEN VERBINDUNGSAUFBAU ---
+      
+      # 5. WireGuard (Standard bei Proton, Port 51820 UDP)
+      iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
+      
+      # 6. OpenVPN (Falls du das Protokoll wechselst)
+      iptables -A OUTPUT -p udp --dport 1194 -j ACCEPT
+      iptables -A OUTPUT -p tcp --dport 1194 -j ACCEPT
+
+      # 7. HTTPS & API (Port 443 TCP)
+      # WICHTIG: Ohne das kann die App sich nicht einloggen und keine Serverliste laden!
+      iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
+      iptables -A OUTPUT -p tcp --dport 8443 -j ACCEPT
+
+      # 8. DNS (Port 53 UDP)
+      # WICHTIG: Damit die App "api.protonvpn.ch" finden kann.
+      iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
+
+      # 9. Lokales Netzwerk (Optional)
+      # Erlaubt Zugriff auf Router (192.168.x.x) oder Drucker. 
+      # Falls du das NICHT willst, lösche die nächsten zwei Zeilen.
+      iptables -A OUTPUT -d 192.168.0.0/16 -j ACCEPT
+      iptables -A OUTPUT -d 10.0.0.0/8 -j ACCEPT
+
+      # 10. DER HAMMER: Alles andere wird gnadenlos blockiert.
+      iptables -P OUTPUT DROP
+      ip6tables -P OUTPUT DROP
+    '';
+
+    # --- DER NOTAUSGANG ---
+    # Wenn du 'sudo systemctl stop firewall' eingibst, hast du wieder normales Internet.
+    extraStopCommands = ''
+      iptables -P OUTPUT ACCEPT
+      iptables -F OUTPUT
+      ip6tables -P OUTPUT ACCEPT
+      ip6tables -F OUTPUT
+    '';
   };
 
 
@@ -314,6 +379,19 @@
         $env.config.show_banner = false
       '';
     };
+
+    # AUTORUN: ProtonVPN beim Login starten
+    xdg.configFile."autostart/protonvpn-autostart.desktop".text = ''
+      [Desktop Entry]
+      Type=Application
+      Name=ProtonVPN AutoStart
+      Comment=Startet ProtonVPN beim Systemstart
+      Exec=protonvpn-app
+      Icon=proton-vpn-logo
+      Terminal=false
+      Categories=Network;Security;
+      X-GNOME-Autostart-enabled=true
+    '';
 
   }; # ENDE HOME-MANAGER BLOCK
 
