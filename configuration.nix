@@ -48,40 +48,48 @@
 
   networking.firewall = {
     enable = true;
+    checkReversePath = "loose"; # Wichtig für WireGuard/ProtonVPN
 
-    # checkReversePath = "loose"; # Nur nötig, wenn du später wieder striktes VPN-Routing machst
+    # Hier erlauben wir ausgehende Verbindungen für VPN-Handshake und DNS
+    extraCommands = ''
+      # 1. Alles löschen & Standard auf DROP setzen
+      iptables -F OUTPUT
+      iptables -P OUTPUT DROP
+      
+      # 2. Loopback erlauben (Lokale Prozesse)
+      iptables -A OUTPUT -o lo -j ACCEPT
+      
+      # 3. Bestehende Verbindungen erlauben
+      iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      
+      # 4. VPN Interfaces erlauben (Hier darf alles raus!)
+      # proton0 = Proton App Interface, tun+ = OpenVPN, wg+ = WireGuard
+      iptables -A OUTPUT -o proton0 -j ACCEPT
+      iptables -A OUTPUT -o tun+ -j ACCEPT
+      iptables -A OUTPUT -o wg+ -j ACCEPT
+      
+      # 5. WICHTIG: Erlaube den Verbindungsaufbau zum VPN (Physical Interface)
+      # Wir erlauben UDP/TCP auf gängigen VPN Ports
+      iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT # WireGuard
+      iptables -A OUTPUT -p udp --dport 1194 -j ACCEPT  # OpenVPN UDP
+      iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT   # OpenVPN TCP / HTTPS API
+      iptables -A OUTPUT -p udp --dport 500 -j ACCEPT   # IKEv2
+      iptables -A OUTPUT -p udp --dport 4500 -j ACCEPT  # IKEv2 NAT
+      
+      # 6. DHCP & DNS erlauben (Sonst keine Verbindung zum WLAN/Internet)
+      iptables -A OUTPUT -p udp --dport 67:68 -j ACCEPT
+      iptables -A OUTPUT -p udp --dport 53 -j ACCEPT    # DNS (UDP)
+      iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT    # DNS (TCP)
+      
+      # 7. Lokales Netzwerk erlauben (Optional, falls du Drucker/NAS brauchst)
+      # iptables -A OUTPUT -d 192.168.178.0/24 -j ACCEPT
+    '';
 
-    # Die harten Regeln sind hier auskommentiert, damit das Internet wieder geht:
-
-    # extraCommands = ''
-    #   iptables -P OUTPUT DROP
-    #   ip6tables -P OUTPUT DROP
-    #   iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-    #   ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-    #   iptables -A OUTPUT -o lo -j ACCEPT
-    #   ip6tables -A OUTPUT -o lo -j ACCEPT
-    #   iptables -A OUTPUT -p udp --dport 67:68 --sport 67:68 -j ACCEPT
-    #   iptables -A OUTPUT -p udp --dport 123 -j ACCEPT
-    #   iptables -A OUTPUT -d 127.0.0.53 -j ACCEPT
-    #   iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 53 -j ACCEPT
-    #   iptables -A OUTPUT -o wlp0s20f3 -p tcp --dport 53 -j ACCEPT
-    #   iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 51820 -j ACCEPT
-    #   iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 1194 -j ACCEPT
-    #   iptables -A OUTPUT -o wlp0s20f3 -p tcp --dport 443 -j ACCEPT
-    #   iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 500 -j ACCEPT
-    #   iptables -A OUTPUT -o wlp0s20f3 -p udp --dport 4500 -j ACCEPT
-    #   iptables -A OUTPUT -p icmp -j ACCEPT
-    #   iptables -A OUTPUT -o tun+ -j ACCEPT
-    #   iptables -A OUTPUT -o wg+ -j ACCEPT
-    #   iptables -A OUTPUT -o proton0 -j ACCEPT 
-    # '';
-
-    # extraStopCommands = ''
-    #   iptables -P OUTPUT ACCEPT
-    #   iptables -F OUTPUT
-    #   ip6tables -P OUTPUT ACCEPT
-    #   ip6tables -F OUTPUT
-    # '';
+    # Aufräumen beim Stoppen der Firewall
+    extraStopCommands = ''
+      iptables -P OUTPUT ACCEPT
+      iptables -F OUTPUT
+    '';
   };
 
 
