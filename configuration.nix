@@ -12,6 +12,7 @@
     ./modules/audio.nix
     ./modules/power.nix
     ./modules/sops.nix
+    ./modules/security.nix
   ];
 
   # ==========================================
