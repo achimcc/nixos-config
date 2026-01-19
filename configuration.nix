@@ -13,15 +13,44 @@
       <home-manager/nixos>
     ];
 
+  # ==========================================
+  # SYSTEM BOOT & CORE
+  # ==========================================
+
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
   boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".device = "/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b";
-  networking.hostName = "nixos"; # Define your hostname.
+  networking.hostName = "nixos";
+  networking.enableIPv6 = false;
+
+  # ==========================================
+  # NETZWERK & SICHERHEIT (System-Level)
+  # ==========================================
 
   # Enable networking
-  networking.networkmanager.enable = true;
+  networking.networkmanager = {
+    enable = true;
+    # SECURITY: Zufällige MAC-Adresse beim Scannen nach WLANs (erschwert Tracking)
+    wifi.scanRandMacAddress = true;
+  };
+
+  networking.firewall = {
+    enable = true;
+    # Wir lassen keine Ports offen (maximale Sicherheit für Desktop)
+    allowedTCPPorts = [ ];
+    allowedUDPPorts = [ ];
+    # Wichtig für VPN:
+    checkReversePath = "loose";
+  };
+
+
+
+
+  # SECURITY: Fallback DNS (verschlüsselt via DNS-over-TLS wird später empfohlen, 
+  # aber hier setzen wir neutrale DNS Server statt die des ISPs)
+  networking.nameservers = [ "1.1.1.1" "9.9.9.9" ];
 
   # Set your time zone.
   time.timeZone = "Europe/Berlin";
@@ -40,6 +69,10 @@
     LC_TELEPHONE = "de_DE.UTF-8";
     LC_TIME = "de_DE.UTF-8";
   };
+
+  # ==========================================
+  # DESKTOP & DISPLAY
+  # ==========================================
 
   # Enable the X11 windowing system.
   services.xserver.enable = true;
@@ -70,6 +103,20 @@
     pulse.enable = true;
   };
 
+  # ==========================================
+  # SYSTEM-DIENSTE FÜR PROTONVPN FIX
+  # ==========================================
+
+  # 1. Keyring Dienst aktivieren (Damit der Login gespeichert werden kann)
+  services.gnome.gnome-keyring.enable = true;
+
+  # 2. Udev Pakete für GUI-Elemente
+  services.udev.packages = with pkgs; [ gnome-settings-daemon ];
+
+  # ==========================================
+  # USER & PACKAGES
+  # ==========================================
+
   # Define a user account.
   users.users.achim = {
     isNormalUser = true;
@@ -80,15 +127,19 @@
     shell = pkgs.nushell;
   };
 
-  # Allow unfree packages
+  # Allow unfree packages (notwendig für ProtonVPN, Codecs, etc.)
   nixpkgs.config.allowUnfree = true;
 
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
     wl-clipboard
     git
-    # Nushell muss auch global verfügbar sein
-    nushell
+    nushell # Nushell muss auch global verfügbar sein
+
+    # GNOME Extensions für besseren Tray-Icon Support (wichtig für ProtonVPN GUI)
+    gnomeExtensions.appindicator
+    libsecret
+    iptables
   ];
 
   # ==========================================
@@ -104,11 +155,15 @@
     home.stateVersion = "24.11";
 
     # WICHTIG FÜR RUST:
-    # Fügt ~/.cargo/bin zum Pfad hinzu, damit 'cargo', 'rustc' etc. gefunden werden.
     home.sessionPath = [ "$HOME/.cargo/bin" ];
 
     # User-spezifische Pakete
     home.packages = with pkgs; [
+
+      # --- VPN & NETZWERK SICHERHEIT ---
+      protonvpn-gui # Die grafische Oberfläche für ProtonVPN
+      # Hinweis: Beim ersten Start wirst du nach dem Keyring-Passwort gefragt.
+      # Das ist normal (Gnome Keyring speichert deine Proton-Zugangsdaten sicher).
 
       # --- SICHERHEIT & TOOLS ---
       keepassxc
@@ -119,8 +174,8 @@
       nixpkgs-fmt
 
       # --- RUST ENTWICKLUNG ---
-      rustup # Toolchain Manager (installiert cargo, rustc, etc.)
-      gcc # Linker (cc), zwingend notwendig für Rust auf NixOS
+      rustup
+      gcc
     ];
 
     # --- PGP KONFIGURATION ---
@@ -168,18 +223,13 @@
       package = pkgs.vscode;
 
       profiles.default = {
-        # Extensions installieren
         extensions = with pkgs.vscode-extensions; [
-          # Nix
           jnoortheen.nix-ide
-
-          # Rust
-          rust-lang.rust-analyzer # Offizielle Rust Unterstützung
-          tamasfe.even-better-toml # Syntax Highlighting für Cargo.toml
-          vadimcn.vscode-lldb # Debugger für Rust
+          rust-lang.rust-analyzer
+          tamasfe.even-better-toml
+          vadimcn.vscode-lldb
         ];
 
-        # VS Code Einstellungen (settings.json)
         userSettings = {
           # -- NIX --
           "nix.enableLanguageServer" = true;
@@ -194,14 +244,11 @@
           "editor.formatOnSave" = true;
 
           # -- RUST --
-          # Nutze Clippy statt Check für bessere Warnungen
           "rust-analyzer.check.command" = "clippy";
-          # Pfad explizit angeben, damit VSCode nicht versucht Binaries herunterzuladen
           "rust-analyzer.server.path" = "rust-analyzer";
-          # Debugger Pfad
           "lldb.executable" = "lldb";
 
-          # VS Code Terminal auf Nushell setzen
+          # VS Code Terminal
           "terminal.integrated.defaultProfile.linux" = "nushell";
           "terminal.integrated.profiles.linux" = {
             "nushell" = {
@@ -217,13 +264,16 @@
       enable = true;
       settings = {
         "privacy.clearOnShutdown.history" = false;
-        "privacy.resistFingerprinting" = false;
+        "privacy.resistFingerprinting" = false; # Manchmal nötig für Streaming/Captchas
         "privacy.clearOnShutdown.cookies" = false;
         "privacy.clearOnShutdown.sessions" = false;
         "browser.startup.page" = 3;
+        "xpinstall.signatures.required" = false;
       };
+
       policies = {
         ExtensionSettings = {
+          # KeePassXC
           "keepassxc-browser@keepassxc.org" = {
             installation_mode = "force_installed";
             install_url = "https://addons.mozilla.org/firefox/downloads/latest/keepassxc-browser/latest.xpi";
@@ -236,45 +286,36 @@
     home.file.".librewolf/native-messaging-hosts/org.keepassxc.keepassxc_browser.json".source =
       "${pkgs.keepassxc}/share/mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json";
 
-    # --- SHELL CONFIGURATION (Innerhalb von home-manager) ---
+    # --- SHELL CONFIGURATION ---
 
-    # 1. Starship: Der moderne Prompt (Cross-Shell)
     programs.starship = {
       enable = true;
-      # Integration für Nushell automatisch aktivieren
       enableNushellIntegration = true;
     };
 
-    # 2. Carapace: Multi-Shell Argument Completer
-    # Sorgt dafür, dass TAB-Vervollständigung für git, docker, cargo etc. funktioniert
     programs.carapace = {
       enable = true;
       enableNushellIntegration = true;
     };
 
-    # 3. Nushell: Die Shell selbst
     programs.nushell = {
       enable = true;
-      # Konfiguration für Aliase und Umgebungsvariablen
       shellAliases = {
         ll = "ls -l";
         la = "ls -a";
-        # Git Abkürzungen
         gs = "git status";
         gc = "git commit";
         gp = "git push";
       };
       environmentVariables = {
-        # Damit der Editor (z.B. bei git commit) nano oder hx ist
         EDITOR = "nano";
       };
       extraConfig = ''
-        # Hier deaktivieren wir die Willkommensnachricht
         $env.config.show_banner = false
       '';
     };
 
-  }; # <--- HIER ENDET DER HOME-MANAGER BLOCK FÜR USER ACHIM
+  }; # ENDE HOME-MANAGER BLOCK
 
   # This value determines the NixOS release...
   system.stateVersion = "24.11";
