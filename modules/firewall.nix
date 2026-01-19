@@ -24,13 +24,17 @@ in
       # ==========================================
       
       # 1. Alles löschen & Standard auf DROP setzen
+      iptables -F INPUT
       iptables -F OUTPUT
+      iptables -P INPUT DROP
       iptables -P OUTPUT DROP
       
       # 2. Loopback erlauben (Lokale Prozesse)
+      iptables -A INPUT -i lo -j ACCEPT
       iptables -A OUTPUT -o lo -j ACCEPT
       
       # 3. Bestehende Verbindungen erlauben
+      iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
       iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
       
       # 4. VPN Interfaces erlauben (Hier darf alles raus!)
@@ -75,7 +79,9 @@ in
 
     extraStopCommands = ''
       # IPv4 aufräumen
+      iptables -P INPUT ACCEPT
       iptables -P OUTPUT ACCEPT
+      iptables -F INPUT
       iptables -F OUTPUT
       
       # IPv6 aufräumen
