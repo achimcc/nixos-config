@@ -41,8 +41,10 @@
       buildInputs = [ makeWrapper ];
       postBuild = ''
         wrapProgram $out/bin/signal-desktop \
+          --add-flags "--ozone-platform=wayland" \
           --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations" \
-          --add-flags "--ozone-platform=wayland"
+          --add-flags "--disable-gpu-sandbox" \
+          --add-flags "--use-gl=egl"
       '';
     })
 
