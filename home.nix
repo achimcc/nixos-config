@@ -4,6 +4,10 @@
 { pkgs, llm-agents, ... }: # llm-agents statt nurPkgs
 
 {
+  imports = [
+    ./modules/home/gnome-settings.nix
+  ];
+
   home.stateVersion = "24.11";
 
   # WICHTIG FÜR RUST:
