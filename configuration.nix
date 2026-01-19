@@ -10,6 +10,7 @@
     ./modules/firewall.nix
     ./modules/desktop.nix
     ./modules/audio.nix
+    ./modules/power.nix
   ];
 
   # ==========================================
