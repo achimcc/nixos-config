@@ -231,6 +231,8 @@
       # --- RUST ENTWICKLUNG ---
       rustup
       gcc
+      # ----- Signal
+      signal-desktop
     ];
 
     # --- PGP KONFIGURATION ---
