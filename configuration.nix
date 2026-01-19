@@ -213,8 +213,6 @@
   # 1. Keyring Dienst aktivieren (Damit der Login gespeichert werden kann)
   services.gnome.gnome-keyring.enable = true;
 
-  # Ermöglicht der GUI die Kommunikation mit dem NetworkManager über DBus
-  services.dbus.enable = true;
   # Wichtig für die Integration in die GNOME Shell
   services.gnome.core-shell.enable = true;
 
@@ -238,7 +236,6 @@
     isNormalUser = true;
     description = "Achim Schneider";
     extraGroups = [ "networkmanager" "wheel" ];
-    packages = with pkgs; [ ];
     # Nushell als Standard-Login-Shell setzen
     shell = pkgs.nushell;
   };
