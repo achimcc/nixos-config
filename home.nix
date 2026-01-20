@@ -30,6 +30,9 @@
     libgda5
     gsound
 
+    # --- SYSTEM MONITORING ---
+    mission-center
+
     # --- SCREENSHOT & CLIPBOARD (Wayland) ---
     grim # Screenshot-Tool
     slurp # Bereichsauswahl
