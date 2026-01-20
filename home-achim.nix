@@ -51,6 +51,9 @@
     # --- MEDIA PLAYER ---
     glide-media-player
 
+    # --- EDITOREN ---
+    zed-editor
+
     # --- RUST ENTWICKLUNG ---
     rustup # Enthält rust-analyzer (rustup component add rust-analyzer)
     gcc
