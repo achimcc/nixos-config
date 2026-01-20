@@ -71,14 +71,11 @@
     domains = [ "~." ];
     dnsovertls = "true";
     # Kein fallbackDns - verhindert DNS-Leaks wenn VPN down
-    # ProtonVPN DNS-over-TLS Server (No-Log Policy, Schweizer Recht)
-    # https://protonvpn.com/support/dns-leaks-privacy
+    # Mullvad DNS-over-TLS (No-Log Policy, schwedisches Recht)
+    # https://mullvad.net/en/help/dns-over-https-and-dns-over-tls
     extraConfig = ''
-      DNS=76.76.2.22#family.dns.controld.com
+      DNS=194.242.2.2#dns.mullvad.net
     '';
-    # Hinweis: ProtonVPN DNS (10.8.0.1) ist nur über VPN-Tunnel erreichbar.
-    # Für DNS-over-TLS außerhalb des Tunnels nutzen wir ControlD (Proton-Partner).
-    # Alternative: Mullvad DoT (194.242.2.2#dns.mullvad.net)
   };
 
   # ==========================================
