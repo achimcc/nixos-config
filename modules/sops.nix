@@ -30,25 +30,19 @@
     # Beispiel: API Keys, Passwörter, etc.
     # Diese werden nach /run/secrets/<name> entschlüsselt
 
-    # Beispiel Secret (auskommentiert bis secrets.yaml existiert)
-    # secrets.example-secret = {};
-    
-    # Secret mit spezifischen Berechtigungen
-    # secrets.service-api-key = {
-    #   owner = "serviceuser";
-    #   group = "servicegroup";
-    #   mode = "0440";
-    # };
+    # WLAN Passwort (raw value)
+    secrets."wifi/home" = {};
 
-    # Secret das einen Dienst neu startet bei Änderung
-    # secrets.important-config = {
-    #   restartUnits = [ "myservice.service" ];
-    # };
-
-    # Secret an bestimmten Pfad verlinken
-    # secrets.app-secret = {
-    #   path = "/var/lib/myapp/secret.key";
-    # };
+    # Template für wpa_supplicant Secrets-Datei
+    templates."wpa_supplicant.conf" = {
+      content = ''
+        wifi_home_psk=${config.sops.placeholder."wifi/home"}
+      '';
+      # Muss vor wpa_supplicant Service verfügbar sein
+      owner = "root";
+      group = "root";
+      mode = "0400";
+    };
   };
 
   # Sops CLI Tool verfügbar machen

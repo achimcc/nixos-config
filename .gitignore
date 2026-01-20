@@ -1,3 +1,7 @@
 result
 .env
 # flake.lock sollte NICHT ignoriert werden - es sichert reproduzierbare Builds!
+
+# Klartext-Secrets (verschlüsselte .yaml dürfen committed werden)
+secrets/*.template
+secrets/*.plaintext
