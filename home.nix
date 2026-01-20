@@ -29,6 +29,14 @@
     nil
     nixpkgs-fmt
 
+    # --- TYPST ---
+    typst
+    tinymist
+    hunspellDicts.de-de
+
+    # --- PDF VIEWER ---
+    mupdf
+
     # --- RUST ENTWICKLUNG ---
     rustup # Enthält rust-analyzer (rustup component add rust-analyzer)
     gcc
@@ -107,6 +115,7 @@
         rust-lang.rust-analyzer
         tamasfe.even-better-toml
         vadimcn.vscode-lldb
+        myriad-dreamin.tinymist
       ];
 
       userSettings = {
@@ -126,6 +135,10 @@
         "rust-analyzer.check.command" = "clippy";
         "rust-analyzer.server.path" = "rust-analyzer";
         "lldb.executable" = "lldb";
+
+        # -- TYPST --
+        "tinymist.serverPath" = "tinymist";
+        "tinymist.exportPdf" = "onSave";
 
         # VSCodium Terminal
         "terminal.integrated.defaultProfile.linux" = "nushell";
@@ -197,6 +210,40 @@
     extraConfig = ''
       $env.config.show_banner = false
     '';
+  };
+
+  # --- PDF VIEWER (Zathura mit MuPDF Backend) ---
+  programs.zathura = {
+    enable = true;
+    options = {
+      # Darstellung
+      default-bg = "#1e1e2e";
+      default-fg = "#cdd6f4";
+      recolor = true;
+      recolor-lightcolor = "#1e1e2e";
+      recolor-darkcolor = "#cdd6f4";
+      recolor-keephue = true;
+
+      # Verhalten
+      selection-clipboard = "clipboard";
+      adjust-open = "best-fit";
+      scroll-page-aware = true;
+      smooth-scroll = true;
+      scroll-step = 100;
+
+      # Statusbar
+      statusbar-home-tilde = true;
+      window-title-home-tilde = true;
+    };
+    mappings = {
+      # Vim-ähnliche Navigation
+      "<C-d>" = "scroll half-down";
+      "<C-u>" = "scroll half-up";
+      D = "toggle_page_mode";
+      r = "reload";
+      R = "rotate";
+      i = "recolor";
+    };
   };
 
 
