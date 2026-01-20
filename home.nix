@@ -37,6 +37,9 @@
     # --- PDF VIEWER ---
     mupdf
 
+    # --- MEDIA PLAYER ---
+    glide-media-player
+
     # --- RUST ENTWICKLUNG ---
     rustup # Enthält rust-analyzer (rustup component add rust-analyzer)
     gcc
