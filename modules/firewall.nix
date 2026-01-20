@@ -68,15 +68,15 @@ in
       # 8. Lokales Netzwerk erlauben (Optional, falls du Drucker/NAS brauchst)
       # iptables -A OUTPUT -d 192.168.178.0/24 -j ACCEPT
 
-      # 9. Syncthing - Nur lokales Netzwerk (keine globalen Verbindungen)
+      # 9. Syncthing - Nur Heimnetzwerk (192.168.178.0/24)
       # Eingehende Verbindungen für lokale Discovery und Datenübertragung
-      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -s 192.168.0.0/16 -j ACCEPT
-      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -s 192.168.0.0/16 -j ACCEPT
-      iptables -A INPUT -p udp --dport ${toString syncthingPorts.discovery} -s 192.168.0.0/16 -j ACCEPT
-      # Ausgehende Verbindungen nur ins lokale Netzwerk
-      iptables -A OUTPUT -p tcp --dport ${toString syncthingPorts.tcp} -d 192.168.0.0/16 -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.quic} -d 192.168.0.0/16 -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 192.168.0.0/16 -j ACCEPT
+      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -s 192.168.178.0/24 -j ACCEPT
+      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -s 192.168.178.0/24 -j ACCEPT
+      iptables -A INPUT -p udp --dport ${toString syncthingPorts.discovery} -s 192.168.178.0/24 -j ACCEPT
+      # Ausgehende Verbindungen nur ins Heimnetzwerk
+      iptables -A OUTPUT -p tcp --dport ${toString syncthingPorts.tcp} -d 192.168.178.0/24 -j ACCEPT
+      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.quic} -d 192.168.178.0/24 -j ACCEPT
+      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 192.168.178.0/24 -j ACCEPT
 
       # ==========================================
       # IPv6 REGELN - Alles blockieren (IPv6 ist deaktiviert)

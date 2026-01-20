@@ -16,6 +16,9 @@
       enable = true;
       # Zufällige MAC-Adresse beim Scannen (erschwert Tracking)
       wifi.scanRandMacAddress = true;
+      # Zufällige MAC-Adresse bei jeder Verbindung
+      wifi.macAddress = "random";
+      ethernet.macAddress = "random";
       # NetworkManager nutzt systemd-resolved
       dns = "systemd-resolved";
     };

@@ -5,6 +5,13 @@
 
 {
   # ==========================================
+  # HARDENED KERNEL
+  # ==========================================
+
+  # Gehärteter Kernel mit zusätzlichen Schutzmaßnahmen
+  boot.kernelPackages = pkgs.linuxPackages_hardened;
+
+  # ==========================================
   # KERNEL HARDENING
   # ==========================================
 
@@ -69,8 +76,8 @@
     # Reverse Path Filtering (bereits loose für VPN)
     # "net.ipv4.conf.all.rp_filter" = 1; # Nicht setzen wegen VPN
 
-    # TCP Timestamps (Privacy vs. Performance - optional deaktivieren)
-    # "net.ipv4.tcp_timestamps" = 0;
+    # TCP Timestamps deaktivieren (verhindert OS-Fingerprinting)
+    "net.ipv4.tcp_timestamps" = 0;
   };
 
   # ==========================================
@@ -116,6 +123,73 @@
     Defaults timestamp_timeout=5
   '';
 
-  # Audit Framework aktivieren (optional - für Logging)
-  # security.auditd.enable = true;
+  # Audit Framework aktivieren (für Incident Response)
+  security.auditd.enable = true;
+  security.audit = {
+    enable = true;
+    rules = [
+      # Überwache sudo/su Nutzung
+      "-w /usr/bin/sudo -p x -k sudo_usage"
+      "-w /usr/bin/su -p x -k su_usage"
+      # Überwache Passwort-Dateien
+      "-w /etc/passwd -p wa -k passwd_changes"
+      "-w /etc/shadow -p wa -k shadow_changes"
+      # Überwache SSH Konfiguration
+      "-w /etc/ssh/sshd_config -p wa -k sshd_config"
+    ];
+  };
+
+  # ==========================================
+  # APPARMOR
+  # ==========================================
+
+  security.apparmor = {
+    enable = true;
+    # Zusätzliche AppArmor-Profile aus Paketen laden
+    packages = with pkgs; [ apparmor-profiles ];
+    # Alle Profile im Enforce-Modus
+    killUnconfinedConfinables = false; # Nicht automatisch killen
+  };
+
+  # ==========================================
+  # FAIL2BAN - Brute-Force Schutz
+  # ==========================================
+
+  services.fail2ban = {
+    enable = true;
+    maxretry = 5;
+    bantime = "1h";
+    bantime-increment = {
+      enable = true;
+      maxtime = "48h";
+      factor = "4";
+    };
+    ignoreIP = [
+      "127.0.0.0/8"
+      "192.168.0.0/16" # Lokales Netzwerk nicht sperren
+    ];
+  };
+
+  # ==========================================
+  # CLAMAV - Antivirus Scanner
+  # ==========================================
+
+  services.clamav = {
+    daemon = {
+      enable = true;
+      settings = {
+        # Echtzeit-Scanning für Home-Verzeichnis
+        OnAccessIncludePath = [ "/home" ];
+        OnAccessExcludeUname = "clamav"; # Sich selbst nicht scannen
+        # Maximale Dateigröße zum Scannen (100MB)
+        MaxFileSize = "100M";
+        MaxScanSize = "100M";
+      };
+    };
+    updater = {
+      enable = true;
+      interval = "daily";
+      frequency = 1;
+    };
+  };
 }
