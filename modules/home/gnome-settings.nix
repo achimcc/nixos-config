@@ -115,6 +115,7 @@
     "org/gnome/settings-daemon/plugins/media-keys" = {
       custom-keybindings = [
         "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/"
+        "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/"
       ];
     };
 
@@ -122,6 +123,12 @@
       name = "Terminal";
       command = "kgx"; # GNOME Console
       binding = "<Super>Return";
+    };
+
+    "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1" = {
+      name = "Screenshot (Swappy)";
+      command = "sh -c 'grim -g \"$(slurp)\" - | swappy -f -'";
+      binding = "<Control>Print";
     };
 
     "org/gnome/desktop/wm/keybindings" = {
