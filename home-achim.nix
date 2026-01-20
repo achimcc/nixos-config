@@ -31,10 +31,10 @@
     gsound
 
     # --- SCREENSHOT & CLIPBOARD (Wayland) ---
-    grim      # Screenshot-Tool
-    slurp     # Bereichsauswahl
-    swappy    # Screenshot-Annotation
-    wl-clipboard  # Clipboard für Wayland
+    grim # Screenshot-Tool
+    slurp # Bereichsauswahl
+    swappy # Screenshot-Annotation
+    wl-clipboard # Clipboard für Wayland
 
     # --- NIX ENTWICKLUNG ---
     nil
@@ -201,6 +201,42 @@
         "@testpilot-containers" = {
           installation_mode = "force_installed";
           install_url = "https://addons.mozilla.org/firefox/downloads/latest/multi-account-containers/latest.xpi";
+        };
+        # uBlock Origin
+        "uBlock0@raymondhill.net" = {
+          installation_mode = "force_installed";
+          install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
+        };
+      };
+      "3rdparty" = {
+        "Extensions" = {
+          "uBlock0@raymondhill.net" = {
+            "adminSettings" = {
+              # 1. User Settings (Benutzeroberfläche)
+              "userSettings" = {
+                "uiTheme" = "dark"; # Dark Mode erzwingen
+                "advancedUserEnabled" = true; # "Ich bin ein erfahrener Nutzer" (Wichtig für Dynamic Filtering)
+              };
+
+              # 2. Ausgewählte Filterlisten
+              # WICHTIG: Die Namen müssen exakt den internen IDs von uBlock entsprechen.
+              "selectedFilterLists" = [
+                "user-filters" # Deine eigenen Filter
+                "ublock-filters" # uBlock Base
+                "ublock-badware" # Malware Protection
+                "ublock-privacy" # Privacy Protection
+                "ublock-unbreak" # Fixes für kaputte Seiten
+                "easylist" # Ads
+                "easyprivacy" # Tracking
+                "urlhaus-1" # Online Malicious URL Blocklist
+                "plowe-0" # Peter Lowe's Ad and tracking server list
+                "DEU-0" # EasyList Germany (Wichtig für deutsche Seiten!)
+                "ublock-cookies-easylist" # Cookie-Banner Blocker (EasyList Cookie)
+                "adguard-generic" # AdGuard Base (Ergänzung zu EasyList)
+                "ublock-cookies-adguard" # AdGuard Cookie-Banner Liste
+              ];
+            };
+          };
         };
       };
     };
