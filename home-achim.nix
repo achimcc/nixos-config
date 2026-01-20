@@ -25,6 +25,11 @@
     keepassxc
     kdePackages.kleopatra
 
+    # --- GNOME ERWEITERUNGEN ---
+    gnomeExtensions.pano
+    libgda5
+    gsound
+
     # --- NIX ENTWICKLUNG ---
     nil
     nixpkgs-fmt
