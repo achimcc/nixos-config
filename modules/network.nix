@@ -1,5 +1,5 @@
 # Netzwerk & DNS Konfiguration
-# wpa_supplicant für WLAN, NetworkManager für Ethernet, systemd-resolved mit DNS-over-TLS
+# NetworkManager für WLAN/Ethernet/VPN mit deklarativem Home-Netzwerk via sops
 
 { config, lib, pkgs, ... }:
 
@@ -12,38 +12,45 @@
     hostName = "achim-laptop";
     enableIPv6 = false;
 
-    # ==========================================
-    # DEKLARATIVE WLAN-KONFIGURATION MIT SOPS
-    # ==========================================
-
-    wireless = {
-      enable = true;
-      # Secrets aus sops-nix Template (key=value Format)
-      secretsFile = config.sops.templates."wpa_supplicant.conf".path;
-      # Bekannte WLAN-Netzwerke
-      networks = {
-        "Greenside4" = {
-          pskRaw = "ext:wifi_home_psk";
-        };
-      };
-      # Erlaube Konfiguration über wpa_cli
-      userControlled.enable = true;
-      # Nur bekannte Netzwerke erlauben (Sicherheit)
-      extraConfig = ''
-        ctrl_interface=/run/wpa_supplicant
-        ctrl_interface_group=wheel
-      '';
-    };
-
-    # NetworkManager für Ethernet und VPN (WLAN wird von wpa_supplicant verwaltet)
+    # NetworkManager für alles (WLAN, Ethernet, VPN)
     networkmanager = {
       enable = true;
-      # WLAN wird von wpa_supplicant verwaltet, nicht NetworkManager
-      unmanaged = [ "type:wifi" ];
-      # Zufällige MAC-Adresse für Ethernet
+      # Zufällige MAC-Adresse beim Scannen (erschwert Tracking)
+      wifi.scanRandMacAddress = true;
+      # Zufällige MAC-Adresse bei jeder Verbindung
+      wifi.macAddress = "random";
       ethernet.macAddress = "random";
       # NetworkManager nutzt systemd-resolved
       dns = "systemd-resolved";
+      
+      # Deklaratives Home-Netzwerk (wird automatisch verbunden)
+      ensureProfiles = {
+        environmentFiles = [ config.sops.templates."nm-wifi-env".path ];
+        profiles = {
+          "Greenside4" = {
+            connection = {
+              id = "Greenside4";
+              type = "wifi";
+              autoconnect = true;
+              autoconnect-priority = 100;
+            };
+            wifi = {
+              ssid = "Greenside4";
+              mode = "infrastructure";
+            };
+            wifi-security = {
+              key-mgmt = "wpa-psk";
+              psk = "$WIFI_HOME_PSK";
+            };
+            ipv4 = {
+              method = "auto";
+            };
+            ipv6 = {
+              method = "disabled";
+            };
+          };
+        };
+      };
     };
   };
 

@@ -6,8 +6,7 @@ keys:
   - &user_achim age1ysu70tzmjnh464ruh0jsf7g207hj3ufkqwn7ap0zet69vjy0wv9q7p077h
   
   # Host Keys (werden beim ersten Boot generiert)
-  # Hole den Key mit: cat /etc/ssh/ssh_host_ed25519_key.pub | ssh-to-age
-  # - &host_achim-laptop age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  - &host_achim-laptop age1g50dwjpmlc9404w3f3rgjmamws6zf9g3vlgyylgj3rygfedasprsj4lqzv
 
 creation_rules:
   # Alle Secrets im secrets/ Ordner (YAML und conf Dateien)
@@ -15,4 +14,4 @@ creation_rules:
     key_groups:
       - age:
           - *user_achim
-          # - *host_achim-laptop  # Aktivieren nach erstem Boot
+          - *host_achim-laptop
