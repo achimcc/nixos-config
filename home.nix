@@ -30,6 +30,12 @@
     libgda5
     gsound
 
+    # --- SCREENSHOT & CLIPBOARD (Wayland) ---
+    grim      # Screenshot-Tool
+    slurp     # Bereichsauswahl
+    swappy    # Screenshot-Annotation
+    wl-clipboard  # Clipboard für Wayland
+
     # --- NIX ENTWICKLUNG ---
     nil
     nixpkgs-fmt
