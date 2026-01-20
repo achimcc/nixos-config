@@ -96,10 +96,10 @@
     };
   };
 
-  # --- VS CODE ---
+  # --- VS CODIUM (Open Source VSCode ohne Microsoft Telemetrie) ---
   programs.vscode = {
     enable = true;
-    package = pkgs.vscode;
+    package = pkgs.vscodium;
 
     profiles.default = {
       extensions = with pkgs.vscode-extensions; [
@@ -127,7 +127,7 @@
         "rust-analyzer.server.path" = "rust-analyzer";
         "lldb.executable" = "lldb";
 
-        # VS Code Terminal
+        # VSCodium Terminal
         "terminal.integrated.defaultProfile.linux" = "nushell";
         "terminal.integrated.profiles.linux" = {
           "nushell" = {
