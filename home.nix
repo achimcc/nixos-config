@@ -322,4 +322,41 @@
     Categories=Network;Security;
     X-GNOME-Autostart-enabled=true
   '';
+
+  # ==========================================
+  # SYNCTHING - Sichere Dateisynchronisation
+  # ==========================================
+  services.syncthing = {
+    enable = true;
+
+    # Sicherheitseinstellungen
+    settings = {
+      options = {
+        # Keine anonyme Nutzungsstatistik
+        urAccepted = -1;
+
+        # Relaying deaktivieren (nur direkte Verbindungen)
+        relaysEnabled = false;
+
+        # Globale Discovery deaktivieren (nur lokale Geräte oder manuelle IPs)
+        globalAnnounceEnabled = false;
+
+        # Lokale Discovery aktivieren (findet Geräte im selben Netzwerk)
+        localAnnounceEnabled = true;
+
+        # NAT Traversal deaktivieren (keine Verbindungen über STUN-Server)
+        natEnabled = false;
+
+        # Automatische Upgrades deaktivieren (Updates via Nix)
+        autoUpgradeIntervalH = 0;
+      };
+
+      # GUI nur lokal erreichbar
+      gui = {
+        theme = "dark";
+        # Zugriff nur von localhost
+        address = "127.0.0.1:8384";
+      };
+    };
+  };
 }
