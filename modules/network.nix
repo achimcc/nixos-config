@@ -1,5 +1,5 @@
 # Netzwerk & DNS Konfiguration
-# NetworkManager, systemd-resolved mit DNS-over-TLS, IPv6 deaktiviert
+# wpa_supplicant für WLAN, NetworkManager für Ethernet, systemd-resolved mit DNS-over-TLS
 
 { config, lib, pkgs, ... }:
 
@@ -12,12 +12,35 @@
     hostName = "achim-laptop";
     enableIPv6 = false;
 
+    # ==========================================
+    # DEKLARATIVE WLAN-KONFIGURATION MIT SOPS
+    # ==========================================
+
+    wireless = {
+      enable = true;
+      # Secrets aus sops-nix Template (key=value Format)
+      secretsFile = config.sops.templates."wpa_supplicant.conf".path;
+      # Bekannte WLAN-Netzwerke
+      networks = {
+        "Greenside4" = {
+          pskRaw = "ext:wifi_home_psk";
+        };
+      };
+      # Erlaube Konfiguration über wpa_cli
+      userControlled.enable = true;
+      # Nur bekannte Netzwerke erlauben (Sicherheit)
+      extraConfig = ''
+        ctrl_interface=/run/wpa_supplicant
+        ctrl_interface_group=wheel
+      '';
+    };
+
+    # NetworkManager für Ethernet und VPN (WLAN wird von wpa_supplicant verwaltet)
     networkmanager = {
       enable = true;
-      # Zufällige MAC-Adresse beim Scannen (erschwert Tracking)
-      wifi.scanRandMacAddress = true;
-      # Zufällige MAC-Adresse bei jeder Verbindung
-      wifi.macAddress = "random";
+      # WLAN wird von wpa_supplicant verwaltet, nicht NetworkManager
+      unmanaged = [ "type:wifi" ];
+      # Zufällige MAC-Adresse für Ethernet
       ethernet.macAddress = "random";
       # NetworkManager nutzt systemd-resolved
       dns = "systemd-resolved";

@@ -3,15 +3,15 @@
 
 keys:
   # Benutzer Keys (für lokales Editieren)
-  - &user_achim age1rr0acs6r4eyxv2tlhp8xrj6ktzflh97mqpxcu2uup276cgulavwqt0jv64
+  - &user_achim age1ysu70tzmjnh464ruh0jsf7g207hj3ufkqwn7ap0zet69vjy0wv9q7p077h
   
   # Host Keys (werden beim ersten Boot generiert)
   # Hole den Key mit: cat /etc/ssh/ssh_host_ed25519_key.pub | ssh-to-age
   # - &host_achim-laptop age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 creation_rules:
-  # Alle Secrets im secrets/ Ordner
-  - path_regex: secrets/.*\.yaml$
+  # Alle Secrets im secrets/ Ordner (YAML und conf Dateien)
+  - path_regex: secrets/.*\.(yaml|conf)$
     key_groups:
       - age:
           - *user_achim
