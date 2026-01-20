@@ -16,6 +16,10 @@
   # ==========================================
 
   boot.kernel.sysctl = {
+    # User Namespaces erlauben (benötigt für Electron-Apps wie VSCodium, Signal)
+    # Der hardened Kernel deaktiviert dies standardmäßig
+    "kernel.unprivileged_userns_clone" = 1;
+
     # Kernel Pointer verstecken (erschwert Exploits)
     "kernel.kptr_restrict" = 2;
 
