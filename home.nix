@@ -62,7 +62,7 @@
     gcc
 
     # --- KOMMUNIKATION ---
-    # Wayland-Unterstützung für Signal aktivieren (sonst schwarzer Kasten)
+    # Wayland-Unterstützung für Signal aktivieren
     (symlinkJoin {
       name = "signal-desktop-wayland";
       paths = [ signal-desktop ];
@@ -70,9 +70,7 @@
       postBuild = ''
         wrapProgram $out/bin/signal-desktop \
           --add-flags "--ozone-platform=wayland" \
-          --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations" \
-          --add-flags "--disable-gpu-sandbox" \
-          --add-flags "--use-gl=egl"
+          --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations"
       '';
     })
 
