@@ -68,6 +68,7 @@
     nushell
     libsecret
     nano # Für EDITOR Variable in nushell
+    vim
   ];
 
   # ==========================================

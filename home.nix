@@ -222,7 +222,7 @@
       gp = "git push";
     };
     environmentVariables = {
-      EDITOR = "nano";
+      EDITOR = "vim";
     };
     extraConfig = ''
       $env.config.show_banner = false
