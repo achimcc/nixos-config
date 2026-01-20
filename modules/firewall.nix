@@ -84,6 +84,9 @@ in
       iptables -A OUTPUT -p tcp --dport ${toString syncthingPorts.tcp} -d 192.168.178.0/24 -j ACCEPT
       iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.quic} -d 192.168.178.0/24 -j ACCEPT
       iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 192.168.178.0/24 -j ACCEPT
+      # Broadcast für lokale Discovery (Syncthing Announce)
+      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 255.255.255.255 -j ACCEPT
+      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 192.168.178.255 -j ACCEPT
 
       # ==========================================
       # IPv6 REGELN - Alles blockieren (IPv6 ist deaktiviert)
