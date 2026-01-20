@@ -192,6 +192,16 @@
           installation_mode = "force_installed";
           install_url = "https://addons.mozilla.org/firefox/downloads/latest/keepassxc-browser/latest.xpi";
         };
+        # ClearURLs - entfernt Tracking-Parameter aus URLs
+        "{74145f27-f039-47ce-a470-a662b129930a}" = {
+          installation_mode = "force_installed";
+          install_url = "https://addons.mozilla.org/firefox/downloads/latest/clearurls/latest.xpi";
+        };
+        # Multi-Account Containers
+        "@testpilot-containers" = {
+          installation_mode = "force_installed";
+          install_url = "https://addons.mozilla.org/firefox/downloads/latest/multi-account-containers/latest.xpi";
+        };
       };
     };
   };
