@@ -123,6 +123,10 @@
     Defaults timestamp_timeout=5
   '';
 
+  # Chromium/Electron Apps benötigen Sandbox-Zugriff
+  # (VSCodium, Signal, etc. funktionieren sonst nicht mit hardened Kernel)
+  security.chromiumSuidSandbox.enable = true;
+
   # Audit Framework aktivieren (für Incident Response)
   security.auditd.enable = true;
   security.audit = {
