@@ -1,7 +1,7 @@
 # Home Manager Konfiguration für User "user"
 # Ausgelagert aus configuration.nix für bessere Übersichtlichkeit
 
-{ pkgs, llm-agents, ... }: # llm-agents statt nurPkgs
+{ config, pkgs, llm-agents, ... }: # llm-agents statt nurPkgs
 
 {
   imports = [
@@ -81,6 +81,35 @@
     enable = true;
     pinentry.package = pkgs.pinentry-gnome3;
     enableSshSupport = true;
+  };
+
+  # --- EMAIL ACCOUNT KONFIGURATION ---
+  # Definiert den Posteo Account für Thunderbird und andere Mail-Tools
+  accounts.email.accounts.posteo = {
+    primary = true;
+    address = "user@posteo.de";
+    userName = "user@posteo.de";
+    realName = "NixOS User";
+
+    # IMAP Konfiguration (Empfang)
+    imap = {
+      host = "posteo.de";
+      port = 993;
+      tls.enable = true;
+    };
+
+    # SMTP Konfiguration (Versand)
+    smtp = {
+      host = "posteo.de";
+      port = 465;
+      tls.enable = true;
+    };
+
+    # Thunderbird Integration
+    thunderbird = {
+      enable = true;
+      profiles = [ "user" ];
+    };
   };
 
   # --- EMAIL CLIENT (Thunderbird - Hardened) ---
