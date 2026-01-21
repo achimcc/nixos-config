@@ -1,7 +1,7 @@
 # Home Manager Konfiguration für User "achim"
 # Ausgelagert aus configuration.nix für bessere Übersichtlichkeit
 
-{ pkgs, llm-agents, ... }: # llm-agents statt nurPkgs
+{ config, pkgs, llm-agents, ... }: # llm-agents statt nurPkgs
 
 {
   imports = [
@@ -81,6 +81,35 @@
     enable = true;
     pinentry.package = pkgs.pinentry-gnome3;
     enableSshSupport = true;
+  };
+
+  # --- EMAIL ACCOUNT KONFIGURATION ---
+  # Definiert den Posteo Account für Thunderbird und andere Mail-Tools
+  accounts.email.accounts.posteo = {
+    primary = true;
+    address = "achim.schneider@posteo.de";
+    userName = "achim.schneider@posteo.de";
+    realName = "Achim Schneider";
+
+    # IMAP Konfiguration (Empfang)
+    imap = {
+      host = "posteo.de";
+      port = 993;
+      tls.enable = true;
+    };
+
+    # SMTP Konfiguration (Versand)
+    smtp = {
+      host = "posteo.de";
+      port = 465;
+      tls.enable = true;
+    };
+
+    # Thunderbird Integration
+    thunderbird = {
+      enable = true;
+      profiles = [ "achim" ];
+    };
   };
 
   # --- EMAIL CLIENT (Thunderbird - Hardened) ---

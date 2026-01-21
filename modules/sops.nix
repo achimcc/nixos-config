@@ -34,6 +34,12 @@
     # WLAN Passwort
     secrets."wifi/home" = {};
 
+    # E-Mail Passwort für Posteo
+    secrets."email/posteo" = {
+      owner = "achim";
+      mode = "0400";
+    };
+
     # Template für NetworkManager Environment-Datei
     templates."nm-wifi-env" = {
       content = ''
