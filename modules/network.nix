@@ -92,11 +92,33 @@
           "--private=/home/achim/Downloads"
         ];
       };
+
+      # Signal Desktop - Messenger mit Sandbox
+      signal-desktop = {
+        executable = "${pkgs.signal-desktop}/bin/signal-desktop";
+        profile = "${pkgs.firejail}/etc/firejail/signal-desktop.profile";
+        extraArgs = [
+          # Wayland-Unterstützung
+          "--env=NIXOS_OZONE_WL=1"
+        ];
+      };
+
+      # LibreWolf - Privacy Browser mit Sandbox
+      librewolf = {
+        executable = "${pkgs.librewolf}/bin/librewolf";
+        profile = "${pkgs.firejail}/etc/firejail/librewolf.profile";
+        extraArgs = [
+          # Privates Downloads-Verzeichnis (wie Tor Browser)
+          "--private=/home/achim/Downloads"
+        ];
+      };
     };
   };
 
-  # Tor Browser Paket
+  # Browser Pakete (werden von Firejail gewrappt)
   environment.systemPackages = with pkgs; [
     tor-browser
+    signal-desktop
+    librewolf
   ];
 }
