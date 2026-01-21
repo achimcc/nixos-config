@@ -33,6 +33,9 @@
     # --- SYSTEM MONITORING ---
     mission-center
 
+    # --- FINANZEN ---
+    portfolio # Portfolio Performance - Wertpapierdepot-Verwaltung
+
     # --- SCREENSHOT & CLIPBOARD (Wayland) ---
     grim # Screenshot-Tool
     slurp # Bereichsauswahl
