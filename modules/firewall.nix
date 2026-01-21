@@ -7,6 +7,8 @@ let
   # VPN-Ports zentral definiert für einfache Wartung
   vpnPorts = {
     wireguard = 51820;
+    wireguardAlt1 = 88;      # ProtonVPN WireGuard alternativ
+    wireguardAlt2 = 1224;    # ProtonVPN WireGuard alternativ
     openvpn = 1194;
     https = 443;
     ikev2 = 500;
@@ -59,6 +61,8 @@ in
       
       # VPN-Ports als Fallback für nicht-ProtonVPN Server
       iptables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguard} -j ACCEPT
+      iptables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguardAlt1} -j ACCEPT
+      iptables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguardAlt2} -j ACCEPT
       iptables -A OUTPUT -p udp --dport ${toString vpnPorts.openvpn} -j ACCEPT
       iptables -A OUTPUT -p tcp --dport ${toString vpnPorts.https} -j ACCEPT
       iptables -A OUTPUT -p udp --dport ${toString vpnPorts.https} -j ACCEPT
