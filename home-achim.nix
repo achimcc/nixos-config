@@ -17,9 +17,7 @@
   home.packages = with pkgs; [
 
     # --- VPN & NETZWERK SICHERHEIT ---
-    protonvpn-gui # Die grafische Oberfläche für ProtonVPN
-    # Hinweis: Beim ersten Start wirst du nach dem Keyring-Passwort gefragt.
-    # Das ist normal (Gnome Keyring speichert deine Proton-Zugangsdaten sicher).
+    protonvpn-gui # GUI zusätzlich zur CLI
 
     # --- SICHERHEIT & TOOLS ---
     keepassxc
@@ -317,18 +315,8 @@
   };
 
 
-  # AUTORUN: ProtonVPN beim Login starten
-  xdg.configFile."autostart/protonvpn-autostart.desktop".text = ''
-    [Desktop Entry]
-    Type=Application
-    Name=ProtonVPN AutoStart
-    Comment=Startet ProtonVPN beim Systemstart
-    Exec=protonvpn-app
-    Icon=proton-vpn-logo
-    Terminal=false
-    Categories=Network;Security;
-    X-GNOME-Autostart-enabled=true
-  '';
+  # ProtonVPN wird via systemd beim Boot gestartet (siehe modules/protonvpn.nix)
+  # GUI läuft zusätzlich und zeigt die bestehende Verbindung an
 
   # ==========================================
   # SYNCTHING - Sichere Dateisynchronisation

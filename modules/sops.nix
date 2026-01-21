@@ -27,6 +27,17 @@
     # SECRETS DEFINITIONEN
     # ==========================================
 
+    # ProtonVPN Credentials (werden in protonvpn.nix referenziert)
+    secrets.protonvpn-username = {
+      owner = "root";
+      mode = "0400";
+    };
+
+    secrets.protonvpn-password = {
+      owner = "root";
+      mode = "0400";
+    };
+
     # Beispiel: API Keys, Passwörter, etc.
     # Diese werden nach /run/secrets/<name> entschlüsselt
 
