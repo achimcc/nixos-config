@@ -27,19 +27,9 @@
     # SECRETS DEFINITIONEN
     # ==========================================
 
-    # ProtonVPN Credentials (werden in protonvpn.nix referenziert)
-    secrets.protonvpn-username = {
-      owner = "root";
-      mode = "0400";
-    };
-
-    secrets.protonvpn-password = {
-      owner = "root";
-      mode = "0400";
-    };
-
-    # Beispiel: API Keys, Passwörter, etc.
-    # Diese werden nach /run/secrets/<name> entschlüsselt
+    # WireGuard Private Key für ProtonVPN (wird in protonvpn.nix referenziert)
+    # Die alten protonvpn-username/password werden nicht mehr benötigt
+    # da WireGuard statt protonvpn-cli verwendet wird
 
     # WLAN Passwort
     secrets."wifi/home" = {};

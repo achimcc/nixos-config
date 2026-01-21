@@ -55,7 +55,7 @@ in
       # 5. WICHTIG: Erlaube den Verbindungsaufbau zum VPN (Physical Interface)
       # ProtonVPN Server IP-Ranges (für Server-Wechsel ohne Unterbrechung)
       # Quelle: https://protonvpn.com/support/protonvpn-ip-addresses
-      for range in 185.159.156.0/22 185.107.56.0/22 146.70.0.0/16 156.146.32.0/20 149.88.0.0/14 193.148.16.0/20 91.219.212.0/22 89.36.76.0/22 37.120.128.0/17; do
+      for range in 185.159.156.0/22 185.107.56.0/22 146.70.0.0/16 156.146.32.0/20 149.88.0.0/14 193.148.16.0/20 91.219.212.0/22 89.36.76.0/22 37.120.128.0/17 79.127.141.0/24; do
         iptables -A OUTPUT -d $range -j ACCEPT
       done
       
