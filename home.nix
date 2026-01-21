@@ -35,7 +35,6 @@
 
     # --- FINANZEN ---
     portfolio # Portfolio Performance - Wertpapierdepot-Verwaltung
-    wealthfolio # Private Investment Tracking
 
     # --- SCREENSHOT & CLIPBOARD (Wayland) ---
     grim # Screenshot-Tool
@@ -69,7 +68,7 @@
     # Signal Desktop wird über Firejail in modules/network.nix installiert
 
     # --- NODE.JS ---
-    nodejs_22  # Enthält npm für globale Pakete
+    nodejs_22 # Enthält npm für globale Pakete
 
     # --- AI CODING ASSISTANT ---
     # Hier nutzen wir nun den korrekten Flake-Input
