@@ -35,6 +35,7 @@
 
     # --- FINANZEN ---
     portfolio # Portfolio Performance - Wertpapierdepot-Verwaltung
+    wealthfolio # Private Investment Tracking
 
     # --- SCREENSHOT & CLIPBOARD (Wayland) ---
     grim # Screenshot-Tool
@@ -77,9 +78,13 @@
       '';
     })
 
+    # --- NODE.JS ---
+    nodejs_22  # Enthält npm für globale Pakete
+
     # --- AI CODING ASSISTANT ---
     # Hier nutzen wir nun den korrekten Flake-Input
     llm-agents.packages.${pkgs.system}.crush
+    # claude-code via npm installieren: npm install -g @anthropic-ai/claude-code
   ];
 
   # --- PGP KONFIGURATION ---
