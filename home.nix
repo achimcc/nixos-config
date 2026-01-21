@@ -66,17 +66,7 @@
     gcc
 
     # --- KOMMUNIKATION ---
-    # Wayland-Unterstützung für Signal aktivieren
-    (symlinkJoin {
-      name = "signal-desktop-wayland";
-      paths = [ signal-desktop ];
-      buildInputs = [ makeWrapper ];
-      postBuild = ''
-        wrapProgram $out/bin/signal-desktop \
-          --add-flags "--ozone-platform=wayland" \
-          --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations"
-      '';
-    })
+    # Signal Desktop wird über Firejail in modules/network.nix installiert
 
     # --- NODE.JS ---
     nodejs_22  # Enthält npm für globale Pakete
@@ -183,8 +173,11 @@
   };
 
   # --- BROWSER (LibreWolf) ---
+  # HINWEIS: LibreWolf wird über Firejail in modules/network.nix installiert und gesandboxt.
+  # Diese Konfiguration wendet nur Settings und Extensions an.
   programs.librewolf = {
     enable = true;
+    package = pkgs.librewolf; # Explizit setzen für Konfiguration (Firejail-Wrapper hat Priorität)
     settings = {
       "privacy.clearOnShutdown.history" = false;
       "privacy.resistFingerprinting" = true; # Manchmal nötig für Streaming/Captchas
