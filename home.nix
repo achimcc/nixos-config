@@ -274,9 +274,11 @@
     };
     environmentVariables = {
       EDITOR = "vim";
+      NPM_CONFIG_PREFIX = "~/.npm-global";
     };
     extraConfig = ''
       $env.config.show_banner = false
+      $env.PATH = ($env.PATH | prepend $"($env.HOME)/.npm-global/bin")
     '';
   };
 
