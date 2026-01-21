@@ -35,9 +35,8 @@
 
       # Akku-Ladeschwellen (falls unterstützt)
       # Schont den Akku durch begrenztes Laden
-      # Start bei 20% damit Laden zuverlässig beginnt wenn eingesteckt
-      START_CHARGE_THRESH_BAT0 = 20;
-      STOP_CHARGE_THRESH_BAT0 = 80;
+      START_CHARGE_THRESH_BAT0 = 50;  # Laden startet unter 50%
+      STOP_CHARGE_THRESH_BAT0 = 90;   # Laden stoppt bei 90%
     };
   };
 
