@@ -111,14 +111,22 @@
     userName = "Achim Schneider";
     userEmail = "achim.schneider@posteo.de";
     signing = {
-      key = null; # GPG wählt automatisch den Key passend zur E-Mail
+      key = "~/.ssh/id_ed25519.pub";
       signByDefault = true;
     };
     extraConfig = {
       init.defaultBranch = "main";
       pull.rebase = true;
+      # SSH-Signierung statt GPG
+      gpg.format = "ssh";
+      gpg.ssh.allowedSignersFile = "~/.ssh/allowed_signers";
     };
   };
+
+  # Allowed Signers für SSH-Commit-Verifizierung
+  home.file.".ssh/allowed_signers".text = ''
+    achim.schneider@posteo.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKxoCdoA7621jMhv0wX3tx66NEZMv9tp8xdE76sEfjBI
+  '';
 
   # --- VS CODIUM (Open Source VSCode ohne Microsoft Telemetrie) ---
   programs.vscode = {
