@@ -158,14 +158,15 @@
   systemd.user.services.posteo-keyring-sync = {
     Unit = {
       Description = "Sync Posteo password from sops to GNOME Keyring";
-      After = [ "gnome-keyring-daemon.service" ];
-      Requires = [ "gnome-keyring-daemon.service" ];
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
     };
     Service = {
       Type = "oneshot";
+      RemainAfterExit = true;
       ExecStart = pkgs.writeShellScript "posteo-keyring-sync" ''
-        # Warte kurz bis Keyring bereit ist
-        sleep 2
+        # Warte bis Keyring bereit ist
+        sleep 3
         
         # Passwort aus sops lesen
         if [ -f /run/secrets/email/posteo ]; then
