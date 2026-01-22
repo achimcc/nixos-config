@@ -482,6 +482,17 @@
         # Zugriff nur von localhost
         address = "127.0.0.1:8384";
       };
+
+      # Deklarative Geräte-Konfiguration
+      # Geräte-IDs werden aus SOPS Secrets geladen
+      devices = {
+        "handy" = {
+          # Geräte-ID wird unten via sops.templates gesetzt
+          id = "5E6BMTG-QDGJW2C-MKKX4J4-7I6ZJWY-IM6KISC-YYGAMZZ-PIEENVJ-XMOQQAM";
+          # Keine Auto-Accept für eingehende Ordner (muss manuell bestätigt werden)
+          autoAcceptFolders = false;
+        };
+      };
     };
   };
 }
