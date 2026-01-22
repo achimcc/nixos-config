@@ -69,6 +69,40 @@
     # --- NODE.JS ---
     nodejs_22 # Enthält npm für globale Pakete
 
+    # --- OPENBB (Investment Research Platform) ---
+    # FHS-kompatible Umgebung für OpenBB (pip-basiert)
+    (pkgs.buildFHSEnv {
+      name = "openbb";
+      targetPkgs = pkgs: with pkgs; [
+        (python312.withPackages (ps: with ps; [
+          pip
+          virtualenv
+          numpy
+          pandas
+          scipy
+          matplotlib
+          requests
+          aiohttp
+          pydantic
+          python-dotenv
+        ]))
+        gcc
+        zlib
+        openssl
+        libffi
+      ];
+      runScript = pkgs.writeShellScript "openbb-wrapper" ''
+        VENV_DIR="$HOME/.local/share/openbb-venv"
+        if [ ! -d "$VENV_DIR" ]; then
+          echo "Erstelle OpenBB venv..."
+          python -m venv "$VENV_DIR"
+          "$VENV_DIR/bin/pip" install --upgrade pip
+          "$VENV_DIR/bin/pip" install openbb
+        fi
+        exec "$VENV_DIR/bin/openbb" "$@"
+      '';
+    })
+
     # --- AI CODING ASSISTANT ---
     # Hier nutzen wir nun den korrekten Flake-Input
     llm-agents.packages.${pkgs.system}.crush
@@ -309,6 +343,7 @@
       gs = "git status";
       gc = "git commit";
       gp = "git push";
+      obb = "openbb";  # FHS-wrapped, installiert automatisch beim ersten Start
     };
     environmentVariables = {
       EDITOR = "vim";
