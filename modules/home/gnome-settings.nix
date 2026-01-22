@@ -61,9 +61,10 @@
         "org.keepassxc.KeePassXC.desktop"
         "signal-desktop.desktop"
       ];
-      # AppIndicator Extension aktivieren
+      # Extensions aktivieren
       enabled-extensions = [
         "appindicatorsupport@rgcjonas.gmail.com"
+        "pano@elhan.io"
       ];
     };
 
