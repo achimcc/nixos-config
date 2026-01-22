@@ -307,6 +307,11 @@
     extraConfig = ''
       $env.config.show_banner = false
       $env.PATH = ($env.PATH | prepend $"($env.HOME)/.npm-global/bin")
+
+      # Anthropic API Key aus sops Secret laden (für avante.nvim, crush, etc.)
+      if ("/run/secrets/anthropic-api-key" | path exists) {
+        $env.ANTHROPIC_API_KEY = (open /run/secrets/anthropic-api-key | str trim)
+      }
     '';
   };
 

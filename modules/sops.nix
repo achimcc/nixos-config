@@ -40,6 +40,12 @@
       mode = "0400";
     };
 
+    # Anthropic API Key für AI Tools (avante.nvim, etc.)
+    secrets."anthropic-api-key" = {
+      owner = "achim";
+      mode = "0400";
+    };
+
     # Template für NetworkManager Environment-Datei
     templates."nm-wifi-env" = {
       content = ''

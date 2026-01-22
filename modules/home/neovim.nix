@@ -172,6 +172,43 @@
         '';
       }
 
+      # Avante.nvim - Cursor-ähnliche AI-Assistenz
+      dressing-nvim
+      nui-nvim
+      {
+        plugin = render-markdown-nvim;
+        type = "lua";
+        config = ''
+          require('render-markdown').setup({
+            file_types = { 'markdown', 'Avante' },
+          })
+        '';
+      }
+      {
+        plugin = avante-nvim;
+        type = "lua";
+        config = ''
+          require('avante').setup({
+            provider = "claude",
+            claude = {
+              model = "claude-sonnet-4-20250514",
+              max_tokens = 4096,
+            },
+            mappings = {
+              ask = "<leader>aa",
+              edit = "<leader>ae",
+              refresh = "<leader>ar",
+              toggle = {
+                default = "<leader>at",
+                debug = "<leader>ad",
+                hint = "<leader>ah",
+              },
+            },
+            hints = { enabled = true },
+          })
+        '';
+      }
+
       # Statuszeile
       {
         plugin = lualine-nvim;
@@ -180,6 +217,7 @@
       }
 
       nvim-web-devicons
+      img-clip-nvim
     ];
 
     extraLuaConfig = ''
