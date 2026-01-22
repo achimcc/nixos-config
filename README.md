@@ -1,40 +1,40 @@
-# NixOS Konfiguration - achim-laptop
+# NixOS Configuration - achim-laptop
 
-Eine sicherheitsorientierte, deklarative NixOS-Konfiguration mit Fokus auf Privatsphäre, Entwicklungsproduktivität und vollständiger Reproduzierbarkeit.
+A security-oriented, declarative NixOS configuration focused on privacy, development productivity, and full reproducibility.
 
-## Inhaltsverzeichnis
+## Table of Contents
 
-- [Systemübersicht](#systemübersicht)
-- [Sicherheitsfeatures](#sicherheitsfeatures)
+- [System Overview](#system-overview)
+- [Security Features](#security-features)
 - [Installation](#installation)
-- [Modulstruktur](#modulstruktur)
+- [Module Structure](#module-structure)
 - [Secrets Management](#secrets-management)
-- [Entwicklungsumgebung](#entwicklungsumgebung)
-- [Anwendungen](#anwendungen)
-- [Wartung](#wartung)
-- [Fehlerbehebung](#fehlerbehebung)
+- [Development Environment](#development-environment)
+- [Applications](#applications)
+- [Maintenance](#maintenance)
+- [Troubleshooting](#troubleshooting)
 
-## Systemübersicht
+## System Overview
 
-| Komponente | Konfiguration |
-|------------|---------------|
+| Component | Configuration |
+|-----------|---------------|
 | **NixOS Version** | 25.05 |
 | **Desktop** | GNOME (X11, GDM) |
 | **Shell** | Nushell + Starship |
 | **Editor** | Neovim (Rust IDE), VSCodium, Zed |
 | **VPN** | ProtonVPN (WireGuard, Auto-Connect) |
-| **Verschlüsselung** | LUKS Full-Disk, Secure Boot |
-| **Secrets** | sops-nix (Age-verschlüsselt) |
+| **Encryption** | LUKS Full-Disk, Secure Boot |
+| **Secrets** | sops-nix (Age-encrypted) |
 
-### Architektur
+### Architecture
 
 ```
 flake.nix                 # Flake Entry Point
-├── configuration.nix     # System-Konfiguration
-├── home-achim.nix        # User-Konfiguration (Home Manager)
+├── configuration.nix     # System Configuration
+├── home-achim.nix        # User Configuration (Home Manager)
 ├── hardware-configuration.nix
 ├── secrets/
-│   └── secrets.yaml      # Verschlüsselte Secrets
+│   └── secrets.yaml      # Encrypted Secrets
 └── modules/
     ├── network.nix       # NetworkManager, DNS-over-TLS, Firejail
     ├── firewall.nix      # VPN Kill Switch
@@ -50,170 +50,170 @@ flake.nix                 # Flake Entry Point
         └── neovim.nix          # Neovim IDE
 ```
 
-## Sicherheitsfeatures
+## Security Features
 
-### Netzwerk & VPN
+### Network & VPN
 
-- **VPN Kill Switch**: Firewall blockiert allen Traffic außerhalb des VPN-Tunnels
-- **DNS-over-TLS**: Mullvad DNS (194.242.2.2) mit DNSSEC
-- **IPv6 deaktiviert**: Auf Kernel-Ebene komplett ausgeschaltet
-- **Zufällige MAC-Adressen**: Bei jedem WiFi-Scan und Verbindungsaufbau
-- **WireGuard Auto-Connect**: VPN verbindet vor dem Login
+- **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel
+- **DNS-over-TLS**: Mullvad DNS (194.242.2.2) with DNSSEC
+- **IPv6 disabled**: Completely disabled at kernel level
+- **Random MAC addresses**: On every WiFi scan and connection
+- **WireGuard Auto-Connect**: VPN connects before login
 
-### Verschlüsselung
+### Encryption
 
-- **LUKS Full-Disk Encryption**: Gesamte Festplatte verschlüsselt
-- **Secure Boot**: Lanzaboote mit eigenen Signaturschlüsseln
-- **sops-nix**: Secrets verschlüsselt im Git-Repository
-- **SSH Commit Signing**: Git-Commits mit Ed25519 signiert
+- **LUKS Full-Disk Encryption**: Entire disk encrypted
+- **Secure Boot**: Lanzaboote with custom signing keys
+- **sops-nix**: Secrets encrypted in Git repository
+- **SSH Commit Signing**: Git commits signed with Ed25519
 
 ### Sandboxing & Hardening
 
-- **Firejail**: Tor Browser, LibreWolf, Signal Desktop isoliert
-- **AppArmor**: Mandatory Access Control aktiviert
-- **Hardened Kernel**: Mit zusätzlichen Sicherheitsoptionen
-- **ClamAV**: Echtzeit-Virenscanner für /home
-- **Fail2Ban**: Schutz vor Brute-Force-Angriffen
+- **Firejail**: Tor Browser, LibreWolf, Signal Desktop isolated
+- **AppArmor**: Mandatory Access Control enabled
+- **Hardened Kernel**: With additional security options
+- **ClamAV**: Real-time antivirus scanner for /home
+- **Fail2Ban**: Protection against brute-force attacks
 
 ### Kernel Hardening
 
 ```nix
-# Aktivierte Schutzmaßnahmen:
-- ASLR maximiert
-- Kernel-Pointer versteckt
-- dmesg eingeschränkt
-- Kexec deaktiviert
-- BPF JIT gehärtet
-- Ptrace eingeschränkt
-- Core Dumps limitiert
+# Enabled protections:
+- ASLR maximized
+- Kernel pointers hidden
+- dmesg restricted
+- Kexec disabled
+- BPF JIT hardened
+- Ptrace restricted
+- Core dumps limited
 ```
 
-### Blacklisted Kernel-Module
+### Blacklisted Kernel Modules
 
-Ungenutzte und potenziell unsichere Module werden blockiert:
-- Netzwerkprotokolle: dccp, sctp, rds, tipc
-- Dateisysteme: cramfs, freevxfs, jffs2, hfs, hfsplus, udf
+Unused and potentially insecure modules are blocked:
+- Network protocols: dccp, sctp, rds, tipc
+- Filesystems: cramfs, freevxfs, jffs2, hfs, hfsplus, udf
 - Firewire: firewire-core, firewire-ohci, firewire-sbp2
 
 ## Installation
 
-### Voraussetzungen
+### Prerequisites
 
-- NixOS 25.05 oder neuer
-- UEFI-System mit Secure Boot Unterstützung
-- Age-Key für Secrets-Entschlüsselung
+- NixOS 25.05 or newer
+- UEFI system with Secure Boot support
+- Age key for secrets decryption
 
-### Erstinstallation
+### Initial Installation
 
 ```bash
-# Repository klonen
+# Clone repository
 git clone https://github.com/achim/nixos-config.git
 cd nixos-config
 
-# Age-Key generieren (falls nicht vorhanden)
+# Generate Age key (if not present)
 mkdir -p /var/lib/sops-nix
 age-keygen -o /var/lib/sops-nix/key.txt
 
-# Public Key zu .sops.yaml hinzufügen und secrets neu verschlüsseln
-# (siehe Secrets Management)
+# Add public key to .sops.yaml and re-encrypt secrets
+# (see Secrets Management)
 
-# System bauen und aktivieren
+# Build and activate system
 sudo nixos-rebuild switch --flake .#achim-laptop
 ```
 
-### Secure Boot einrichten
+### Setting Up Secure Boot
 
 ```bash
-# Secure Boot Keys erstellen
+# Create Secure Boot keys
 sudo sbctl create-keys
 
-# Keys in Firmware enrollen
+# Enroll keys in firmware
 sudo sbctl enroll-keys --microsoft
 
-# System neu bauen (signiert automatisch)
+# Rebuild system (signs automatically)
 sudo nixos-rebuild switch --flake .#achim-laptop
 ```
 
-## Modulstruktur
+## Module Structure
 
 ### network.nix
 
-- NetworkManager mit zufälligen MAC-Adressen
+- NetworkManager with random MAC addresses
 - DNS-over-TLS (systemd-resolved)
-- Firejail-Profile für Browser und Messenger
-- WiFi-Autoconnect mit sops-Passwort
+- Firejail profiles for browsers and messengers
+- WiFi auto-connect with sops password
 
 ### firewall.nix
 
-VPN Kill Switch mit iptables:
+VPN Kill Switch with iptables:
 - Default Policy: DROP
-- Erlaubt nur Traffic über VPN-Interfaces (proton0, tun+, wg+)
-- DNS nur über localhost (127.0.0.53)
-- Syncthing nur im lokalen Netzwerk
+- Only allows traffic over VPN interfaces (proton0, tun+, wg+)
+- DNS only via localhost (127.0.0.53)
+- Syncthing only on local network
 
 ### protonvpn.nix
 
-WireGuard-Konfiguration für ProtonVPN:
+WireGuard configuration for ProtonVPN:
 - Server: DE#782 (Frankfurt)
-- Auto-Connect beim Boot
-- Private Key aus sops
+- Auto-connect at boot
+- Private key from sops
 
 ### security.nix
 
-Umfassende Sicherheitskonfiguration:
+Comprehensive security configuration:
 - Hardened Kernel
-- AppArmor mit Enforcement
-- ClamAV On-Access Scanning
+- AppArmor with enforcement
+- ClamAV on-access scanning
 - Fail2Ban
-- Audit Framework
+- Audit framework
 
 ### home/neovim.nix
 
-Neovim als Rust IDE:
+Neovim as Rust IDE:
 - rustaceanvim (LSP, Clippy)
 - nvim-cmp (Completion)
 - nvim-treesitter (Syntax)
 - nvim-dap (Debugging)
-- avante.nvim (AI-Assistenz)
-- octo.nvim (GitHub Integration)
-- telescope.nvim (Fuzzy Finder)
+- avante.nvim (AI assistance)
+- octo.nvim (GitHub integration)
+- telescope.nvim (Fuzzy finder)
 
 ## Secrets Management
 
-### Gespeicherte Secrets
+### Stored Secrets
 
-| Secret | Pfad | Verwendung |
-|--------|------|------------|
-| WiFi-Passwort | `wifi/home` | NetworkManager |
-| E-Mail-Passwort | `email/posteo` | Thunderbird |
+| Secret | Path | Usage |
+|--------|------|-------|
+| WiFi Password | `wifi/home` | NetworkManager |
+| Email Password | `email/posteo` | Thunderbird |
 | Anthropic API Key | `anthropic-api-key` | avante.nvim, crush |
 | GitHub Token | `github-token` | gh CLI, octo.nvim |
 | WireGuard Key | `wireguard-private-key` | ProtonVPN |
 
-### Secrets bearbeiten
+### Editing Secrets
 
 ```bash
-# Secrets-Datei bearbeiten (entschlüsselt automatisch)
+# Edit secrets file (decrypts automatically)
 sops secrets/secrets.yaml
 
-# Einzelnes Secret setzen
+# Set a single secret
 sops --set '["secret-name"] "secret-value"' secrets/secrets.yaml
 
-# Secret anzeigen
+# Display a secret
 sops -d --extract '["secret-name"]' secrets/secrets.yaml
 ```
 
-### Neuen Host hinzufügen
+### Adding a New Host
 
 ```bash
-# Host Age-Key aus SSH-Key generieren
+# Generate host Age key from SSH key
 ssh-to-age -i /etc/ssh/ssh_host_ed25519_key.pub
 
-# Key zu .sops.yaml hinzufügen und secrets neu verschlüsseln
+# Add key to .sops.yaml and re-encrypt secrets
 sops updatekeys secrets/secrets.yaml
 ```
 
-## Entwicklungsumgebung
+## Development Environment
 
 ### Rust
 
@@ -223,10 +223,10 @@ rustup default stable
 rustup component add rust-analyzer clippy rustfmt
 
 # In Neovim:
-# - Automatische Completion
-# - Clippy on Save
-# - Debugging mit F5
-# - Code Actions mit <leader>ca
+# - Automatic completion
+# - Clippy on save
+# - Debugging with F5
+# - Code actions with <leader>ca
 ```
 
 ### Nix
@@ -235,32 +235,32 @@ rustup component add rust-analyzer clippy rustfmt
 # LSP: nil
 # Formatter: nixpkgs-fmt
 
-# Format on Save in VSCodium aktiviert
+# Format on save enabled in VSCodium
 ```
 
 ### Neovim Keybindings
 
-| Binding | Aktion |
+| Binding | Action |
 |---------|--------|
-| `<leader>ff` | Dateien suchen |
-| `<leader>fg` | Live Grep |
-| `gd` | Go to Definition |
+| `<leader>ff` | Find files |
+| `<leader>fg` | Live grep |
+| `gd` | Go to definition |
 | `K` | Hover |
-| `<leader>ca` | Code Actions |
+| `<leader>ca` | Code actions |
 | `<leader>rn` | Rename |
 | `<leader>f` | Format |
-| `F5` | Debug Start/Continue |
+| `F5` | Debug start/continue |
 | `<leader>b` | Breakpoint |
 | `<leader>aa` | AI Ask (avante) |
 | `<leader>ae` | AI Edit (avante) |
 | `<leader>oi` | GitHub Issues |
 | `<leader>op` | GitHub PRs |
 
-### AI-Tools
+### AI Tools
 
 ```bash
-# Anthropic API Key wird automatisch aus sops geladen
-echo $ANTHROPIC_API_KEY  # Verfügbar in nushell
+# Anthropic API key is automatically loaded from sops
+echo $ANTHROPIC_API_KEY  # Available in nushell
 
 # Tools:
 # - avante.nvim (in Neovim)
@@ -268,127 +268,127 @@ echo $ANTHROPIC_API_KEY  # Verfügbar in nushell
 # - claude-code (npm install -g @anthropic-ai/claude-code)
 ```
 
-## Anwendungen
+## Applications
 
-### Browser (mit Firejail)
+### Browsers (with Firejail)
 
-- **LibreWolf**: Primärer Browser mit uBlock Origin, KeePassXC, ClearURLs
-- **Tor Browser**: Für anonymes Surfen
+- **LibreWolf**: Primary browser with uBlock Origin, KeePassXC, ClearURLs
+- **Tor Browser**: For anonymous browsing
 
-### Kommunikation
+### Communication
 
-- **Thunderbird**: E-Mail (Posteo, hardened)
-- **Signal Desktop**: Messenger (Firejail-Sandbox)
+- **Thunderbird**: Email (Posteo, hardened)
+- **Signal Desktop**: Messenger (Firejail sandbox)
 
-### Produktivität
+### Productivity
 
-- **KeePassXC**: Passwort-Manager
-- **Syncthing**: Dateisynchronisation (lokal, ohne Cloud)
-- **Zathura**: PDF-Viewer (Vim-Bindings)
-- **Portfolio**: Wertpapierdepot-Verwaltung
+- **KeePassXC**: Password manager
+- **Syncthing**: File synchronization (local, no cloud)
+- **Zathura**: PDF viewer (Vim bindings)
+- **Portfolio**: Investment portfolio management
 
-### Entwicklung
+### Development
 
-- **Neovim**: Haupteditor (Rust IDE)
-- **VSCodium**: VS Code ohne Telemetrie
-- **Zed**: Moderner Editor
+- **Neovim**: Primary editor (Rust IDE)
+- **VSCodium**: VS Code without telemetry
+- **Zed**: Modern editor
 
-## Wartung
+## Maintenance
 
-### System aktualisieren
+### Updating the System
 
 ```bash
-# Flake-Inputs aktualisieren
+# Update flake inputs
 nix flake update
 
-# System neu bauen
+# Rebuild system
 sudo nixos-rebuild switch --flake .#achim-laptop
 
-# Oder nur testen (ohne Aktivierung)
+# Or just test (without activation)
 sudo nixos-rebuild test --flake .#achim-laptop
 ```
 
 ### Garbage Collection
 
-Automatisch konfiguriert:
-- Wöchentliche GC
-- Behält letzte 30 Tage
+Automatically configured:
+- Weekly GC
+- Keeps last 30 days
 
-Manuell:
+Manual:
 ```bash
-# Alte Generationen löschen
+# Delete old generations
 sudo nix-collect-garbage -d
 
-# Store optimieren
+# Optimize store
 nix store optimise
 ```
 
 ### Auto-Updates
 
-Aktiviert für:
+Enabled for:
 - nixpkgs
 - home-manager
 
-Täglich um 04:00 Uhr (ohne automatischen Reboot).
+Daily at 04:00 (without automatic reboot).
 
-## Fehlerbehebung
+## Troubleshooting
 
-### VPN verbindet nicht
+### VPN Not Connecting
 
 ```bash
-# Status prüfen
+# Check status
 systemctl status wg-quick-proton0
 
-# Logs anzeigen
+# View logs
 journalctl -u wg-quick-proton0 -f
 
-# Manuell verbinden
+# Connect manually
 sudo wg-quick up proton0
 ```
 
-### Kein Internet (Kill Switch aktiv)
+### No Internet (Kill Switch Active)
 
 ```bash
-# Notfall: Firewall temporär deaktivieren
+# Emergency: Temporarily disable firewall
 sudo ./disable-firewall.sh
 
-# Oder manuell:
+# Or manually:
 sudo iptables -P INPUT ACCEPT
 sudo iptables -P OUTPUT ACCEPT
 sudo iptables -F
 ```
 
-### Secrets nicht verfügbar
+### Secrets Not Available
 
 ```bash
-# sops-nix Service prüfen
+# Check sops-nix service
 systemctl status sops-nix
 
-# Age-Key prüfen
+# Check Age key
 cat /var/lib/sops-nix/key.txt
 
-# Secrets manuell entschlüsseln testen
+# Test manual decryption
 sops -d secrets/secrets.yaml
 ```
 
-### Secure Boot Probleme
+### Secure Boot Problems
 
 ```bash
-# Status prüfen
+# Check status
 sbctl status
 
-# Nicht signierte Dateien anzeigen
+# Show unsigned files
 sbctl verify
 
-# Neu signieren
+# Re-sign
 sudo sbctl sign-all
 ```
 
-## Lizenz
+## License
 
-Private Konfiguration. Verwendung auf eigene Gefahr.
+Private configuration. Use at your own risk.
 
-## Kontakt
+## Contact
 
-- **E-Mail**: achim.schneider@posteo.de
+- **Email**: achim.schneider@posteo.de
 - **Git Signing Key**: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKxoCdoA7621jMhv0wX3tx66NEZMv9tp8xdE76sEfjBI
