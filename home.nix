@@ -460,17 +460,17 @@
         # Keine anonyme Nutzungsstatistik
         urAccepted = -1;
 
-        # Relaying deaktivieren (nur direkte Verbindungen)
-        relaysEnabled = false;
+        # Relaying aktivieren (für Verbindungen hinter NAT/Firewall)
+        relaysEnabled = true;
 
-        # Globale Discovery deaktivieren (nur lokale Geräte oder manuelle IPs)
-        globalAnnounceEnabled = false;
+        # Globale Discovery aktivieren (findet Geräte über Internet)
+        globalAnnounceEnabled = true;
 
         # Lokale Discovery aktivieren (findet Geräte im selben Netzwerk)
         localAnnounceEnabled = true;
 
-        # NAT Traversal deaktivieren (keine Verbindungen über STUN-Server)
-        natEnabled = false;
+        # NAT Traversal aktivieren (für Verbindungen hinter NAT)
+        natEnabled = true;
 
         # Automatische Upgrades deaktivieren (Updates via Nix)
         autoUpgradeIntervalH = 0;
