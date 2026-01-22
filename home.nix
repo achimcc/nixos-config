@@ -97,20 +97,9 @@
           echo "Erstelle OpenBB venv..."
           python -m venv "$VENV_DIR"
           "$VENV_DIR/bin/pip" install --upgrade pip
-          "$VENV_DIR/bin/pip" install openbb
+          "$VENV_DIR/bin/pip" install "openbb[all]" openbb-cli
         fi
-
-        case "''${1:-shell}" in
-          api)
-            echo "Starte OpenBB REST API auf http://localhost:8000"
-            exec "$VENV_DIR/bin/python" -m uvicorn openbb_core.api.rest_api:app --host 0.0.0.0 --port 8000
-            ;;
-          *)
-            echo "OpenBB Python Shell (obb ist verfügbar)"
-            echo "Beispiel: obb.equity.price.historical('AAPL')"
-            exec "$VENV_DIR/bin/python" -i -c "from openbb import obb; print('OpenBB geladen. Nutze: obb.<provider>.<endpoint>()')"
-            ;;
-        esac
+        exec "$VENV_DIR/bin/openbb" "$@"
       '';
     })
 
