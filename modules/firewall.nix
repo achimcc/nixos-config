@@ -81,11 +81,18 @@ in
       # 8. Lokales Netzwerk erlauben (Optional, falls du Drucker/NAS brauchst)
       # iptables -A OUTPUT -d 192.168.178.0/24 -j ACCEPT
 
-      # 9. Syncthing - Nur Heimnetzwerk (192.168.178.0/24)
+      # 9. Syncthing - Lokales Netzwerk und über VPN
       # Eingehende Verbindungen für lokale Discovery und Datenübertragung
       iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -s 192.168.178.0/24 -j ACCEPT
       iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -s 192.168.178.0/24 -j ACCEPT
       iptables -A INPUT -p udp --dport ${toString syncthingPorts.discovery} -s 192.168.178.0/24 -j ACCEPT
+      # Eingehende Verbindungen über VPN (für Relay-Verbindungen)
+      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i proton0 -j ACCEPT
+      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i tun+ -j ACCEPT
+      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i wg+ -j ACCEPT
+      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i proton0 -j ACCEPT
+      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i tun+ -j ACCEPT
+      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i wg+ -j ACCEPT
       # Ausgehende Verbindungen nur ins Heimnetzwerk
       iptables -A OUTPUT -p tcp --dport ${toString syncthingPorts.tcp} -d 192.168.178.0/24 -j ACCEPT
       iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.quic} -d 192.168.178.0/24 -j ACCEPT
