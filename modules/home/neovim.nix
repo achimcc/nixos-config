@@ -16,6 +16,7 @@
       rustfmt
       clippy
       vscode-extensions.vadimcn.vscode-lldb.adapter # codelldb für Rust-Debugging
+      gh # GitHub CLI für octo.nvim
     ];
 
     plugins = with pkgs.vimPlugins; [
@@ -206,6 +207,21 @@
             },
             hints = { enabled = true },
           })
+        '';
+      }
+
+      # Octo.nvim - GitHub Integration (Issues, PRs, Reviews)
+      {
+        plugin = octo-nvim;
+        type = "lua";
+        config = ''
+          require('octo').setup({
+            enable_builtin = true,
+            default_to_projects_v2 = true,
+          })
+          vim.keymap.set('n', '<leader>oi', '<cmd>Octo issue list<CR>', { desc = 'List Issues' })
+          vim.keymap.set('n', '<leader>op', '<cmd>Octo pr list<CR>', { desc = 'List PRs' })
+          vim.keymap.set('n', '<leader>or', '<cmd>Octo review start<CR>', { desc = 'Start Review' })
         '';
       }
 
