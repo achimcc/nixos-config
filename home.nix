@@ -155,6 +155,16 @@
     user@posteo.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKxoCdoA7621jMhv0wX3tx66NEZMv9tp8xdE76sEfjBI
   '';
 
+  # --- GITHUB CLI ---
+  programs.gh = {
+    enable = true;
+    settings = {
+      git_protocol = "ssh";
+      prompt = "enabled";
+      editor = "nvim";
+    };
+  };
+
   # --- VS CODIUM (Open Source VSCode ohne Microsoft Telemetrie) ---
   programs.vscode = {
     enable = true;
@@ -311,6 +321,11 @@
       # Anthropic API Key aus sops Secret laden (für avante.nvim, crush, etc.)
       if ("/run/secrets/anthropic-api-key" | path exists) {
         $env.ANTHROPIC_API_KEY = (open /run/secrets/anthropic-api-key | str trim)
+      }
+
+      # GitHub Token aus sops Secret laden (für gh CLI, octo.nvim)
+      if ("/run/secrets/github-token" | path exists) {
+        $env.GH_TOKEN = (open /run/secrets/github-token | str trim)
       }
     '';
   };

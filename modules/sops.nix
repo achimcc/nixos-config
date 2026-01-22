@@ -46,6 +46,12 @@
       mode = "0400";
     };
 
+    # GitHub Token für gh CLI und octo.nvim
+    secrets."github-token" = {
+      owner = "user";
+      mode = "0400";
+    };
+
     # Template für NetworkManager Environment-Datei
     templates."nm-wifi-env" = {
       content = ''
