@@ -57,7 +57,7 @@
       owner = "user";
       mode = "0400";
     };
-    secrets."syncthing/devices/handy-google-profile" = {
+    secrets."syncthing/devices/handy-google" = {
       owner = "user";
       mode = "0400";
     };

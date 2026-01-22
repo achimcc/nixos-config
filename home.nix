@@ -58,6 +58,7 @@
 
     # --- EDITOREN ---
     zed-editor
+    apostrophe # Markdown-Editor für GNOME
 
     # --- RUST ENTWICKLUNG ---
     rustup # Enthält rust-analyzer (rustup component add rust-analyzer)
@@ -492,8 +493,8 @@
           # Keine Auto-Accept für eingehende Ordner (muss manuell bestätigt werden)
           autoAcceptFolders = false;
         };
-        "handy google profile" = {
-          id = "KM44GBT-UMUHEBA-WK4ZNJF-AUDQWFH-UGZB2XQ-CY2IVWS-LGWZWBI-33EEKQ6";
+        "handy-google" = {
+          id = "ZPTESBS-PP56L6O-BHJ4SFU-DQZHE4L-RAQ6UYA-PYHQH74-FWLSNC3-DOKGHAW";
           autoAcceptFolders = false;
         };
       };
