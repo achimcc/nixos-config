@@ -71,10 +71,11 @@
 
     # --- OPENBB (Investment Research Platform) ---
     # FHS-kompatible Umgebung für OpenBB (pip-basiert)
+    # Python 3.11 für Kompatibilität mit älteren OpenBB-Versionen
     (pkgs.buildFHSEnv {
       name = "openbb";
       targetPkgs = pkgs: with pkgs; [
-        (python312.withPackages (ps: with ps; [
+        (python311.withPackages (ps: with ps; [
           pip
           virtualenv
           numpy
@@ -97,7 +98,8 @@
           echo "Erstelle OpenBB venv..."
           python -m venv "$VENV_DIR"
           "$VENV_DIR/bin/pip" install --upgrade pip
-          "$VENV_DIR/bin/pip" install "openbb==4.5.0" "openbb-cli==1.2.0" openbb-charting
+          # Stabile Version ohne commodity-Bug (benötigt Python <3.12)
+          "$VENV_DIR/bin/pip" install "openbb==4.2.0" "openbb-cli==1.0.0" openbb-charting
         fi
         exec "$VENV_DIR/bin/openbb" "$@"
       '';
