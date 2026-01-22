@@ -69,7 +69,7 @@
     enable = true;
     dnssec = "allow-downgrade"; # "true" kann Probleme machen
     domains = [ "~." ];
-    dnsovertls = "true";
+    dnsovertls = "opportunistic"; # "true" blockiert VPN-DNS ohne TLS-Support
     # Kein fallbackDns - verhindert DNS-Leaks wenn VPN down
     # Mullvad DNS-over-TLS (No-Log Policy, schwedisches Recht)
     # https://mullvad.net/en/help/dns-over-https-and-dns-over-tls
@@ -112,13 +112,42 @@
           "--private=/home/user/Downloads"
         ];
       };
+
+      # FreeTube - YouTube-Client mit Sandbox
+      freetube = {
+        executable = "${pkgs.freetube}/bin/freetube";
+        profile = "${pkgs.firejail}/etc/firejail/freetube.profile";
+        extraArgs = [
+          "--env=NIXOS_OZONE_WL=1"
+        ];
+      };
+
+      # Thunderbird - E-Mail-Client mit Sandbox
+      thunderbird = {
+        executable = "${pkgs.thunderbird}/bin/thunderbird";
+        profile = "${pkgs.firejail}/etc/firejail/thunderbird.profile";
+      };
+
+      # KeePassXC - Passwort-Manager mit Sandbox
+      keepassxc = {
+        executable = "${pkgs.keepassxc}/bin/keepassxc";
+        profile = "${pkgs.firejail}/etc/firejail/keepassxc.profile";
+      };
+
+      # Zathura - PDF-Viewer mit Sandbox
+      zathura = {
+        executable = "${pkgs.zathura}/bin/zathura";
+        profile = "${pkgs.firejail}/etc/firejail/zathura.profile";
+      };
     };
   };
 
-  # Browser Pakete (werden von Firejail gewrappt)
+  # Pakete die von Firejail gewrappt werden
+  # (Thunderbird, KeePassXC, Zathura sind in home.nix)
   environment.systemPackages = with pkgs; [
     tor-browser
     signal-desktop
     librewolf
+    freetube
   ];
 }

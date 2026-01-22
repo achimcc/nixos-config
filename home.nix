@@ -69,6 +69,9 @@
     # --- NODE.JS ---
     nodejs_22 # Enthält npm für globale Pakete
 
+    # ---- youtube
+    freetube
+
     # --- OPENBB (Investment Research Platform) ---
     # FHS-kompatible Umgebung für OpenBB (pip-basiert)
     # Python 3.11 für Kompatibilität mit älteren OpenBB-Versionen
@@ -345,7 +348,7 @@
       gs = "git status";
       gc = "git commit";
       gp = "git push";
-      obb = "openbb";  # FHS-wrapped, installiert automatisch beim ersten Start
+      obb = "openbb"; # FHS-wrapped, installiert automatisch beim ersten Start
     };
     environmentVariables = {
       EDITOR = "vim";
