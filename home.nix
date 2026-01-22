@@ -152,6 +152,45 @@
     };
   };
 
+  # --- POSTEO PASSWORT IN GNOME KEYRING ---
+  # Lädt das Posteo-Passwort aus sops in den GNOME Keyring beim Login
+  # Thunderbird greift automatisch darauf zu
+  systemd.user.services.posteo-keyring-sync = {
+    Unit = {
+      Description = "Sync Posteo password from sops to GNOME Keyring";
+      After = [ "gnome-keyring-daemon.service" ];
+      Requires = [ "gnome-keyring-daemon.service" ];
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = pkgs.writeShellScript "posteo-keyring-sync" ''
+        # Warte kurz bis Keyring bereit ist
+        sleep 2
+        
+        # Passwort aus sops lesen
+        if [ -f /run/secrets/email/posteo ]; then
+          PASSWORD=$(cat /run/secrets/email/posteo)
+          
+          # In GNOME Keyring speichern (Format das Thunderbird erwartet)
+          # IMAP Passwort
+          echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo IMAP" \
+            protocol imap \
+            server posteo.de \
+            user "user@posteo.de"
+          
+          # SMTP Passwort
+          echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo SMTP" \
+            protocol smtp \
+            server posteo.de \
+            user "user@posteo.de"
+        fi
+      '';
+    };
+    Install = {
+      WantedBy = [ "graphical-session.target" ];
+    };
+  };
+
   # --- EMAIL CLIENT (Thunderbird - Hardened) ---
   programs.thunderbird = {
     enable = true;
