@@ -492,6 +492,10 @@
           # Keine Auto-Accept für eingehende Ordner (muss manuell bestätigt werden)
           autoAcceptFolders = false;
         };
+        "handy google profile" = {
+          id = "KM44GBT-UMUHEBA-WK4ZNJF-AUDQWFH-UGZB2XQ-CY2IVWS-LGWZWBI-33EEKQ6";
+          autoAcceptFolders = false;
+        };
       };
     };
   };
