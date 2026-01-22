@@ -198,3 +198,15 @@ If a configuration breaks the system, select a previous generation from the boot
 - Default branch is `main`
 - Pull strategy is rebase
 - Commit messages in German, imperative form
+
+## Documentation
+
+**IMPORTANT**: The `README.md` must be updated whenever the configuration changes:
+
+- New modules → Update "Module Structure" section
+- New secrets → Expand table in "Secrets Management"
+- New applications → Add to "Applications" section
+- New keybindings → Update table in "Development Environment"
+- Security changes → Adjust "Security Features" section
+
+The README.md serves as the central user documentation and should always be kept up to date.
