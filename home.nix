@@ -97,7 +97,9 @@
           echo "Erstelle OpenBB venv..."
           python -m venv "$VENV_DIR"
           "$VENV_DIR/bin/pip" install --upgrade pip
-          "$VENV_DIR/bin/pip" install "openbb[all]" openbb-cli
+          "$VENV_DIR/bin/pip" install openbb openbb-cli openbb-charting
+          echo "Baue OpenBB Interface..."
+          "$VENV_DIR/bin/python" -c "import openbb; openbb.build()"
         fi
         exec "$VENV_DIR/bin/openbb" "$@"
       '';
