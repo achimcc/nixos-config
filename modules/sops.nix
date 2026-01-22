@@ -57,6 +57,10 @@
       owner = "user";
       mode = "0400";
     };
+    secrets."syncthing/devices/handy-google-profile" = {
+      owner = "user";
+      mode = "0400";
+    };
 
     # Template für NetworkManager Environment-Datei
     templates."nm-wifi-env" = {
