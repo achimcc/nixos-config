@@ -264,6 +264,14 @@
         vadimcn.vscode-lldb
         myriad-dreamin.tinymist
         serayuzgur.crates # Zeigt Crate-Versionen in Cargo.toml
+      ] ++ [
+        # TangleGuard - Dependency Graph Visualisierung
+        (pkgs.vscode-utils.extensionFromVscodeMarketplace {
+          publisher = "ArchwiseSolutionsUG";
+          name = "tangleguard";
+          version = "0.0.8";
+          sha256 = "09cd8ka4nrys1wcg09c20i65mxxl6mk6li8rxap60w8f2rn6gixq";
+        })
       ];
 
       userSettings = {
