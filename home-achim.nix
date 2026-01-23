@@ -396,6 +396,7 @@
       gc = "git commit";
       gp = "git push";
       obb = "openbb"; # FHS-wrapped, installiert automatisch beim ersten Start
+      nrs = "sudo nixos-rebuild switch --flake /home/achim/nixos-config#achim-laptop";
     };
     environmentVariables = {
       EDITOR = "vim";
