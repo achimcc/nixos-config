@@ -11,6 +11,27 @@
 
   home.stateVersion = "24.11";
 
+  # ==========================================
+  # FLATPAK - Signal Desktop (deklarativ)
+  # ==========================================
+
+  services.flatpak = {
+    enable = true;
+    remotes = [
+      {
+        name = "flathub";
+        location = "https://dl.flathub.org/repo/flathub.flatpakrepo";
+      }
+    ];
+    packages = [
+      "org.signal.Signal"
+    ];
+    update.auto = {
+      enable = true;
+      onCalendar = "weekly";
+    };
+  };
+
   # WICHTIG FÜR RUST:
   home.sessionPath = [ "$HOME/.cargo/bin" ];
 

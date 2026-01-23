@@ -93,15 +93,7 @@
         ];
       };
 
-      # Signal Desktop - Messenger mit Sandbox
-      signal-desktop = {
-        executable = "${pkgs.signal-desktop}/bin/signal-desktop";
-        profile = "${pkgs.firejail}/etc/firejail/signal-desktop.profile";
-        extraArgs = [
-          # Wayland-Unterstützung
-          "--env=NIXOS_OZONE_WL=1"
-        ];
-      };
+      # Signal Desktop - via Flatpak (siehe home-achim.nix)
 
       # LibreWolf - Privacy Browser mit Sandbox
       librewolf = {
@@ -162,9 +154,9 @@
 
   # Pakete die von Firejail gewrappt werden
   # (Thunderbird, KeePassXC, Zathura, VSCodium sind in home-achim.nix)
+  # Signal via Flatpak (home-achim.nix), nicht mehr hier
   environment.systemPackages = with pkgs; [
     tor-browser
-    signal-desktop
     librewolf
     freetube
     logseq
