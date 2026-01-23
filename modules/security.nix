@@ -16,9 +16,9 @@
   # ==========================================
 
   boot.kernel.sysctl = {
-    # User Namespaces DEAKTIVIERT (hardened Kernel Standard)
-    # Signal läuft über Flatpak, andere Electron-Apps über chromiumSuidSandbox
-    "kernel.unprivileged_userns_clone" = 0;
+    # User Namespaces erlauben (benötigt für Electron-Apps wie VSCodium, Signal)
+    # Der hardened Kernel deaktiviert dies standardmäßig
+    "kernel.unprivileged_userns_clone" = 1;
 
     # Kernel Pointer verstecken (erschwert Exploits)
     "kernel.kptr_restrict" = 2;
