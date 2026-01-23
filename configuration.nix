@@ -73,10 +73,20 @@
   ];
 
   # ==========================================
-  # DRUCKER
+  # DRUCKER (Brother MFC-7360N im Netzwerk)
   # ==========================================
 
-  services.printing.enable = true;
+  services.printing = {
+    enable = true;
+    drivers = [ pkgs.brlaser ]; # Open-Source Brother Laser Treiber
+  };
+
+  # Netzwerk-Drucker Auto-Discovery
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+    openFirewall = true;
+  };
 
   # ==========================================
   # SSD OPTIMIERUNG

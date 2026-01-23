@@ -131,6 +131,31 @@
   # (VSCodium, Signal, etc. funktionieren sonst nicht mit hardened Kernel)
   security.chromiumSuidSandbox.enable = true;
 
+  # ==========================================
+  # USBGUARD - Schutz vor BadUSB-Angriffen
+  # ==========================================
+
+  services.usbguard = {
+    enable = true;
+    dbus.enable = true;
+
+    # Neue Geräte blockieren bis explizit erlaubt
+    implicitPolicyTarget = "block";
+
+    # Bereits angeschlossene Geräte beim Boot erlauben
+    # WICHTIG: Nach erstem Boot mit `sudo usbguard generate-policy > /etc/usbguard/rules.conf`
+    # eine Policy generieren, dann presentDevicePolicy auf "apply-policy" ändern
+    presentDevicePolicy = "allow";
+
+    # Regeln-Datei (wird von usbguard generate-policy erstellt)
+    rules = null;
+  };
+
+  # USBGuard Tools verfügbar machen
+  environment.systemPackages = with pkgs; [
+    usbguard
+  ];
+
   # Audit Framework aktivieren (für Incident Response)
   security.auditd.enable = true;
   security.audit = {
