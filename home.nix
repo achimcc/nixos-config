@@ -59,9 +59,15 @@
     # --- EDITOREN ---
     zed-editor
     apostrophe # Markdown-Editor für GNOME
+    logseq # Wissensmanagement & Notizen
 
     # --- RUST ENTWICKLUNG ---
-    rustup # Enthält rust-analyzer (rustup component add rust-analyzer)
+    # Deklarative Rust-Toolchain (kein manuelles rustup setup nötig)
+    cargo
+    rustc
+    rust-analyzer
+    clippy
+    rustfmt
     gcc
 
     # --- KOMMUNIKATION ---
