@@ -59,7 +59,7 @@
     # --- EDITOREN ---
     zed-editor
     apostrophe # Markdown-Editor für GNOME
-    logseq # Wissensmanagement & Notizen
+    # logseq - via Firejail in modules/network.nix
 
     # --- RUST ENTWICKLUNG ---
     # Deklarative Rust-Toolchain (kein manuelles rustup setup nötig)

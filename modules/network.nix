@@ -134,6 +134,24 @@
         profile = "${pkgs.firejail}/etc/firejail/keepassxc.profile";
       };
 
+      # Logseq - Wissensmanagement (Electron-App)
+      logseq = {
+        executable = "${pkgs.logseq}/bin/logseq";
+        profile = "${pkgs.firejail}/etc/firejail/logseq.profile";
+        extraArgs = [
+          "--env=NIXOS_OZONE_WL=1"
+        ];
+      };
+
+      # VSCodium - Code Editor (Electron-App)
+      vscodium = {
+        executable = "${pkgs.vscodium}/bin/codium";
+        profile = "${pkgs.firejail}/etc/firejail/vscodium.profile";
+        extraArgs = [
+          "--env=NIXOS_OZONE_WL=1"
+        ];
+      };
+
       # Zathura - PDF-Viewer mit Sandbox
       zathura = {
         executable = "${pkgs.zathura}/bin/zathura";
@@ -143,11 +161,12 @@
   };
 
   # Pakete die von Firejail gewrappt werden
-  # (Thunderbird, KeePassXC, Zathura sind in home.nix)
+  # (Thunderbird, KeePassXC, Zathura, VSCodium sind in home.nix)
   environment.systemPackages = with pkgs; [
     tor-browser
     signal-desktop
     librewolf
     freetube
+    logseq
   ];
 }
