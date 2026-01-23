@@ -406,6 +406,7 @@
       gp = "git push";
       obb = "openbb"; # FHS-wrapped, installiert automatisch beim ersten Start
       nrs = "sudo nixos-rebuild switch --flake /home/user/nixos-config#nixos";
+      charge = "sudo tlp fullcharge";
     };
     environmentVariables = {
       EDITOR = "vim";
