@@ -263,6 +263,7 @@
         tamasfe.even-better-toml
         vadimcn.vscode-lldb
         myriad-dreamin.tinymist
+        serayuzgur.crates # Zeigt Crate-Versionen in Cargo.toml
       ];
 
       userSettings = {
