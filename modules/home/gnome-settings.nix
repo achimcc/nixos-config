@@ -59,7 +59,7 @@
         "org.gnome.Nautilus.desktop"
         "code.desktop"
         "org.keepassxc.KeePassXC.desktop"
-        "signal-desktop.desktop"
+        "org.signal.Signal.desktop"
       ];
       # Extensions aktivieren
       enabled-extensions = [

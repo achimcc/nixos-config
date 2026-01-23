@@ -17,8 +17,7 @@
 
   boot.kernel.sysctl = {
     # User Namespaces DEAKTIVIERT (hardened Kernel Standard)
-    # Electron-Apps nutzen stattdessen chromiumSuidSandbox
-    # Bei Problemen auf 1 setzen und neu bauen
+    # Signal läuft über Flatpak, andere Electron-Apps über chromiumSuidSandbox
     "kernel.unprivileged_userns_clone" = 0;
 
     # Kernel Pointer verstecken (erschwert Exploits)

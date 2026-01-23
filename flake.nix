@@ -23,9 +23,12 @@
       url = "github:nix-community/lanzaboote/v0.4.2";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Deklaratives Flatpak
+    nix-flatpak.url = "github:gmodena/nix-flatpak";
   };
 
-  outputs = { self, nixpkgs, home-manager, llm-agents, sops-nix, lanzaboote, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, llm-agents, sops-nix, lanzaboote, nix-flatpak, ... } @inputs:
     let
       system = "x86_64-linux";
     in
@@ -53,6 +56,7 @@
             # Sops für Home Manager
             home-manager.sharedModules = [
               sops-nix.homeManagerModules.sops
+              nix-flatpak.homeManagerModules.nix-flatpak
             ];
           }
         ];
