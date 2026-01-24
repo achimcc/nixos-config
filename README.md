@@ -10,6 +10,7 @@ A security-oriented, declarative NixOS configuration focused on privacy, develop
 - [Module Structure](#module-structure)
 - [Secrets Management](#secrets-management)
 - [Development Environment](#development-environment)
+- [CLI Tools](#cli-tools)
 - [Applications](#applications)
 - [Maintenance](#maintenance)
 - [Troubleshooting](#troubleshooting)
@@ -20,7 +21,7 @@ A security-oriented, declarative NixOS configuration focused on privacy, develop
 |-----------|---------------|
 | **NixOS Version** | 25.05 |
 | **Desktop** | GNOME (X11, GDM) |
-| **Shell** | Nushell + Starship |
+| **Shell** | Nushell + Starship + Modern Unix Tools |
 | **Editor** | Neovim (Rust IDE), VSCodium, Zed |
 | **VPN** | ProtonVPN (WireGuard, Auto-Connect) |
 | **Encryption** | LUKS Full-Disk, Secure Boot |
@@ -268,6 +269,77 @@ echo $ANTHROPIC_API_KEY  # Available in nushell
 # - avante.nvim (in Neovim)
 # - crush (CLI)
 # - claude-code (npm install -g @anthropic-ai/claude-code)
+```
+
+## CLI Tools
+
+Modern Unix replacements with better UX, performance, and features.
+
+### Modern Unix Essentials
+
+| Tool | Command | Replaces | Feature |
+|------|---------|----------|---------|
+| **ripgrep** | `rg` | grep | Fastest search, respects .gitignore |
+| **bat** | `bat` | cat | Syntax highlighting, Git integration |
+| **eza** | `eza` | ls | Icons, colors, Git status, tree view |
+| **zoxide** | `z` | cd | Smart directory jumping |
+| **fd** | `fd` | find | Intuitive syntax, ignores node_modules |
+
+### Monitoring & Network
+
+| Tool | Command | Replaces | Feature |
+|------|---------|----------|---------|
+| **bottom** | `btm` | top/htop | Graphical process monitor |
+| **xh** | `xh` | curl | HTTP client with JSON formatting |
+| **dust** | `dust` | du | Visual disk usage |
+
+### Git Tools
+
+| Tool | Command | Feature |
+|------|---------|---------|
+| **gitui** | `gitui` | Terminal UI for Git |
+| **delta** | (pager) | Syntax highlighting for diffs |
+
+### Shell Aliases
+
+All tools are aliased in Nushell for seamless replacement:
+
+```bash
+ls   → eza --icons
+ll   → eza -l --icons --git
+la   → eza -la --icons --git
+lt   → eza --tree --icons
+cat  → bat
+grep → rg
+find → fd
+top  → btm
+du   → dust
+z    → zoxide (smart cd)
+```
+
+### Usage Examples
+
+```bash
+# Fast recursive search
+rg "TODO" --type rust
+
+# Find files by pattern
+fd "\.nix$"
+
+# Smart directory navigation
+z nixos    # Jumps to ~/nixos-config
+
+# Visual disk usage
+dust /home
+
+# HTTP request with JSON
+xh get https://api.example.com/data
+
+# Git with syntax-highlighted diffs
+git diff   # Automatically uses delta
+
+# Interactive Git UI
+gitui
 ```
 
 ## Applications

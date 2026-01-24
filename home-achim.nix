@@ -75,6 +75,15 @@
     gitui # Terminal UI für Git
     delta # Syntax-Highlighting für Git Diffs
 
+    # --- MODERN UNIX CLI TOOLS ---
+    ripgrep # rg - schnelle Suche, ersetzt grep
+    bat # Syntax-Highlighting cat
+    eza # Modernes ls mit Icons und Git-Status
+    fd # Schnelles find mit intuitiver Syntax
+    bottom # btm - grafischer Prozess-Monitor
+    xh # HTTP-Client mit JSON-Formatting
+    dust # Visualisierte Festplattenbelegung
+
     # --- NIX ENTWICKLUNG ---
     nil
     nixpkgs-fmt
@@ -440,14 +449,29 @@
     enableNushellIntegration = true;
   };
 
+  programs.zoxide = {
+    enable = true;
+    enableNushellIntegration = true;
+  };
+
   programs.nushell = {
     enable = true;
     shellAliases = {
-      ll = "ls -l";
-      la = "ls -a";
+      # Modern Unix Aliase
+      ls = "eza --icons";
+      ll = "eza -l --icons --git";
+      la = "eza -la --icons --git";
+      lt = "eza --tree --icons";
+      cat = "bat";
+      grep = "rg";
+      find = "fd";
+      top = "btm";
+      du = "dust";
+      # Git
       gs = "git status";
       gc = "git commit";
       gp = "git push";
+      # Sonstiges
       obb = "openbb"; # FHS-wrapped, installiert automatisch beim ersten Start
       nrs = "sudo nixos-rebuild switch --flake /home/achim/nixos-config#achim-laptop";
       charge = "sudo tlp fullcharge";
