@@ -127,11 +127,13 @@
       };
 
       # Logseq - Wissensmanagement (Electron-App)
+      # Nutzt Obsidian-Profil da kein eigenes Logseq-Profil existiert
       logseq = {
         executable = "${pkgs.logseq}/bin/logseq";
-        profile = "${pkgs.firejail}/etc/firejail/logseq.profile";
+        profile = "${pkgs.firejail}/etc/firejail/obsidian.profile";
         extraArgs = [
           "--env=NIXOS_OZONE_WL=1"
+          "--whitelist=/home/user/Dokumente/Logseq"
         ];
       };
 
@@ -141,6 +143,8 @@
         profile = "${pkgs.firejail}/etc/firejail/vscodium.profile";
         extraArgs = [
           "--env=NIXOS_OZONE_WL=1"
+          "--whitelist=/home/user/Projects"
+          "--whitelist=/home/user/nixos-config"
         ];
       };
 

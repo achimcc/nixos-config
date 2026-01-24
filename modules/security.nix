@@ -238,8 +238,8 @@
     # Boot-Verzeichnis
     /boot NORMAL
 
-    # NixOS Konfiguration
-    /etc/nixos CONTENT
+    # NixOS Konfiguration (Flake-basiert)
+    /home/user/nixos-config CONTENT
 
     # Ausnahmen (häufig ändernde Verzeichnisse)
     !/var/log
@@ -253,7 +253,8 @@
     !/run
     !/nix/store
     !/nix/var
-    !/home
+    !/home/user/nixos-config/.git
+    !/home/user/nixos-config/result
   '';
 
   # Systemd-Timer für regelmäßige Prüfung
@@ -361,18 +362,39 @@
     daemon = {
       enable = true;
       settings = {
-        # Echtzeit-Scanning für Home-Verzeichnis
-        OnAccessIncludePath = [ "/home" ];
-        OnAccessExcludeUname = "clamav"; # Sich selbst nicht scannen
         # Maximale Dateigröße zum Scannen (100MB)
         MaxFileSize = "100M";
         MaxScanSize = "100M";
+        # Echtzeit-Scanning Konfiguration (für clamonacc)
+        OnAccessIncludePath = [ "/home" ];
+        OnAccessExcludeUname = "clamav";
+        OnAccessPrevention = "no"; # Nur loggen, nicht blockieren
       };
     };
     updater = {
       enable = true;
       interval = "daily";
       frequency = 1;
+    };
+    # Echtzeit-Scanner aktivieren
+    fangfrisch.enable = true;
+    scanner = {
+      enable = true;
+      interval = "daily";
+    };
+  };
+
+  # clamonacc Service für Echtzeit-Scanning
+  systemd.services.clamonacc = {
+    description = "ClamAV On-Access Scanner";
+    after = [ "clamav-daemon.service" ];
+    requires = [ "clamav-daemon.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "simple";
+      ExecStart = "${pkgs.clamav}/bin/clamonacc --foreground --log=/var/log/clamav/clamonacc.log";
+      Restart = "on-failure";
+      RestartSec = "10s";
     };
   };
 }

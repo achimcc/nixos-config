@@ -366,11 +366,11 @@
   };
 
   # --- BROWSER (LibreWolf) ---
-  # HINWEIS: LibreWolf wird über Firejail in modules/network.nix installiert und gesandboxt.
-  # Diese Konfiguration wendet nur Settings und Extensions an.
+  # LibreWolf wird über Firejail in modules/network.nix installiert und gesandboxt.
+  # package = null verhindert doppelte Installation, wendet nur Settings/Extensions an.
   programs.librewolf = {
     enable = true;
-    package = pkgs.librewolf; # Explizit setzen für Konfiguration (Firejail-Wrapper hat Priorität)
+    package = null; # Paket kommt via Firejail-Wrapper aus network.nix
     settings = {
       "privacy.clearOnShutdown.history" = false;
       "privacy.resistFingerprinting" = true; # Manchmal nötig für Streaming/Captchas
@@ -570,12 +570,10 @@
       };
 
       # Deklarative Geräte-Konfiguration
-      # Geräte-IDs werden aus SOPS Secrets geladen
+      # Hinweis: Device IDs sind öffentliche Identifikatoren (nicht geheim)
       devices = {
         "handy" = {
-          # Geräte-ID wird unten via sops.templates gesetzt
           id = "5E6BMTG-QDGJW2C-MKKX4J4-7I6ZJWY-IM6KISC-YYGAMZZ-PIEENVJ-XMOQQAM";
-          # Keine Auto-Accept für eingehende Ordner (muss manuell bestätigt werden)
           autoAcceptFolders = false;
         };
         "handy-google" = {
