@@ -208,49 +208,63 @@
   # ==========================================
 
   # AIDE überwacht kritische Systemdateien auf Änderungen
-  # Nach Rebuild: sudo aide --init && sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+  # Nach Rebuild: sudo aideinit && sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
   # Prüfung: sudo aide --check
-  services.aide = {
-    enable = true;
+  environment.etc."aide.conf".text = ''
+    # AIDE Konfiguration für NixOS
+    database_in=file:/var/lib/aide/aide.db
+    database_out=file:/var/lib/aide/aide.db.new
+    database_new=file:/var/lib/aide/aide.db.new
 
-    # Tägliche Integritätsprüfung um 04:30
-    settings = {
-      # Kritische Systempfade überwachen
-      "/" = "R";  # Recursive
-      "/etc" = "R+a";  # Recursive + access time
-      "/boot" = "R";
-      "/usr" = "R";
+    # Regel-Definitionen
+    NORMAL = p+i+n+u+g+s+m+c+acl+xattrs+sha256
+    DIR = p+i+n+u+g+acl+xattrs
+    PERMS = p+u+g+acl+xattrs
+    LOG = p+u+g+n+acl+xattrs
+    CONTENT = sha256+ftype
+    DATAONLY = p+n+u+g+s+acl+xattrs+sha256
 
-      # Besonders wichtige Konfigurationsdateien
-      "/etc/passwd" = "p+i+u+g+s+m+c+acl+xattrs+sha256";
-      "/etc/shadow" = "p+i+u+g+s+m+c+acl+xattrs+sha256";
-      "/etc/group" = "p+i+u+g+s+m+c+acl+xattrs+sha256";
-      "/etc/sudoers" = "p+i+u+g+s+m+c+acl+xattrs+sha256";
-      "/etc/ssh" = "R+sha256";
+    # Kritische Systemdateien überwachen
+    /etc/passwd NORMAL
+    /etc/shadow NORMAL
+    /etc/group NORMAL
+    /etc/gshadow NORMAL
+    /etc/sudoers NORMAL
+    /etc/ssh NORMAL
 
-      # NixOS-spezifische Pfade
-      "/etc/nixos" = "R+sha256";
+    # Boot-Verzeichnis
+    /boot NORMAL
 
-      # Ausnahmen (häufig ändernde Dateien)
-      "!/var/log";
-      "!/var/cache";
-      "!/var/tmp";
-      "!/tmp";
-      "!/proc";
-      "!/sys";
-      "!/dev";
-      "!/run";
-      "!/nix/store";  # Immutable, von Nix verwaltet
-      "!/home";  # Benutzerdaten ändern sich häufig
-    };
-  };
+    # NixOS Konfiguration
+    /etc/nixos CONTENT
+
+    # Ausnahmen (häufig ändernde Verzeichnisse)
+    !/var/log
+    !/var/cache
+    !/var/tmp
+    !/var/lib/aide
+    !/tmp
+    !/proc
+    !/sys
+    !/dev
+    !/run
+    !/nix/store
+    !/nix/var
+    !/home
+  '';
+
+  environment.systemPackages = with pkgs; [
+    usbguard
+    aide
+  ];
 
   # Systemd-Timer für regelmäßige Prüfung
   systemd.services.aide-check = {
     description = "AIDE Integrity Check";
+    path = [ pkgs.aide ];
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${pkgs.aide}/bin/aide --check";
+      ExecStart = "${pkgs.aide}/bin/aide --check --config=/etc/aide.conf";
       StandardOutput = "journal";
       StandardError = "journal";
     };
