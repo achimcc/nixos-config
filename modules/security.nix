@@ -204,6 +204,69 @@
   };
 
   # ==========================================
+  # AIDE - File Integrity Monitoring
+  # ==========================================
+
+  # AIDE überwacht kritische Systemdateien auf Änderungen
+  # Nach Rebuild: sudo aide --init && sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+  # Prüfung: sudo aide --check
+  services.aide = {
+    enable = true;
+
+    # Tägliche Integritätsprüfung um 04:30
+    settings = {
+      # Kritische Systempfade überwachen
+      "/" = "R";  # Recursive
+      "/etc" = "R+a";  # Recursive + access time
+      "/boot" = "R";
+      "/usr" = "R";
+
+      # Besonders wichtige Konfigurationsdateien
+      "/etc/passwd" = "p+i+u+g+s+m+c+acl+xattrs+sha256";
+      "/etc/shadow" = "p+i+u+g+s+m+c+acl+xattrs+sha256";
+      "/etc/group" = "p+i+u+g+s+m+c+acl+xattrs+sha256";
+      "/etc/sudoers" = "p+i+u+g+s+m+c+acl+xattrs+sha256";
+      "/etc/ssh" = "R+sha256";
+
+      # NixOS-spezifische Pfade
+      "/etc/nixos" = "R+sha256";
+
+      # Ausnahmen (häufig ändernde Dateien)
+      "!/var/log";
+      "!/var/cache";
+      "!/var/tmp";
+      "!/tmp";
+      "!/proc";
+      "!/sys";
+      "!/dev";
+      "!/run";
+      "!/nix/store";  # Immutable, von Nix verwaltet
+      "!/home";  # Benutzerdaten ändern sich häufig
+    };
+  };
+
+  # Systemd-Timer für regelmäßige Prüfung
+  systemd.services.aide-check = {
+    description = "AIDE Integrity Check";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.aide}/bin/aide --check";
+      StandardOutput = "journal";
+      StandardError = "journal";
+    };
+  };
+
+  systemd.timers.aide-check = {
+    description = "Daily AIDE Integrity Check";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* 04:30:00";
+      Persistent = true;
+      RandomizedDelaySec = "30min";
+    };
+  };
+
+  # ==========================================
   # CLAMAV - Antivirus Scanner
   # ==========================================
 
