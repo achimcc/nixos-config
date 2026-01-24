@@ -1,7 +1,7 @@
 # Neovim Konfiguration mit rustaceanvim
 # Optimiert für Rust-Entwicklung
 
-{ config, pkgs, ... }:
+{ config, pkgs, pkgs-unstable, ... }:
 
 {
   programs.neovim = {
@@ -10,13 +10,14 @@
     viAlias = true;
     vimAlias = true;
 
-    extraPackages = with pkgs; [
-      rust-analyzer
-      cargo
-      rustfmt
-      clippy
-      vscode-extensions.vadimcn.vscode-lldb.adapter # codelldb für Rust-Debugging
-      gh # GitHub CLI für octo.nvim
+    extraPackages = [
+      # Rust aus unstable (konsistent mit home-achim.nix)
+      pkgs-unstable.rust-analyzer
+      pkgs-unstable.cargo
+      pkgs-unstable.rustfmt
+      pkgs-unstable.clippy
+      pkgs.vscode-extensions.vadimcn.vscode-lldb.adapter # codelldb für Rust-Debugging
+      pkgs.gh # GitHub CLI für octo.nvim
     ];
 
     plugins = with pkgs.vimPlugins; [
