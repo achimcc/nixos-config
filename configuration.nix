@@ -127,8 +127,8 @@
     allowReboot = false;
     dates = "04:00";
     flake = "/home/user/nixos-config#nixos";
-    # Flake-Inputs vor dem Build aktualisieren
-    flags = [ "--update-input" "nixpkgs" "--update-input" "home-manager" ];
+    # Kein --update-input: flake.lock bleibt unverändert
+    # Updates manuell via: nix flake update
   };
 
   # ==========================================
