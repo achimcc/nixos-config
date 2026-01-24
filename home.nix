@@ -159,7 +159,7 @@
     })
 
     # --- AI CODING ASSISTANT ---
-    # Hier nutzen wir nun den korrekten Flake-Input
+    aider-chat # AI pair programming
     llm-agents.packages.${pkgs.system}.crush
     # claude-code via npm installieren: npm install -g @anthropic-ai/claude-code
   ];
