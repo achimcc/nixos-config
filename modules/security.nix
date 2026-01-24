@@ -151,9 +151,10 @@
     rules = null;
   };
 
-  # USBGuard Tools verfügbar machen
+  # Sicherheits-Tools verfügbar machen
   environment.systemPackages = with pkgs; [
     usbguard
+    aide
   ];
 
   # Audit Framework aktivieren (für Incident Response)
@@ -252,11 +253,6 @@
     !/nix/var
     !/home
   '';
-
-  environment.systemPackages = with pkgs; [
-    usbguard
-    aide
-  ];
 
   # Systemd-Timer für regelmäßige Prüfung
   systemd.services.aide-check = {

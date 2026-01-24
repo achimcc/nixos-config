@@ -62,6 +62,16 @@
       mode = "0400";
     };
 
+    # ProtonVPN WireGuard Konfiguration
+    secrets."protonvpn/endpoint" = {
+      owner = "root";
+      mode = "0400";
+    };
+    secrets."protonvpn/publickey" = {
+      owner = "root";
+      mode = "0400";
+    };
+
     # Template für NetworkManager Environment-Datei
     templates."nm-wifi-env" = {
       content = ''
@@ -70,6 +80,26 @@
       owner = "root";
       group = "root";
       mode = "0400";
+    };
+
+    # WireGuard Konfigurationsdatei für ProtonVPN (aus Secrets generiert)
+    templates."wireguard-proton0.conf" = {
+      content = ''
+        [Interface]
+        PrivateKey = ${config.sops.placeholder."wireguard-private-key"}
+        Address = 10.2.0.2/32
+        DNS = 10.2.0.1
+
+        [Peer]
+        PublicKey = ${config.sops.placeholder."protonvpn/publickey"}
+        Endpoint = ${config.sops.placeholder."protonvpn/endpoint"}
+        AllowedIPs = 0.0.0.0/0
+        PersistentKeepalive = 25
+      '';
+      path = "/etc/wireguard/proton0.conf";
+      owner = "root";
+      group = "root";
+      mode = "0600";
     };
   };
 
