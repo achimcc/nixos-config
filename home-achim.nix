@@ -1,7 +1,7 @@
 # Home Manager Konfiguration für User "achim"
 # Ausgelagert aus configuration.nix für bessere Übersichtlichkeit
 
-{ config, pkgs, llm-agents, ... }: # llm-agents statt nurPkgs
+{ config, pkgs, pkgs-unstable, llm-agents, ... }:
 
 {
   imports = [
@@ -105,12 +105,12 @@
     # logseq - via Firejail in modules/network.nix
 
     # --- RUST ENTWICKLUNG ---
-    # Deklarative Rust-Toolchain (kein manuelles rustup setup nötig)
-    cargo
-    rustc
-    rust-analyzer
-    clippy
-    rustfmt
+    # Deklarative Rust-Toolchain aus unstable (Rust 1.92+)
+    pkgs-unstable.cargo
+    pkgs-unstable.rustc
+    pkgs-unstable.rust-analyzer
+    pkgs-unstable.clippy
+    pkgs-unstable.rustfmt
     gcc
 
     # --- KOMMUNIKATION ---
