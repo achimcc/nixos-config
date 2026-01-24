@@ -1,11 +1,11 @@
 # ProtonVPN via WireGuard mit automatischem Verbindungsaufbau beim Boot
-# Sichere Credential-Speicherung via sops
+# Sichere Credential-Speicherung via sops (Private Key, Endpoint, PublicKey)
 
 { config, lib, pkgs, ... }:
 
 {
   # ==========================================
-  # SOPS SECRET FÜR WIREGUARD PRIVATE KEY
+  # SOPS SECRETS FÜR WIREGUARD
   # ==========================================
 
   sops.secrets.wireguard-private-key = {
@@ -13,60 +13,56 @@
     owner = "root";
   };
 
+  # Endpoint und PublicKey werden in sops.nix definiert
+  # und über das Template wireguard-proton0.conf bereitgestellt
+
   # ==========================================
-  # WIREGUARD INTERFACE KONFIGURATION
+  # WIREGUARD VERZEICHNIS
   # ==========================================
 
-  networking.wg-quick.interfaces.proton0 = {
-    # Client IP-Adresse (aus der ProtonVPN Konfiguration)
-    address = [ "10.2.0.2/32" ];
+  # Stelle sicher, dass das WireGuard-Verzeichnis existiert
+  systemd.tmpfiles.rules = [
+    "d /etc/wireguard 0700 root root -"
+  ];
 
-    # DNS Server (ProtonVPN DNS für Leak-Schutz)
-    dns = [ "10.2.0.1" ];
+  # ==========================================
+  # SYSTEMD SERVICE FÜR WIREGUARD
+  # ==========================================
 
-    # Private Key aus SOPS
-    privateKeyFile = config.sops.secrets.wireguard-private-key.path;
+  # Eigener Service, der die sops-generierte Konfigurationsdatei verwendet
+  systemd.services."wg-quick-proton0" = {
+    description = "WireGuard VPN - ProtonVPN";
 
-    # Automatisch beim Boot starten
-    autostart = true;
+    # Starte nach Netzwerk und sops
+    after = [ "network-online.target" "sops-nix.service" ];
+    wants = [ "network-online.target" ];
+    wantedBy = [ "multi-user.target" ];
 
-    # ProtonVPN Server (DE#782)
-    peers = [
-      {
-        publicKey = "3OmDkvs7FoqiYtV9rzMUdxcWkNXH/loCVZaiPJH18mI=";
-        endpoint = "79.127.141.53:51820";
-        # Route allen Traffic über VPN
-        allowedIPs = [ "0.0.0.0/0" ];
-        # Keepalive für NAT-Traversal
-        persistentKeepalive = 25;
-      }
-    ];
+    # Vor dem Display Manager starten
+    before = [ "display-manager.service" ];
 
-    # Post-Up: Sicherstellen dass DNS korrekt gesetzt ist
-    postUp = ''
-      # Warte kurz auf Interface-Stabilisierung
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+
+      # Starte WireGuard mit der sops-generierten Konfiguration
+      ExecStart = "${pkgs.wireguard-tools}/bin/wg-quick up ${config.sops.templates."wireguard-proton0.conf".path}";
+      ExecStop = "${pkgs.wireguard-tools}/bin/wg-quick down ${config.sops.templates."wireguard-proton0.conf".path}";
+
+      # Neustart bei Fehlern
+      Restart = "on-failure";
+      RestartSec = "5s";
+    };
+
+    # Post-Up Logging
+    postStart = ''
       sleep 2
       echo "ProtonVPN WireGuard verbunden!"
     '';
-
-    postDown = ''
-      echo "ProtonVPN WireGuard getrennt."
-    '';
   };
 
   # ==========================================
-  # SYSTEMD SERVICE KONFIGURATION
-  # ==========================================
-
-  # Stelle sicher dass WireGuard vor dem Display Manager startet
-  systemd.services."wg-quick-proton0" = {
-    before = [ "display-manager.service" ];
-    wants = [ "network-online.target" ];
-    after = [ "network-online.target" "sops-nix.service" ];
-  };
-
-  # ==========================================
-  # PROTONVPN CLI (optional, für manuelle Nutzung)
+  # WIREGUARD TOOLS
   # ==========================================
 
   environment.systemPackages = with pkgs; [
