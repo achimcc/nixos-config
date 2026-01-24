@@ -155,6 +155,8 @@
   environment.systemPackages = with pkgs; [
     usbguard
     aide
+    rkhunter
+    chkrootkit
   ];
 
   # Audit Framework aktivieren (für Incident Response)
@@ -273,6 +275,122 @@
       OnCalendar = "*-*-* 04:30:00";
       Persistent = true;
       RandomizedDelaySec = "30min";
+    };
+  };
+
+  # ==========================================
+  # ROOTKIT-ERKENNUNG (rkhunter & chkrootkit)
+  # ==========================================
+
+  # rkhunter Konfiguration
+  environment.etc."rkhunter.conf".text = ''
+    # rkhunter Konfiguration für NixOS
+    INSTALLDIR=/run/current-system/sw
+    DBDIR=/var/lib/rkhunter/db
+    TMPDIR=/var/lib/rkhunter/tmp
+    LOGFILE=/var/log/rkhunter.log
+
+    # NixOS-spezifische Anpassungen
+    SCRIPTDIR=/run/current-system/sw/lib/rkhunter/scripts
+    ALLOWHIDDENDIR=/nix
+    ALLOWHIDDENDIR=/etc/.clean
+    ALLOWHIDDENFILE=/etc/.gitignore
+    ALLOWDEVFILE=/dev/shm/*
+
+    # Warnungen bei verdächtigen Dateien
+    ALLOW_SSH_ROOT_USER=no
+    ALLOW_SSH_PROT_V1=0
+
+    # Updates
+    UPDATE_MIRRORS=1
+    MIRRORS_MODE=0
+    WEB_CMD=curl
+
+    # Mail-Benachrichtigung (optional)
+    # MAIL-ON-WARNING=root@localhost
+
+    # Zusätzliche Prüfungen aktivieren
+    ENABLE_TESTS=ALL
+    DISABLE_TESTS=suspscan hidden_ports hidden_procs deleted_files packet_cap_apps apps
+
+    # NixOS: Viele Binaries sind in /nix/store
+    BINDIR=/run/current-system/sw/bin /run/current-system/sw/sbin /nix/store
+    PKGMGR=NONE
+  '';
+
+  # rkhunter Datenbank-Verzeichnis
+  systemd.tmpfiles.rules = [
+    "d /var/lib/rkhunter 0750 root root -"
+    "d /var/lib/rkhunter/db 0750 root root -"
+    "d /var/lib/rkhunter/tmp 0750 root root -"
+  ];
+
+  # rkhunter Scan-Service
+  systemd.services.rkhunter-check = {
+    description = "rkhunter Rootkit Scanner";
+    path = [ pkgs.rkhunter pkgs.curl pkgs.coreutils pkgs.util-linux ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.rkhunter}/bin/rkhunter --check --skip-keypress --report-warnings-only";
+      StandardOutput = "journal";
+      StandardError = "journal";
+    };
+  };
+
+  # rkhunter Datenbank-Update Service
+  systemd.services.rkhunter-update = {
+    description = "rkhunter Database Update";
+    path = [ pkgs.rkhunter pkgs.curl ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.rkhunter}/bin/rkhunter --update";
+      StandardOutput = "journal";
+      StandardError = "journal";
+    };
+  };
+
+  # Wöchentlicher rkhunter Scan (Sonntag 05:00)
+  systemd.timers.rkhunter-check = {
+    description = "Weekly rkhunter Rootkit Scan";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "Sun *-*-* 05:00:00";
+      Persistent = true;
+      RandomizedDelaySec = "1h";
+    };
+  };
+
+  # Wöchentliches rkhunter Update (Samstag 04:00)
+  systemd.timers.rkhunter-update = {
+    description = "Weekly rkhunter Database Update";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "Sat *-*-* 04:00:00";
+      Persistent = true;
+      RandomizedDelaySec = "30min";
+    };
+  };
+
+  # chkrootkit Scan-Service
+  systemd.services.chkrootkit-check = {
+    description = "chkrootkit Rootkit Scanner";
+    path = [ pkgs.chkrootkit ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.chkrootkit}/bin/chkrootkit";
+      StandardOutput = "journal";
+      StandardError = "journal";
+    };
+  };
+
+  # Wöchentlicher chkrootkit Scan (Sonntag 05:30)
+  systemd.timers.chkrootkit-check = {
+    description = "Weekly chkrootkit Rootkit Scan";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "Sun *-*-* 05:30:00";
+      Persistent = true;
+      RandomizedDelaySec = "1h";
     };
   };
 

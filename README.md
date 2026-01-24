@@ -74,6 +74,8 @@ flake.nix                 # Flake Entry Point
 - **Hardened Kernel**: With additional security options
 - **ClamAV**: Real-time antivirus scanner for /home
 - **Fail2Ban**: Protection against brute-force attacks
+- **AIDE**: File Integrity Monitoring for critical system files
+- **rkhunter/chkrootkit**: Rootkit detection (weekly scans)
 
 ### Kernel Hardening
 
@@ -330,6 +332,103 @@ Enabled for:
 - home-manager
 
 Daily at 04:00 (without automatic reboot).
+
+## Security Monitoring
+
+### AIDE (File Integrity Monitoring)
+
+AIDE monitors critical system files for unauthorized changes.
+
+```bash
+# Initial database setup (after first rebuild)
+sudo mkdir -p /var/lib/aide
+sudo aide --init --config=/etc/aide.conf
+sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+
+# Manual integrity check
+sudo aide --check --config=/etc/aide.conf
+
+# Update database after legitimate changes
+sudo aide --update --config=/etc/aide.conf
+sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+```
+
+Automated scan: Daily at 04:30
+
+### Rootkit Detection
+
+Two complementary tools scan for rootkits weekly:
+
+```bash
+# rkhunter - Rootkit Hunter
+sudo rkhunter --check                    # Full scan
+sudo rkhunter --check --skip-keypress    # Non-interactive
+sudo rkhunter --update                   # Update signatures
+
+# chkrootkit - Alternative scanner
+sudo chkrootkit                          # Full scan
+sudo chkrootkit -q                       # Quiet mode (only warnings)
+```
+
+Automated scans:
+- rkhunter: Sunday 05:00
+- chkrootkit: Sunday 05:30
+- rkhunter-update: Saturday 04:00
+
+### Security Logs with journalctl
+
+```bash
+# View all security-related logs
+journalctl -u aide-check              # AIDE integrity checks
+journalctl -u rkhunter-check          # rkhunter scans
+journalctl -u chkrootkit-check        # chkrootkit scans
+journalctl -u clamav-daemon           # ClamAV antivirus
+journalctl -u fail2ban                # Brute-force protection
+journalctl -u usbguard                # USB device monitoring
+
+# Real-time monitoring
+journalctl -f -u aide-check -u rkhunter-check -u chkrootkit-check
+
+# Filter by priority (errors and warnings only)
+journalctl -p err -u clamav-daemon
+
+# Show logs from last boot
+journalctl -b -u fail2ban
+
+# Audit logs (sudo, password changes, SSH)
+journalctl _TRANSPORT=audit
+
+# Search for specific security events
+journalctl --grep="INFECTED"          # ClamAV detections
+journalctl --grep="Warning"           # General warnings
+journalctl --grep="blocked"           # USBGuard blocks
+```
+
+### Security Timer Status
+
+```bash
+# List all security timers
+systemctl list-timers | grep -E "aide|rkhunter|chkrootkit|clamav"
+
+# Check timer details
+systemctl status aide-check.timer
+systemctl status rkhunter-check.timer
+systemctl status chkrootkit-check.timer
+```
+
+### Manual Security Audit
+
+```bash
+# Run all security scans immediately
+sudo systemctl start aide-check
+sudo systemctl start rkhunter-check
+sudo systemctl start chkrootkit-check
+
+# Check results
+journalctl -u aide-check --since "5 minutes ago"
+journalctl -u rkhunter-check --since "10 minutes ago"
+journalctl -u chkrootkit-check --since "10 minutes ago"
+```
 
 ## Troubleshooting
 
