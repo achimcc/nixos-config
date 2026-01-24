@@ -155,8 +155,8 @@
   environment.systemPackages = with pkgs; [
     usbguard
     aide
-    rkhunter
     chkrootkit
+    unhide      # Findet versteckte Prozesse/Ports (Rootkit-Erkennung)
   ];
 
   # Audit Framework aktivieren (für Incident Response)
@@ -279,79 +279,38 @@
   };
 
   # ==========================================
-  # ROOTKIT-ERKENNUNG (rkhunter & chkrootkit)
+  # ROOTKIT-ERKENNUNG (unhide & chkrootkit)
   # ==========================================
 
-  # rkhunter Konfiguration
-  environment.etc."rkhunter.conf".text = ''
-    # rkhunter Konfiguration für NixOS
-    INSTALLDIR=/run/current-system/sw
-    DBDIR=/var/lib/rkhunter/db
-    TMPDIR=/var/lib/rkhunter/tmp
-    LOGFILE=/var/log/rkhunter.log
-
-    # NixOS-spezifische Anpassungen
-    SCRIPTDIR=/run/current-system/sw/lib/rkhunter/scripts
-    ALLOWHIDDENDIR=/nix
-    ALLOWHIDDENDIR=/etc/.clean
-    ALLOWHIDDENFILE=/etc/.gitignore
-    ALLOWDEVFILE=/dev/shm/*
-
-    # Warnungen bei verdächtigen Dateien
-    ALLOW_SSH_ROOT_USER=no
-    ALLOW_SSH_PROT_V1=0
-
-    # Updates
-    UPDATE_MIRRORS=1
-    MIRRORS_MODE=0
-    WEB_CMD=curl
-
-    # Mail-Benachrichtigung (optional)
-    # MAIL-ON-WARNING=root@localhost
-
-    # Zusätzliche Prüfungen aktivieren
-    ENABLE_TESTS=ALL
-    DISABLE_TESTS=suspscan hidden_ports hidden_procs deleted_files packet_cap_apps apps
-
-    # NixOS: Viele Binaries sind in /nix/store
-    BINDIR=/run/current-system/sw/bin /run/current-system/sw/sbin /nix/store
-    PKGMGR=NONE
-  '';
-
-  # rkhunter Datenbank-Verzeichnis
-  systemd.tmpfiles.rules = [
-    "d /var/lib/rkhunter 0750 root root -"
-    "d /var/lib/rkhunter/db 0750 root root -"
-    "d /var/lib/rkhunter/tmp 0750 root root -"
-  ];
-
-  # rkhunter Scan-Service
-  systemd.services.rkhunter-check = {
-    description = "rkhunter Rootkit Scanner";
-    path = [ pkgs.rkhunter pkgs.curl pkgs.coreutils pkgs.util-linux ];
+  # unhide - Findet versteckte Prozesse und Ports (Rootkit-Indikator)
+  # Scan-Service für versteckte Prozesse
+  systemd.services.unhide-check = {
+    description = "Unhide Hidden Process Scanner";
+    path = [ pkgs.unhide pkgs.procps ];
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${pkgs.rkhunter}/bin/rkhunter --check --skip-keypress --report-warnings-only";
+      # Prüfe auf versteckte Prozesse mit verschiedenen Techniken
+      ExecStart = "${pkgs.unhide}/bin/unhide sys procall";
       StandardOutput = "journal";
       StandardError = "journal";
     };
   };
 
-  # rkhunter Datenbank-Update Service
-  systemd.services.rkhunter-update = {
-    description = "rkhunter Database Update";
-    path = [ pkgs.rkhunter pkgs.curl ];
+  # Scan-Service für versteckte TCP/UDP Ports
+  systemd.services.unhide-tcp-check = {
+    description = "Unhide Hidden TCP/UDP Port Scanner";
+    path = [ pkgs.unhide pkgs.nettools pkgs.iproute2 ];
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${pkgs.rkhunter}/bin/rkhunter --update";
+      ExecStart = "${pkgs.unhide}/bin/unhide-tcp";
       StandardOutput = "journal";
       StandardError = "journal";
     };
   };
 
-  # Wöchentlicher rkhunter Scan (Sonntag 05:00)
-  systemd.timers.rkhunter-check = {
-    description = "Weekly rkhunter Rootkit Scan";
+  # Wöchentlicher unhide Scan (Sonntag 05:00)
+  systemd.timers.unhide-check = {
+    description = "Weekly Unhide Process Scan";
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnCalendar = "Sun *-*-* 05:00:00";
@@ -360,12 +319,12 @@
     };
   };
 
-  # Wöchentliches rkhunter Update (Samstag 04:00)
-  systemd.timers.rkhunter-update = {
-    description = "Weekly rkhunter Database Update";
+  # Wöchentlicher unhide-tcp Scan (Sonntag 05:15)
+  systemd.timers.unhide-tcp-check = {
+    description = "Weekly Unhide TCP/UDP Scan";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "Sat *-*-* 04:00:00";
+      OnCalendar = "Sun *-*-* 05:15:00";
       Persistent = true;
       RandomizedDelaySec = "30min";
     };

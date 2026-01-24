@@ -75,7 +75,7 @@ flake.nix                 # Flake Entry Point
 - **ClamAV**: Real-time antivirus scanner for /home
 - **Fail2Ban**: Protection against brute-force attacks
 - **AIDE**: File Integrity Monitoring for critical system files
-- **rkhunter/chkrootkit**: Rootkit detection (weekly scans)
+- **unhide/chkrootkit**: Rootkit detection (weekly scans)
 
 ### Kernel Hardening
 
@@ -360,34 +360,34 @@ Automated scan: Daily at 04:30
 Two complementary tools scan for rootkits weekly:
 
 ```bash
-# rkhunter - Rootkit Hunter
-sudo rkhunter --check                    # Full scan
-sudo rkhunter --check --skip-keypress    # Non-interactive
-sudo rkhunter --update                   # Update signatures
+# unhide - Find hidden processes and ports
+sudo unhide sys procall                  # Check for hidden processes
+sudo unhide-tcp                          # Check for hidden TCP/UDP ports
 
-# chkrootkit - Alternative scanner
+# chkrootkit - Rootkit scanner
 sudo chkrootkit                          # Full scan
 sudo chkrootkit -q                       # Quiet mode (only warnings)
 ```
 
 Automated scans:
-- rkhunter: Sunday 05:00
+- unhide (processes): Sunday 05:00
+- unhide-tcp (ports): Sunday 05:15
 - chkrootkit: Sunday 05:30
-- rkhunter-update: Saturday 04:00
 
 ### Security Logs with journalctl
 
 ```bash
 # View all security-related logs
 journalctl -u aide-check              # AIDE integrity checks
-journalctl -u rkhunter-check          # rkhunter scans
+journalctl -u unhide-check            # unhide process scans
+journalctl -u unhide-tcp-check        # unhide port scans
 journalctl -u chkrootkit-check        # chkrootkit scans
 journalctl -u clamav-daemon           # ClamAV antivirus
 journalctl -u fail2ban                # Brute-force protection
 journalctl -u usbguard                # USB device monitoring
 
 # Real-time monitoring
-journalctl -f -u aide-check -u rkhunter-check -u chkrootkit-check
+journalctl -f -u aide-check -u unhide-check -u chkrootkit-check
 
 # Filter by priority (errors and warnings only)
 journalctl -p err -u clamav-daemon
@@ -408,11 +408,12 @@ journalctl --grep="blocked"           # USBGuard blocks
 
 ```bash
 # List all security timers
-systemctl list-timers | grep -E "aide|rkhunter|chkrootkit|clamav"
+systemctl list-timers | grep -E "aide|unhide|chkrootkit|clamav"
 
 # Check timer details
 systemctl status aide-check.timer
-systemctl status rkhunter-check.timer
+systemctl status unhide-check.timer
+systemctl status unhide-tcp-check.timer
 systemctl status chkrootkit-check.timer
 ```
 
@@ -421,12 +422,14 @@ systemctl status chkrootkit-check.timer
 ```bash
 # Run all security scans immediately
 sudo systemctl start aide-check
-sudo systemctl start rkhunter-check
+sudo systemctl start unhide-check
+sudo systemctl start unhide-tcp-check
 sudo systemctl start chkrootkit-check
 
 # Check results
 journalctl -u aide-check --since "5 minutes ago"
-journalctl -u rkhunter-check --since "10 minutes ago"
+journalctl -u unhide-check --since "10 minutes ago"
+journalctl -u unhide-tcp-check --since "10 minutes ago"
 journalctl -u chkrootkit-check --since "10 minutes ago"
 ```
 
