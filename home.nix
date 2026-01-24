@@ -71,6 +71,10 @@
     swappy # Screenshot-Annotation
     wl-clipboard # Clipboard für Wayland
 
+    # --- GIT TOOLS ---
+    gitui # Terminal UI für Git
+    delta # Syntax-Highlighting für Git Diffs
+
     # --- NIX ENTWICKLUNG ---
     nil
     nixpkgs-fmt
@@ -263,6 +267,16 @@
       # SSH-Signierung statt GPG
       gpg.format = "ssh";
       gpg.ssh.allowedSignersFile = "~/.ssh/allowed_signers";
+      # Delta als Pager für bessere Diffs
+      core.pager = "delta";
+      interactive.diffFilter = "delta --color-only";
+      delta = {
+        navigate = true;
+        light = false;
+        line-numbers = true;
+      };
+      merge.conflictStyle = "diff3";
+      diff.colorMoved = "default";
     };
   };
 
