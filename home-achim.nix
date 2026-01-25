@@ -63,7 +63,10 @@
     mission-center
 
     # --- SYNCTHING ---
-    syncthingtray # System-Tray GUI für Syncthing
+    # syncthingtray # Temporär deaktiviert (Cache-Problem mit acl-2.3.2 Hash-Mismatch)
+
+    # --- RSS READER ---
+    newsflash # GTK RSS-Reader (mit Miniflux-Sync)
 
     # --- FINANZEN ---
     portfolio # Portfolio Performance - Wertpapierdepot-Verwaltung
@@ -480,6 +483,13 @@
     failure-output = "immediate"
     success-output = "final"
   '';
+
+  # --- RSS READER KONFIGURATION ---
+  # Newsflash Miniflux-Zugangsdaten werden manuell in der GUI konfiguriert:
+  # Settings → Accounts → Add Account → Miniflux
+  # URL: https://rusty-vault.de/miniflux
+  # Username: admin (aus sops: miniflux/username)
+  # Password: (aus sops: miniflux/password)
 
   # --- SHELL CONFIGURATION ---
 

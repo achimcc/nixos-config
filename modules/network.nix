@@ -124,6 +124,12 @@
         profile = "${pkgs.firejail}/etc/firejail/keepassxc.profile";
       };
 
+      # Newsflash - RSS-Reader mit Sandbox
+      newsflash = {
+        executable = "${pkgs.newsflash}/bin/newsflash";
+        profile = "${pkgs.firejail}/etc/firejail/newsflash.profile";
+      };
+
       # Logseq - Wissensmanagement (Electron-App)
       # Nutzt Obsidian-Profil da kein eigenes Logseq-Profil existiert
       logseq = {
@@ -155,7 +161,7 @@
   };
 
   # Pakete die von Firejail gewrappt werden
-  # (Thunderbird, KeePassXC, Zathura, VSCodium sind in home-achim.nix)
+  # (Thunderbird, KeePassXC, Newsflash, Zathura, VSCodium sind in home-achim.nix)
   # Signal via Flatpak (home-achim.nix), nicht mehr hier
   environment.systemPackages = with pkgs; [
     tor-browser
