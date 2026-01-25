@@ -111,6 +111,7 @@
     pkgs-unstable.rust-analyzer
     pkgs-unstable.clippy
     pkgs-unstable.rustfmt
+    cargo-nextest # Next-generation test runner
     gcc
 
     # --- KOMMUNIKATION ---
@@ -447,6 +448,36 @@
     allowed_extensions = [ "{446900e4-71c2-419f-a6a7-df9c091e268b}" ];
   };
 
+  # --- RUST TOOLING KONFIGURATION ---
+
+  # cargo-nextest Konfiguration
+  home.file.".config/nextest/config.toml".text = ''
+    # cargo-nextest Konfiguration
+    # Dokumentation: https://nexte.st/book/configuration.html
+
+    [profile.default]
+    # Anzahl paralleler Test-Jobs (Standard: logische CPU-Kerne)
+    test-threads = "num-cpus"
+
+    # Fortschrittsanzeige
+    status-level = "pass"
+    final-status-level = "fail"
+
+    # Test-Ausgabe Einstellungen
+    failure-output = "immediate"
+    success-output = "never"
+
+    # Retry-Strategie für flaky Tests
+    retries = 0
+
+    [profile.ci]
+    # Strengeres Profil für CI/CD
+    retries = 2
+    status-level = "all"
+    failure-output = "immediate"
+    success-output = "final"
+  '';
+
   # --- SHELL CONFIGURATION ---
 
   programs.starship = {
@@ -570,6 +601,11 @@
 
         # Automatische Upgrades deaktivieren (Updates via Nix)
         autoUpgradeIntervalH = 0;
+
+        # Eigener Relay-Server auf VPS (bevorzugt vor öffentlichen Relays)
+        relayServers = [
+          "relay://rusty-vault.de:22067"
+        ];
       };
 
       # GUI nur lokal erreichbar

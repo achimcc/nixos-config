@@ -99,10 +99,8 @@
       librewolf = {
         executable = "${pkgs.librewolf}/bin/librewolf";
         profile = "${pkgs.firejail}/etc/firejail/librewolf.profile";
-        extraArgs = [
-          # Privates Downloads-Verzeichnis (wie Tor Browser)
-          "--private=/home/achim/Downloads"
-        ];
+        # Zugriff auf echtes Home-Verzeichnis (keine Download-Isolation)
+        # extraArgs = [];
       };
 
       # FreeTube - YouTube-Client mit Sandbox
