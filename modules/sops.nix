@@ -74,6 +74,20 @@
       path = "/home/user/.ssh/hetzner-vps.pub";
     };
 
+    # Miniflux RSS-Reader Zugangsdaten
+    secrets."miniflux/url" = {
+      owner = "user";
+      mode = "0400";
+    };
+    secrets."miniflux/username" = {
+      owner = "user";
+      mode = "0400";
+    };
+    secrets."miniflux/password" = {
+      owner = "user";
+      mode = "0400";
+    };
+
     # Template für NetworkManager Environment-Datei
     templates."nm-wifi-env" = {
       content = ''
