@@ -62,6 +62,9 @@
     # --- SYSTEM MONITORING ---
     mission-center
 
+    # --- SYNCTHING ---
+    syncthingtray # System-Tray GUI für Syncthing
+
     # --- FINANZEN ---
     portfolio # Portfolio Performance - Wertpapierdepot-Verwaltung
 
