@@ -46,6 +46,7 @@ flake.nix                 # Flake Entry Point
     ├── sops.nix          # Secret Management
     ├── security.nix      # Kernel Hardening, AppArmor, ClamAV
     ├── secureboot.nix    # Lanzaboote Secure Boot
+    ├── goldwarden.nix    # Bitwarden Client (hardened)
     └── home/
         ├── gnome-settings.nix  # GNOME Dconf
         └── neovim.nix          # Neovim IDE
@@ -354,9 +355,13 @@ gitui
 - **Thunderbird**: Email (Posteo, hardened)
 - **Signal Desktop**: Messenger (Firejail sandbox)
 
+### Password Management
+
+- **KeePassXC**: Offline password manager (Firejail sandbox)
+- **Goldwarden**: Bitwarden-compatible client with enhanced security
+
 ### Productivity
 
-- **KeePassXC**: Password manager
 - **Syncthing**: File synchronization (local, no cloud)
 - **Zathura**: PDF viewer (Vim bindings)
 - **Portfolio**: Investment portfolio management
@@ -366,6 +371,63 @@ gitui
 - **Neovim**: Primary editor (Rust IDE)
 - **VSCodium**: VS Code without telemetry
 - **Zed**: Modern editor
+
+## Goldwarden Setup
+
+Goldwarden is a Bitwarden-compatible desktop client with enhanced security features:
+- Vault content encrypted in memory (memguard)
+- Kernel-level memory protection for keys
+- Biometric authentication via Polkit
+- Systemd service hardening
+
+### Initial Setup
+
+```bash
+# 1. Set a PIN (required for security)
+goldwarden config set-pin
+
+# 2. Login to Bitwarden
+goldwarden vault login
+
+# 3. Optional: Run setup wizard for integrations
+goldwarden setup
+```
+
+### Browser Integration
+
+The Bitwarden browser extension works with Goldwarden for biometric unlock:
+
+1. Install [Bitwarden Extension](https://addons.mozilla.org/firefox/addon/bitwarden-password-manager/) in LibreWolf
+2. In extension settings: Enable "Unlock with biometrics"
+3. Goldwarden handles the native messaging
+
+### Useful Commands
+
+```bash
+# List saved logins
+goldwarden logins list
+
+# Get a specific password
+goldwarden logins get --name "example.com"
+
+# Run command with secrets as environment variables
+goldwarden run -- my-command
+
+# Lock the vault
+goldwarden vault lock
+
+# Check service status
+systemctl --user status goldwarden.service
+```
+
+### Security Features
+
+| Feature | Description |
+|---------|-------------|
+| **memguard** | Kernel-level memory protection |
+| **Polkit Auth** | Biometric unlock via fingerprint |
+| **Systemd Hardening** | PrivateTmp, ProtectSystem, NoNewPrivileges |
+| **UMask 0077** | Restrictive file permissions |
 
 ## Maintenance
 
