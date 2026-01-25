@@ -437,6 +437,16 @@
   home.file.".librewolf/native-messaging-hosts/org.keepassxc.keepassxc_browser.json".source =
     "${pkgs.keepassxc}/share/mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json";
 
+  # Browser-Integration für Goldwarden (Bitwarden-Extension Biometrics)
+  # Ermöglicht Entsperrung der Bitwarden-Extension via Fingerprint/PIN
+  home.file.".librewolf/native-messaging-hosts/com.8bit.bitwarden.json".text = builtins.toJSON {
+    name = "com.8bit.bitwarden";
+    description = "Goldwarden native messaging host for Bitwarden browser extension";
+    path = "${pkgs.goldwarden}/bin/goldwarden";
+    type = "stdio";
+    allowed_extensions = [ "{446900e4-71c2-419f-a6a7-df9c091e268b}" ];
+  };
+
   # --- SHELL CONFIGURATION ---
 
   programs.starship = {
