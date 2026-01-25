@@ -56,38 +56,19 @@
     # Service-Definition kommt vom Goldwarden-Modul
     # Hier fügen wir zusätzliche Sicherheitshärtung hinzu
     serviceConfig = {
-      # ---- Namespace Isolation ----
+      # ---- Basis-Härtung (kompatibel mit Goldwarden) ----
+
       # Private /tmp verhindert Zugriff auf temporäre Dateien anderer Prozesse
       PrivateTmp = true;
 
-      # Verhindert Zugriff auf /home anderer Benutzer
-      ProtectHome = "read-only";
-
-      # Macht Systemverzeichnisse read-only
-      ProtectSystem = "strict";
-
-      # Isoliert Netzwerk-Namespace nicht (benötigt für Bitwarden-API)
-      # PrivateNetwork = false; # Standard
+      # Systemverzeichnisse schützen (aber Home bleibt beschreibbar für Config/Socket)
+      ProtectSystem = "full";
 
       # ---- Capabilities ----
       # Keine zusätzlichen Capabilities benötigt
-      CapabilityBoundingSet = "";
-      AmbientCapabilities = "";
       NoNewPrivileges = true;
 
-      # ---- Seccomp Filter ----
-      # Erlaubt nur notwendige Syscalls
-      SystemCallFilter = [
-        "@system-service"
-        "~@privileged"
-        "~@resources"
-      ];
-      SystemCallArchitectures = "native";
-
       # ---- Weitere Härtung ----
-      # Verhindert Speicher-Ausführung
-      MemoryDenyWriteExecute = true;
-
       # Kein Zugriff auf Kernel-Module
       ProtectKernelModules = true;
       ProtectKernelTunables = true;
@@ -99,11 +80,8 @@
       # Verhindert Änderung der Prozess-Personality
       LockPersonality = true;
 
-      # Restrict address families to what's needed
+      # Restrict address families to what's needed (Unix für Socket, INET für API)
       RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
-
-      # Restrict namespaces
-      RestrictNamespaces = true;
 
       # Restrict realtime scheduling
       RestrictRealtime = true;

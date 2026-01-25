@@ -384,10 +384,15 @@
     };
   };
 
+  # Log-Verzeichnis für ClamAV erstellen
+  systemd.tmpfiles.rules = [
+    "d /var/log/clamav 0750 clamav clamav -"
+  ];
+
   # clamonacc Service für Echtzeit-Scanning
   systemd.services.clamonacc = {
     description = "ClamAV On-Access Scanner";
-    after = [ "clamav-daemon.service" ];
+    after = [ "clamav-daemon.service" "systemd-tmpfiles-setup.service" ];
     requires = [ "clamav-daemon.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
