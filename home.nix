@@ -53,6 +53,7 @@
     # --- SICHERHEIT & TOOLS ---
     keepassxc
     kdePackages.kleopatra
+    usbguard-notifier # Desktop-Benachrichtigungen für blockierte USB-Geräte
 
     # --- GNOME ERWEITERUNGEN ---
     gnomeExtensions.pano

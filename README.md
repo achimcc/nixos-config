@@ -74,6 +74,7 @@ flake.nix                 # Flake Entry Point
 - **Firejail**: Tor Browser, LibreWolf, Signal Desktop isolated
 - **AppArmor**: Mandatory Access Control enabled
 - **Hardened Kernel**: With additional security options
+- **USBGuard**: USB device authorization (blocks unknown devices)
 - **ClamAV**: Real-time antivirus scanner for /home
 - **Fail2Ban**: Protection against brute-force attacks
 - **AIDE**: File Integrity Monitoring for critical system files
@@ -619,6 +620,50 @@ sbctl verify
 # Re-sign
 sudo sbctl sign-all
 ```
+
+### USBGuard: Blocked USB Device
+
+USBGuard blocks all newly connected USB devices by default for security.
+
+**List all USB devices:**
+```bash
+pkexec usbguard list-devices
+```
+
+**Allow a blocked device temporarily:**
+```bash
+# Find device number (e.g., "15: block id 0781:55b0 ...")
+pkexec usbguard list-devices | grep block
+
+# Allow device by number
+pkexec usbguard allow-device 15
+```
+
+**Allow a device permanently:**
+
+Add device rule to `/nix/store/.../modules/security.nix`:
+
+```nix
+services.usbguard = {
+  enable = true;
+  rules = ''
+    # Allow specific device (e.g., SanDisk Portable SSD)
+    allow id 0781:55b0 serial "323233353036343034313530" name "Portable SSD"
+    
+    # Or allow all devices with specific vendor ID
+    allow id 0781:*
+  '';
+};
+```
+
+**Get device rule from logs:**
+```bash
+journalctl -u usbguard -n 50 | grep "block.*Device.Insert"
+```
+
+**Desktop notifications:**
+
+`usbguard-notifier` is installed and shows popup notifications when devices are blocked.
 
 ## License
 
