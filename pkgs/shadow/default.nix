@@ -18,6 +18,7 @@ buildFHSEnv {
   targetPkgs = pkgs: with pkgs; [
     # Build dependencies
     cmake
+    gnumake
     gcc
     glib
     glib.dev
@@ -31,10 +32,12 @@ buildFHSEnv {
     util-linux
     git
     findutils
+    binutils
     
     # Runtime dependencies
     bash
     coreutils
+    which
   ];
 
   runScript = writeShellScript "shadow-wrapper" ''
@@ -62,8 +65,10 @@ buildFHSEnv {
       fi
       
       cd shadow
+      
+      # Build mit korrekter Syntax (setup build hat keine --prefix Option)
       ./setup build --clean
-      ./setup install --prefix "$SHADOW_INSTALL"
+      ./setup install
     fi
     
     # Shadow ausführen
