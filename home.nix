@@ -119,6 +119,8 @@
     pkgs-unstable.clippy
     pkgs-unstable.rustfmt
     cargo-nextest # Next-generation test runner
+    cargo-depgraph # Dependency graph visualization
+    graphviz # Für cargo-depgraph Visualisierung
     gcc
 
     # --- KOMMUNIKATION ---
