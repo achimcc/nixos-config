@@ -373,6 +373,15 @@ gitui
 - **VSCodium**: VS Code without telemetry
 - **Zed**: Modern editor
 
+### Network Simulation
+
+- **Shadow**: Discrete-event network simulator for distributed systems
+  - Runs real application code in simulated networks
+  - Supports thousands of network-connected processes
+  - First launch: Automatically builds Shadow from source (~5 minutes)
+  - Usage: `shadow <simulation-config.yaml>`
+  - Documentation: [shadow.github.io](https://shadow.github.io)
+
 ## Goldwarden Setup
 
 Goldwarden is a Bitwarden-compatible desktop client with enhanced security features:

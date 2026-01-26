@@ -12,7 +12,11 @@ nixos-config/
 ├── flake.lock             # Locked dependency versions (DO NOT .gitignore)
 ├── configuration.nix      # System-level NixOS configuration
 ├── hardware-configuration.nix  # Auto-generated hardware config (do not edit manually)
-└── home.nix         # User-level Home Manager configuration
+├── home.nix         # User-level Home Manager configuration
+└── pkgs/
+    ├── default.nix        # Custom packages overlay
+    └── shadow/
+        └── default.nix    # Shadow network simulator (FHS-wrapped)
 ```
 
 ### File Responsibilities
@@ -88,6 +92,25 @@ sudo nix-collect-garbage -d
 3. **Program configurations** (git, vscode, etc.) use Home Manager's `programs.<name>` options
 4. **Services** that need system-level access go in `configuration.nix`
 5. **User services** (like gpg-agent) go in `home.nix`
+6. **Custom packages** go in `pkgs/<name>/default.nix` and are added via overlay in `flake.nix`
+
+### Custom Packages
+
+Custom packages are defined in `pkgs/` and loaded via overlay:
+
+```nix
+# pkgs/default.nix
+{ pkgs }: {
+  shadow-simulator = pkgs.callPackage ./shadow { };
+}
+
+# In flake.nix
+customOverlay = final: prev: import ./pkgs { pkgs = prev; };
+nixpkgs.overlays = [ customOverlay ];
+```
+
+Available custom packages:
+- **shadow-simulator**: Network simulator (FHS-wrapped, builds on first run)
 
 ### Flake Input Access
 

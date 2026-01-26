@@ -32,10 +32,15 @@
   outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, llm-agents, sops-nix, lanzaboote, nix-flatpak, ... } @inputs:
     let
       system = "x86_64-linux";
+      
+      # Unstable nixpkgs
       pkgs-unstable = import nixpkgs-unstable {
         inherit system;
         config.allowUnfree = true;
       };
+      
+      # Custom packages overlay
+      customOverlay = final: prev: import ./pkgs { pkgs = prev; };
     in
     {
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
@@ -43,6 +48,9 @@
         # Hier geben wir die Inputs an alle Module weiter
         specialArgs = { inherit inputs llm-agents pkgs-unstable; };
         modules = [
+          # Custom packages overlay
+          { nixpkgs.overlays = [ customOverlay ]; }
+          
           ./configuration.nix
 
           # Sops-nix Modul

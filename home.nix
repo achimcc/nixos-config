@@ -172,6 +172,9 @@
     aider-chat # AI pair programming
     llm-agents.packages.${pkgs.system}.crush
     # claude-code via npm installieren: npm install -g @anthropic-ai/claude-code
+    
+    # --- NETWORK SIMULATOR ---
+    shadow-simulator # Discrete-event network simulator für verteilte Systeme
   ];
 
   # --- PGP KONFIGURATION ---
