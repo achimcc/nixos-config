@@ -157,6 +157,15 @@
         executable = "${pkgs.zathura}/bin/zathura";
         profile = "${pkgs.firejail}/etc/firejail/zathura.profile";
       };
+
+      # Discord - Chat-Client mit Sandbox
+      discord = {
+        executable = "${pkgs.discord}/bin/discord";
+        profile = "${pkgs.firejail}/etc/firejail/discord.profile";
+        extraArgs = [
+          "--env=NIXOS_OZONE_WL=1"
+        ];
+      };
     };
   };
 
@@ -168,5 +177,6 @@
     librewolf
     freetube
     logseq
+    discord
   ];
 }
