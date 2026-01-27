@@ -51,7 +51,7 @@
     protonvpn-gui # GUI zusätzlich zur CLI
 
     # --- SICHERHEIT & TOOLS ---
-    keepassxc
+    bitwarden-desktop # Passwort-Manager Desktop-App (für Browser-Biometrics)
     kdePackages.kleopatra
     usbguard-notifier # Desktop-Benachrichtigungen für blockierte USB-Geräte
 
@@ -395,11 +395,6 @@
 
     policies = {
       ExtensionSettings = {
-        # KeePassXC
-        "keepassxc-browser@keepassxc.org" = {
-          installation_mode = "force_installed";
-          install_url = "https://addons.mozilla.org/firefox/downloads/latest/keepassxc-browser/latest.xpi";
-        };
         # ClearURLs - entfernt Tracking-Parameter aus URLs
         "{74145f27-f039-47ce-a470-a662b129930a}" = {
           installation_mode = "force_installed";
@@ -446,18 +441,21 @@
     };
   };
 
-  # Browser-Integration für KeePassXC
-  home.file.".librewolf/native-messaging-hosts/org.keepassxc.keepassxc_browser.json".source =
-    "${pkgs.keepassxc}/share/mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json";
+  # Browser-Integration für Goldwarden wird via `goldwarden setup browserbiometrics` konfiguriert
+  # Das erstellt die native-messaging-hosts Dateien im Profil-Verzeichnis
 
-  # Browser-Integration für Goldwarden (Bitwarden-Extension Biometrics)
-  # Ermöglicht Entsperrung der Bitwarden-Extension via Fingerprint/PIN
-  home.file.".librewolf/native-messaging-hosts/com.8bit.bitwarden.json".text = builtins.toJSON {
-    name = "com.8bit.bitwarden";
-    description = "Goldwarden native messaging host for Bitwarden browser extension";
-    path = "${pkgs.goldwarden}/bin/goldwarden";
-    type = "stdio";
-    allowed_extensions = [ "{446900e4-71c2-419f-a6a7-df9c091e268b}" ];
+  # Librewolf Extensions (da package=null werden policies nicht automatisch angewendet)
+  # Diese Datei wird von Librewolf beim Start gelesen
+  home.file.".librewolf/distribution/policies.json".text = builtins.toJSON {
+    policies = {
+      ExtensionSettings = {
+        # Bitwarden (mit Goldwarden für Biometrics)
+        "{446900e4-71c2-419f-a6a7-df9c091e268b}" = {
+          installation_mode = "force_installed";
+          install_url = "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi";
+        };
+      };
+    };
   };
 
   # --- RUST TOOLING KONFIGURATION ---

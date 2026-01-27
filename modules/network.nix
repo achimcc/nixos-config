@@ -82,6 +82,13 @@
   # FIREJAIL SANDBOX
   # ==========================================
 
+  # Librewolf-spezifische Firejail-Konfiguration
+  environment.etc."firejail/librewolf.local".text = ''
+    # Native Messaging für Browser-Extensions (z.B. Goldwarden)
+    ignore private-tmp
+    noblacklist ''${HOME}/.librewolf/native-messaging-hosts
+  '';
+
   programs.firejail = {
     enable = true;
     wrappedBinaries = {
@@ -99,8 +106,6 @@
       librewolf = {
         executable = "${pkgs.librewolf}/bin/librewolf";
         profile = "${pkgs.firejail}/etc/firejail/librewolf.profile";
-        # Zugriff auf echtes Home-Verzeichnis (keine Download-Isolation)
-        # extraArgs = [];
       };
 
       # FreeTube - YouTube-Client mit Sandbox

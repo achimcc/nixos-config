@@ -23,6 +23,10 @@
       CPU_ENERGY_PERF_POLICY_ON_AC = "performance";
       CPU_ENERGY_PERF_POLICY_ON_BAT = "power";
 
+      # Platform Profile (ACPI)
+      PLATFORM_PROFILE_ON_AC = "performance";
+      PLATFORM_PROFILE_ON_BAT = "balanced";
+
       # Festplatten
       DISK_IOSCHED = [ "mq-deadline" ];
 
