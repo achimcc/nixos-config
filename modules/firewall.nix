@@ -78,13 +78,15 @@ in
       # DNS-over-TLS (Port 853) - systemd-resolved braucht ausgehende Verbindungen
       iptables -A OUTPUT -p tcp --dport 853 -j ACCEPT
       
-      # 8. Drucker im lokalen Netzwerk erlauben (Brother MFC-7360N)
-      iptables -A OUTPUT -d 192.168.178.28 -j ACCEPT
-      # mDNS für Drucker-Discovery (Avahi)
+      # 8. mDNS für lokale Discovery (Avahi)
       iptables -A OUTPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT
       iptables -A INPUT -p udp --sport 5353 -j ACCEPT
 
-      # 9. Syncthing - Lokales Netzwerk und über VPN
+      # 9. Lokales Netzwerk komplett freigeben
+      iptables -A INPUT -s 192.168.178.0/24 -j ACCEPT
+      iptables -A OUTPUT -d 192.168.178.0/24 -j ACCEPT
+
+      # 10. Syncthing - Lokales Netzwerk und über VPN
       # Eingehende Verbindungen für lokale Discovery und Datenübertragung
       iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -s 192.168.178.0/24 -j ACCEPT
       iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -s 192.168.178.0/24 -j ACCEPT
