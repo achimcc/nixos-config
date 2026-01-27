@@ -25,6 +25,7 @@
     ];
     packages = [
       "org.signal.Signal"
+      "org.jdownloader.JDownloader"
     ];
     update.auto = {
       enable = true;
@@ -131,6 +132,9 @@
 
     # ---- youtube
     freetube
+
+    # --- DOWNLOAD MANAGER ---
+    motrix
 
     # --- OPENBB (Investment Research Platform) ---
     # FHS-kompatible Umgebung für OpenBB (pip-basiert)
