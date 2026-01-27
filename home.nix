@@ -105,7 +105,8 @@
     mupdf
 
     # --- MEDIA PLAYER ---
-    glide-media-player
+    celluloid # GTK-Frontend für mpv
+    vlc
 
     # --- EDITOREN ---
     zed-editor
