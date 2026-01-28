@@ -10,7 +10,7 @@
 
   networking = {
     hostName = "achim-laptop";
-    enableIPv6 = false;
+    enableIPv6 = true;
 
     # NetworkManager für alles (WLAN, Ethernet, VPN)
     networkmanager = {
@@ -46,7 +46,7 @@
               method = "auto";
             };
             ipv6 = {
-              method = "disabled";
+              method = "auto";
             };
           };
         };
@@ -54,11 +54,10 @@
     };
   };
 
-  # IPv6 komplett deaktivieren auf Kernel-Ebene
+  # IPv6 Privacy Extensions (temporäre Adressen gegen Tracking)
   boot.kernel.sysctl = {
-    "net.ipv6.conf.all.disable_ipv6" = 1;
-    "net.ipv6.conf.default.disable_ipv6" = 1;
-    "net.ipv6.conf.lo.disable_ipv6" = 1;
+    "net.ipv6.conf.all.use_tempaddr" = 2;
+    "net.ipv6.conf.default.use_tempaddr" = 2;
   };
 
   # ==========================================
