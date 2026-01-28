@@ -196,6 +196,12 @@
           "--env=NIXOS_OZONE_WL=1"
         ];
       };
+
+      # Spotify - Musik-Streaming mit Sandbox
+      spotify = {
+        executable = "${pkgs.spotify}/bin/spotify";
+        profile = "${pkgs.firejail}/etc/firejail/spotify.profile";
+      };
     };
   };
 
@@ -208,5 +214,6 @@
     freetube
     logseq
     discord
+    spotify
   ];
 }
