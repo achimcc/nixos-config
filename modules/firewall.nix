@@ -107,19 +107,72 @@ in
       iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 192.168.178.255 -j ACCEPT
 
       # ==========================================
-      # IPv6 REGELN - Alles blockieren (IPv6 ist deaktiviert)
+      # IPv6 REGELN - Gleiche Logik wie IPv4
       # ==========================================
-      
+
+      # 1. Alles löschen & Standard auf DROP setzen
       ip6tables -F INPUT
       ip6tables -F OUTPUT
       ip6tables -F FORWARD
       ip6tables -P INPUT DROP
       ip6tables -P OUTPUT DROP
       ip6tables -P FORWARD DROP
-      
-      # Nur Loopback erlauben (für lokale Prozesse)
+
+      # 2. Loopback erlauben (Lokale Prozesse)
       ip6tables -A INPUT -i lo -j ACCEPT
       ip6tables -A OUTPUT -o lo -j ACCEPT
+
+      # 3. Bestehende Verbindungen erlauben
+      ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+      # 4. VPN Interfaces erlauben
+      ip6tables -A OUTPUT -o proton0 -j ACCEPT
+      ip6tables -A OUTPUT -o tun+ -j ACCEPT
+      ip6tables -A OUTPUT -o wg+ -j ACCEPT
+
+      # 5. VPN-Ports erlauben (für IPv6-fähige VPN-Server)
+      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguard} -j ACCEPT
+      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguardAlt1} -j ACCEPT
+      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguardAlt2} -j ACCEPT
+      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.openvpn} -j ACCEPT
+      ip6tables -A OUTPUT -p tcp --dport ${toString vpnPorts.https} -j ACCEPT
+      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.https} -j ACCEPT
+      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.ikev2} -j ACCEPT
+      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.ikev2Nat} -j ACCEPT
+
+      # 6. DHCPv6 erlauben
+      ip6tables -A OUTPUT -p udp --dport 546:547 -j ACCEPT
+      ip6tables -A INPUT -p udp --sport 547 -j ACCEPT
+
+      # 7. ICMPv6 für Neighbor Discovery (essentiell für IPv6)
+      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type router-advertisement -j ACCEPT
+      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type neighbor-solicitation -j ACCEPT
+      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type neighbor-advertisement -j ACCEPT
+      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type router-solicitation -j ACCEPT
+      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type neighbor-solicitation -j ACCEPT
+      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type neighbor-advertisement -j ACCEPT
+
+      # 8. DNS NUR über systemd-resolved (::1)
+      ip6tables -A OUTPUT -p udp --dport 53 -d ::1 -j ACCEPT
+      ip6tables -A OUTPUT -p tcp --dport 53 -d ::1 -j ACCEPT
+      ip6tables -A OUTPUT -p tcp --dport 853 -j ACCEPT
+
+      # 9. mDNS für lokale Discovery
+      ip6tables -A OUTPUT -p udp --dport 5353 -d ff02::fb -j ACCEPT
+      ip6tables -A INPUT -p udp --sport 5353 -j ACCEPT
+
+      # 10. Link-Local Adressen erlauben (fe80::/10)
+      ip6tables -A INPUT -s fe80::/10 -j ACCEPT
+      ip6tables -A OUTPUT -d fe80::/10 -j ACCEPT
+
+      # 11. Syncthing über VPN
+      ip6tables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i proton0 -j ACCEPT
+      ip6tables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i tun+ -j ACCEPT
+      ip6tables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i wg+ -j ACCEPT
+      ip6tables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i proton0 -j ACCEPT
+      ip6tables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i tun+ -j ACCEPT
+      ip6tables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i wg+ -j ACCEPT
     '';
 
     extraStopCommands = ''
