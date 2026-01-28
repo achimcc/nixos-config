@@ -71,6 +71,7 @@
     libsecret
     nano # Für EDITOR Variable in nushell
     vim
+    python3
   ];
 
   # ==========================================

@@ -86,6 +86,32 @@
     # Native Messaging für Browser-Extensions (z.B. Goldwarden)
     ignore private-tmp
     noblacklist ''${HOME}/.librewolf/native-messaging-hosts
+
+    # Goldwarden Browser-Biometrics Support
+    # Socket für Kommunikation zwischen Browser-Extension und Goldwarden-Daemon
+    noblacklist ''${HOME}/.goldwarden.sock
+    whitelist ''${HOME}/.goldwarden.sock
+
+    # Nix-Store Zugriff für Goldwarden Native Messaging Binary
+    # Die Browser-Extension startet goldwarden als Subprocess
+    noblacklist /nix/store
+
+    # D-Bus Zugriff für Polkit-Authentifizierung (Biometrie/Fingerprint)
+    # WICHTIG: firefox-common.profile hat "dbus-user none" und "dbus-system none"
+    # Diese müssen explizit ignoriert werden (nicht nur "nodbus")
+    ignore dbus-user none
+    ignore dbus-system none
+
+    # D-Bus Filter mit Goldwarden-Zugriff
+    dbus-user filter
+    dbus-user.own com.quexten.Goldwarden
+    dbus-user.talk com.quexten.Goldwarden
+    dbus-user.talk com.quexten.Goldwarden.*
+    dbus-user.talk org.freedesktop.portal.*
+
+    # System D-Bus für Polkit (Fingerprint-Authentifizierung)
+    dbus-system filter
+    dbus-system.talk org.freedesktop.PolicyKit1
   '';
 
   programs.firejail = {
