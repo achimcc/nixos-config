@@ -55,9 +55,9 @@
   };
 
   # IPv6 Privacy Extensions (temporäre Adressen gegen Tracking)
+  # net.ipv6.conf.default.use_tempaddr wird bereits von NixOS gesetzt (enableIPv6 = true)
   boot.kernel.sysctl = {
     "net.ipv6.conf.all.use_tempaddr" = 2;
-    "net.ipv6.conf.default.use_tempaddr" = 2;
   };
 
   # ==========================================
