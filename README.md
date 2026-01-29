@@ -287,6 +287,7 @@ Modern Unix replacements with better UX, performance, and features.
 | **zoxide** | `z` | cd | Smart directory jumping |
 | **fd** | `fd` | find | Intuitive syntax, ignores node_modules |
 | **yazi** | `yazi` | ranger/nnn | Terminal-Dateimanager mit Bildvorschau |
+| **zellij** | `zellij` | tmux/screen | Terminal-Multiplexer (Rust), startet automatisch |
 
 ### Monitoring & Network
 
@@ -358,7 +359,7 @@ gitui
 
 - **Thunderbird**: Email (Posteo, hardened, Firejail)
 - **Signal Desktop**: Messenger (Flatpak)
-- **Flare**: Inoffizieller Signal-Client (GTK/libadwaita, Firejail) - leichtgewichtige Alternative zu Signal Desktop
+- **Flare**: Inoffizieller Signal-Client (GTK/libadwaita, Flatpak) - leichtgewichtige Alternative zu Signal Desktop
 - **Discord**: Chat-Client (Firejail)
 
 ### Media & Audio
@@ -424,7 +425,6 @@ Folgende Apps laufen in isolierten Firejail-Sandboxes mit eingeschränktem Datei
 | Tor Browser | tor-browser.profile | Private Downloads-Verzeichnis |
 | Spotify | spotify.profile + .local | OAuth-Login mit Browser-Redirect |
 | Discord | discord.profile | Wayland (NIXOS_OZONE_WL) |
-| Flare | Eigenes Profil | Signal-Kommunikation, Secrets-API |
 | FreeTube | freetube.profile | Wayland |
 | Thunderbird | thunderbird.profile | E-Mail |
 | KeePassXC | keepassxc.profile | Passwort-Datenbank |
@@ -440,6 +440,7 @@ Deklarativ verwaltet über `nix-flatpak` mit wöchentlichen Auto-Updates:
 | App | Flatpak ID |
 |-----|------------|
 | Signal Desktop | org.signal.Signal |
+| Flare (Signal) | de.schmidhuberj.Flare |
 | JDownloader 2 | org.jdownloader.JDownloader |
 | Portfolio Performance | info.portfolio_performance.PortfolioPerformance |
 

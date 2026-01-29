@@ -27,6 +27,7 @@
       "org.signal.Signal"
       "org.jdownloader.JDownloader"
       "info.portfolio_performance.PortfolioPerformance"
+      "de.schmidhuberj.Flare"
     ];
     update.auto = {
       enable = true;
@@ -103,6 +104,7 @@
     xh # HTTP-Client mit JSON-Formatting
     dust # Visualisierte Festplattenbelegung
     yazi # Terminal-Dateimanager mit Vorschau
+    zellij # Terminal-Multiplexer (Rust, tmux-Alternative)
 
     # --- ENTWICKLER TOOLS ---
     wildcard # Regex-Tester (GNOME/libadwaita)
@@ -150,8 +152,7 @@
     gcc
 
     # --- KOMMUNIKATION ---
-    # Signal Desktop wird über Flatpak installiert (siehe services.flatpak.packages)
-    # flare-signal - via Firejail in modules/network.nix
+    # Signal Desktop + Flare via Flatpak (siehe services.flatpak.packages)
 
     # --- NODE.JS ---
     nodejs_22 # Enthält npm für globale Pakete
@@ -570,6 +571,11 @@
       NPM_CONFIG_PREFIX = "~/.npm-global";
     };
     extraConfig = ''
+      # Startet Zellij automatisch, wenn noch keins läuft, aber nicht in Subshells
+      if (not ("ZELLIJ" in $env)) {
+        zellij attach --create
+      }
+
       $env.config.show_banner = false
       $env.PATH = ($env.PATH | prepend $"($env.HOME)/.npm-global/bin")
 
