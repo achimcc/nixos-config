@@ -92,6 +92,9 @@
     xh # HTTP-Client mit JSON-Formatting
     dust # Visualisierte Festplattenbelegung
 
+    # --- ENTWICKLER TOOLS ---
+    wildcard # Regex-Tester (GNOME/libadwaita)
+
     # --- NIX ENTWICKLUNG ---
     nil
     nixpkgs-fmt
