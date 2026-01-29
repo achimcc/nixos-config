@@ -59,7 +59,7 @@
         "org.gnome.Nautilus.desktop"
         "code.desktop"
         "org.keepassxc.KeePassXC.desktop"
-        "org.signal.Signal.desktop"
+        "de.schmidhuberj.Flare.desktop"
       ];
       # Extensions aktivieren
       enabled-extensions = [
