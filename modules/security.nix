@@ -147,8 +147,11 @@
     # eine Policy generieren, dann presentDevicePolicy auf "apply-policy" ändern
     presentDevicePolicy = "allow";
 
-    # Regeln-Datei (wird von usbguard generate-policy erstellt)
-    rules = null;
+    # Erlaubte USB-Geräte (permanent)
+    rules = ''
+      # SanDisk Portable SSD
+      allow id 0781:55b0 serial "323233353036343034313530" name "Portable SSD" with-interface { 08:06:50 08:06:62 } with-connect-type "hotplug"
+    '';
   };
 
   # Sicherheits-Tools verfügbar machen
