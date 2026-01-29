@@ -102,9 +102,11 @@
     bottom # btm - grafischer Prozess-Monitor
     xh # HTTP-Client mit JSON-Formatting
     dust # Visualisierte Festplattenbelegung
+    yazi # Terminal-Dateimanager mit Vorschau
 
     # --- ENTWICKLER TOOLS ---
     wildcard # Regex-Tester (GNOME/libadwaita)
+    elastic # Spring-Animationen designen (GNOME/libadwaita)
 
     # --- NIX ENTWICKLUNG ---
     nil

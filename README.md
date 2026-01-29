@@ -286,6 +286,7 @@ Modern Unix replacements with better UX, performance, and features.
 | **eza** | `eza` | ls | Icons, colors, Git status, tree view |
 | **zoxide** | `z` | cd | Smart directory jumping |
 | **fd** | `fd` | find | Intuitive syntax, ignores node_modules |
+| **yazi** | `yazi` | ranger/nnn | Terminal-Dateimanager mit Bildvorschau |
 
 ### Monitoring & Network
 
@@ -411,6 +412,7 @@ gitui
 - **VSCodium**: VS Code without telemetry (Firejail)
 - **Zed**: Modern editor
 - **Wildcard**: Regex-Tester zum interaktiven Testen regulärer Ausdrücke
+- **Elastic**: Spring-Animationen designen und visualisieren (Easing-Kurven für UI-Entwicklung)
 
 ### Firejail-Sandboxed Applications
 
