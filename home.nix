@@ -65,6 +65,7 @@
 
     # --- SYSTEM MONITORING ---
     mission-center
+    baobab # GNOME Festplattenbelegung (grafisch)
 
     # --- AUDIO ---
     helvum # GTK Patchbay für PipeWire
