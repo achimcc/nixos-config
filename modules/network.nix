@@ -114,6 +114,25 @@
     dbus-system.talk org.freedesktop.PolicyKit1
   '';
 
+  # Spotify-spezifische Firejail-Konfiguration
+  environment.etc."firejail/spotify.local".text = ''
+    # OAuth-Login: Spotify startet lokalen Server und öffnet Browser
+    # private-bin ist zu restriktiv (kein xdg-open), daher aufheben
+    ignore private-bin
+    ignore private-etc
+
+    # Portal-Zugriff für URL-Öffnung im Browser (OAuth-Flow)
+    ignore dbus-user filter
+    ignore dbus-system none
+    dbus-user filter
+    dbus-user.own org.mpris.MediaPlayer2.spotify
+    dbus-user.talk org.freedesktop.Notifications
+    dbus-user.talk org.freedesktop.secrets
+    dbus-user.talk org.mpris.MediaPlayer2.Player
+    dbus-user.talk org.freedesktop.portal.*
+    dbus-system none
+  '';
+
   programs.firejail = {
     enable = true;
     wrappedBinaries = {
