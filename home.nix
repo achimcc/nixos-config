@@ -108,6 +108,9 @@
     celluloid # GTK-Frontend für mpv
     vlc
 
+    # --- TERMINAL ---
+    blackbox-terminal
+
     # --- EDITOREN ---
     zed-editor
     apostrophe # Markdown-Editor für GNOME
