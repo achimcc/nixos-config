@@ -26,6 +26,7 @@
     packages = [
       "org.signal.Signal"
       "org.jdownloader.JDownloader"
+      "info.portfolio_performance.PortfolioPerformance"
     ];
     update.auto = {
       enable = true;
@@ -78,7 +79,7 @@
     newsflash # GTK RSS-Reader (mit Miniflux-Sync)
 
     # --- FINANZEN ---
-    portfolio # Portfolio Performance - Wertpapierdepot-Verwaltung
+    # portfolio - via Flatpak (siehe services.flatpak.packages)
 
     # --- SCREENSHOT & CLIPBOARD (Wayland) ---
     grim # Screenshot-Tool
