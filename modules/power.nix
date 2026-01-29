@@ -37,6 +37,10 @@
       # USB Autosuspend
       USB_AUTOSUSPEND = 1;
 
+      # SanDisk Portable SSD von Autosuspend ausschließen (Performance)
+      USB_EXCLUDE_BTUSB = 0;
+      USB_DENYLIST = "0781:55b0";
+
       # Akku-Ladeschwellen (falls unterstützt)
       # Schont den Akku durch begrenztes Laden
       START_CHARGE_THRESH_BAT0 = 50;  # Laden startet unter 50%

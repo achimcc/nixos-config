@@ -83,31 +83,26 @@
 
   # Librewolf-spezifische Firejail-Konfiguration
   environment.etc."firejail/librewolf.local".text = ''
-    # Native Messaging für Browser-Extensions (z.B. Goldwarden)
+    # Bitwarden Desktop Native Messaging (Browser-Biometrics)
+    # desktop_proxy läuft als Subprocess im Sandbox und kommuniziert
+    # mit der Bitwarden Desktop-App via IPC-Socket in ~/.cache/com.bitwarden.desktop/
     ignore private-tmp
     noblacklist ''${HOME}/.librewolf/native-messaging-hosts
 
-    # Goldwarden Browser-Biometrics Support
-    # Socket für Kommunikation zwischen Browser-Extension und Goldwarden-Daemon
-    noblacklist ''${HOME}/.goldwarden.sock
-    whitelist ''${HOME}/.goldwarden.sock
+    # Bitwarden Desktop IPC-Socket (desktop_proxy → Desktop-App)
+    noblacklist ''${HOME}/.cache/com.bitwarden.desktop
+    whitelist ''${HOME}/.cache/com.bitwarden.desktop
 
-    # Nix-Store Zugriff für Goldwarden Native Messaging Binary
-    # Die Browser-Extension startet goldwarden als Subprocess
+    # Nix-Store Zugriff für desktop_proxy Binary
     noblacklist /nix/store
 
-    # D-Bus Zugriff für Polkit-Authentifizierung (Biometrie/Fingerprint)
-    # WICHTIG: firefox-common.profile hat "dbus-user none" und "dbus-system none"
-    # Diese müssen explizit ignoriert werden (nicht nur "nodbus")
+    # D-Bus Zugriff für Bitwarden Desktop IPC und Portal-Integration
     ignore dbus-user none
     ignore dbus-system none
 
-    # D-Bus Filter mit Goldwarden-Zugriff
     dbus-user filter
-    dbus-user.own com.quexten.Goldwarden
-    dbus-user.talk com.quexten.Goldwarden
-    dbus-user.talk com.quexten.Goldwarden.*
     dbus-user.talk org.freedesktop.portal.*
+    dbus-user.talk org.freedesktop.Notifications
 
     # System D-Bus für Polkit (Fingerprint-Authentifizierung)
     dbus-system filter
