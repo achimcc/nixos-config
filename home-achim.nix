@@ -78,6 +78,7 @@
     slurp # Bereichsauswahl
     swappy # Screenshot-Annotation
     wl-clipboard # Clipboard für Wayland
+    textsnatcher # OCR - Text aus Bildern kopieren
 
     # --- GIT TOOLS ---
     gitui # Terminal UI für Git
