@@ -24,7 +24,6 @@
       }
     ];
     packages = [
-      "org.signal.Signal"
       "org.jdownloader.JDownloader"
       "info.portfolio_performance.PortfolioPerformance"
       "de.schmidhuberj.Flare"
@@ -34,15 +33,6 @@
       onCalendar = "weekly";
     };
   };
-
-  # Signal Autostart (Flatpak)
-  xdg.configFile."autostart/org.signal.Signal.desktop".text = ''
-    [Desktop Entry]
-    Type=Application
-    Name=Signal
-    Exec=flatpak run org.signal.Signal --start-in-tray
-    X-GNOME-Autostart-enabled=true
-  '';
 
   # WICHTIG FÜR RUST:
   home.sessionPath = [ "$HOME/.cargo/bin" ];
