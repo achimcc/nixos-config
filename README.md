@@ -58,7 +58,7 @@ flake.nix                 # Flake Entry Point
 
 - **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel
 - **DNS-over-TLS**: Mullvad DNS (194.242.2.2) with DNSSEC
-- **IPv6 disabled**: Completely disabled at kernel level
+- **IPv6 Privacy Extensions**: Temporäre Adressen gegen Tracking
 - **Random MAC addresses**: On every WiFi scan and connection
 - **WireGuard Auto-Connect**: VPN connects before login
 
@@ -71,7 +71,7 @@ flake.nix                 # Flake Entry Point
 
 ### Sandboxing & Hardening
 
-- **Firejail**: Tor Browser, LibreWolf, Signal Desktop isolated
+- **Firejail**: Tor Browser, LibreWolf, Spotify, Discord, Flare, FreeTube und weitere isoliert
 - **AppArmor**: Mandatory Access Control enabled
 - **Hardened Kernel**: With additional security options
 - **USBGuard**: USB device authorization (blocks unknown devices)
@@ -292,8 +292,10 @@ Modern Unix replacements with better UX, performance, and features.
 | Tool | Command | Replaces | Feature |
 |------|---------|----------|---------|
 | **bottom** | `btm` | top/htop | Graphical process monitor |
+| **mission-center** | GUI | gnome-system-monitor | CPU, RAM, Disk, GPU Monitor |
 | **xh** | `xh` | curl | HTTP client with JSON formatting |
 | **dust** | `dust` | du | Visual disk usage |
+| **baobab** | GUI | - | GNOME Disk Usage Analyzer |
 
 ### Git Tools
 
@@ -346,41 +348,98 @@ gitui
 
 ## Applications
 
-### Browsers (with Firejail)
+### Browsers (Firejail)
 
 - **LibreWolf**: Primary browser with uBlock Origin, KeePassXC, ClearURLs
-- **Tor Browser**: For anonymous browsing
+- **Tor Browser**: For anonymous browsing (private Downloads-Verzeichnis)
 
-### Communication
+### Communication (Firejail / Flatpak)
 
-- **Thunderbird**: Email (Posteo, hardened)
-- **Signal Desktop**: Messenger (Firejail sandbox)
+- **Thunderbird**: Email (Posteo, hardened, Firejail)
+- **Signal Desktop**: Messenger (Flatpak)
+- **Flare**: Inoffizieller Signal-Client (GTK/libadwaita, Firejail) - leichtgewichtige Alternative zu Signal Desktop
+- **Discord**: Chat-Client (Firejail)
+
+### Media & Audio
+
+- **Spotify**: Musik-Streaming (Firejail) - Login erfordert `spotify.local`-Override für OAuth
+- **Amberol**: GNOME Musik-Player für lokale Audiodateien - spielt eine Playlist ohne Bibliotheksverwaltung
+- **Shortwave**: Internet-Radio mit Sender-Datenbank (radio-browser.info)
+- **Celluloid**: GTK-Frontend für mpv (Video)
+- **VLC**: Universeller Media Player
+- **FreeTube**: YouTube-Client ohne Tracking (Firejail)
+- **Helvum**: GTK Patchbay für PipeWire - zum visuellen Verbinden von Audio-Ein/Ausgängen
+
+### Lesen & Notizen
+
+- **Zathura**: PDF-Viewer mit Vim-Keybindings (Firejail)
+- **MuPDF**: Leichtgewichtiger PDF-Viewer
+- **Foliate**: E-Book-Reader (EPUB, MOBI, FB2) mit GNOME-Integration
+- **Rnote**: Handschriftliche Notizen und Skizzen mit Stift-Unterstützung
+- **Apostrophe**: Distraction-free Markdown-Editor
 
 ### Password Management
 
-- **KeePassXC**: Offline password manager (Firejail sandbox)
+- **KeePassXC**: Offline password manager (Firejail)
 - **Goldwarden**: Bitwarden-compatible client with enhanced security
 
-### Productivity
+### Productivity & Tools
 
 - **Syncthing**: File synchronization (local, no cloud)
-- **Zathura**: PDF viewer (Vim bindings)
-- **Portfolio**: Investment portfolio management
+- **Portfolio Performance**: Investment portfolio management (Flatpak)
+- **Logseq**: Wissensmanagement / Personal Wiki (Firejail)
+- **Newsflash**: RSS-Reader mit Miniflux-Sync
 
-### Development
+### System & Utilities
+
+- **Mission Center**: System-Monitor (CPU, RAM, Disk, GPU)
+- **Baobab**: Grafische Festplattenbelegung (GNOME Disk Usage Analyzer)
+- **Czkawka**: Duplikate-Finder - findet doppelte Dateien, ähnliche Bilder, leere Ordner, temporäre Dateien
+- **Raider**: Sicheres Löschen von Dateien (überschreibt Daten vor dem Löschen)
+- **TextSnatcher**: OCR - Text aus Bildern/Screenshots in die Zwischenablage kopieren
+- **Blackbox Terminal**: GTK4-Terminalemulator für GNOME
+
+### Download Manager
+
+- **Motrix**: Download-Manager (HTTP, FTP, BitTorrent, Magnet)
+- **Fragments**: GNOME BitTorrent-Client (leichtgewichtig, libadwaita)
+- **JDownloader 2**: Download-Manager (Flatpak)
+
+### Entwicklung
 
 - **Neovim**: Primary editor (Rust IDE)
-- **VSCodium**: VS Code without telemetry
+- **VSCodium**: VS Code without telemetry (Firejail)
 - **Zed**: Modern editor
+- **Wildcard**: Regex-Tester zum interaktiven Testen regulärer Ausdrücke
 
-### Network Simulation
+### Firejail-Sandboxed Applications
 
-- **Shadow**: Discrete-event network simulator for distributed systems
-  - Runs real application code in simulated networks
-  - Supports thousands of network-connected processes
-  - First launch: Automatically builds Shadow from source (~5 minutes)
-  - Usage: `shadow <simulation-config.yaml>`
-  - Documentation: [shadow.github.io](https://shadow.github.io)
+Folgende Apps laufen in isolierten Firejail-Sandboxes mit eingeschränktem Dateisystemzugriff:
+
+| App | Profil | Besonderheiten |
+|-----|--------|----------------|
+| LibreWolf | librewolf.profile + .local | Goldwarden Native Messaging, Portal-Zugriff |
+| Tor Browser | tor-browser.profile | Private Downloads-Verzeichnis |
+| Spotify | spotify.profile + .local | OAuth-Login mit Browser-Redirect |
+| Discord | discord.profile | Wayland (NIXOS_OZONE_WL) |
+| Flare | Eigenes Profil | Signal-Kommunikation, Secrets-API |
+| FreeTube | freetube.profile | Wayland |
+| Thunderbird | thunderbird.profile | E-Mail |
+| KeePassXC | keepassxc.profile | Passwort-Datenbank |
+| Newsflash | newsflash.profile | RSS-Feeds |
+| Logseq | obsidian.profile | Whitelist ~/Dokumente/Logseq |
+| VSCodium | vscodium.profile | Whitelist ~/Projects, ~/nixos-config |
+| Zathura | zathura.profile | PDF-Dateien |
+
+### Flatpak Applications
+
+Deklarativ verwaltet über `nix-flatpak` mit wöchentlichen Auto-Updates:
+
+| App | Flatpak ID |
+|-----|------------|
+| Signal Desktop | org.signal.Signal |
+| JDownloader 2 | org.jdownloader.JDownloader |
+| Portfolio Performance | info.portfolio_performance.PortfolioPerformance |
 
 ## Goldwarden Setup
 
