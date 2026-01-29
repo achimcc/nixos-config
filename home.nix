@@ -147,6 +147,7 @@
 
     # --- DOWNLOAD MANAGER ---
     motrix
+    fragments # GNOME BitTorrent-Client
 
     # --- OPENBB (Investment Research Platform) ---
     # FHS-kompatible Umgebung für OpenBB (pip-basiert)
