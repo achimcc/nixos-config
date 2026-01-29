@@ -142,7 +142,8 @@
     gcc
 
     # --- KOMMUNIKATION ---
-    # Signal Desktop wird über Firejail in modules/network.nix installiert
+    # Signal Desktop wird über Flatpak installiert (siehe services.flatpak.packages)
+    # flare-signal - via Firejail in modules/network.nix
 
     # --- NODE.JS ---
     nodejs_22 # Enthält npm für globale Pakete

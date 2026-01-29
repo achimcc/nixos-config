@@ -114,6 +114,67 @@
     dbus-system.talk org.freedesktop.PolicyKit1
   '';
 
+  # Flare-Signal Firejail-Profil (kein eingebautes Profil vorhanden)
+  # Basiert auf newsflash.profile als GTK/libadwaita-Referenz
+  environment.etc."firejail/flare.profile".text = ''
+    # Firejail profile for Flare (Signal Client)
+    include flare.local
+    include globals.local
+
+    noblacklist ''${HOME}/.config/flare
+    noblacklist ''${HOME}/.local/share/flare
+    noblacklist ''${HOME}/.cache/flare
+
+    include disable-common.inc
+    include disable-devel.inc
+    include disable-exec.inc
+    include disable-interpreters.inc
+    include disable-programs.inc
+    include disable-shell.inc
+    include disable-xdg.inc
+
+    mkdir ''${HOME}/.config/flare
+    mkdir ''${HOME}/.local/share/flare
+    mkdir ''${HOME}/.cache/flare
+    whitelist ''${HOME}/.config/flare
+    whitelist ''${HOME}/.local/share/flare
+    whitelist ''${HOME}/.cache/flare
+    include whitelist-common.inc
+    include whitelist-runuser-common.inc
+    include whitelist-usr-share-common.inc
+    include whitelist-var-common.inc
+
+    apparmor
+    caps.drop all
+    machine-id
+    netfilter
+    nodvd
+    nogroups
+    noinput
+    nonewprivs
+    noroot
+    notv
+    nou2f
+    protocol unix,inet,inet6
+    seccomp
+    tracelog
+
+    disable-mnt
+    private-bin flare
+    private-cache
+    private-dev
+    private-etc @tls-ca,@x11
+    private-tmp
+
+    dbus-user filter
+    dbus-user.talk org.freedesktop.Notifications
+    dbus-user.talk org.freedesktop.secrets
+    dbus-user.talk org.freedesktop.portal.*
+    dbus-system none
+
+    restrict-namespaces
+  '';
+
   # Spotify-spezifische Firejail-Konfiguration
   environment.etc."firejail/spotify.local".text = ''
     # OAuth-Login: Spotify startet lokalen Server und öffnet Browser
@@ -216,6 +277,12 @@
         ];
       };
 
+      # Flare - Signal-Client mit Sandbox
+      flare = {
+        executable = "${pkgs.flare-signal}/bin/flare";
+        profile = "/etc/firejail/flare.profile";
+      };
+
       # Spotify - Musik-Streaming mit Sandbox
       spotify = {
         executable = "${pkgs.spotify}/bin/spotify";
@@ -233,6 +300,7 @@
     freetube
     logseq
     discord
+    flare-signal
     spotify
   ];
 }
