@@ -66,6 +66,7 @@
     # --- SYSTEM MONITORING ---
     mission-center
     baobab # GNOME Festplattenbelegung (grafisch)
+    czkawka-full # Duplikate-Finder mit GUI (ähnliche Bilder, leere Ordner etc.)
 
     # --- AUDIO ---
     helvum # GTK Patchbay für PipeWire
