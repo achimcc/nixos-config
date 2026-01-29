@@ -55,6 +55,7 @@
     bitwarden-desktop # Passwort-Manager Desktop-App (für Browser-Biometrics)
     kdePackages.kleopatra
     usbguard-notifier # Desktop-Benachrichtigungen für blockierte USB-Geräte
+    raider # Sicheres Löschen von Dateien (GNOME/libadwaita)
 
     # --- GNOME ERWEITERUNGEN ---
     gnomeExtensions.pano
