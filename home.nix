@@ -115,7 +115,6 @@
 
     # --- MEDIA PLAYER ---
     celluloid # GTK-Frontend für mpv
-    vlc
     amberol # GNOME Musik-Player für lokale Dateien
 
     # --- TERMINAL ---
