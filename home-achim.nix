@@ -113,8 +113,9 @@
     tinymist
     hunspellDicts.de-de
 
-    # --- PDF VIEWER ---
+    # --- PDF VIEWER & E-BOOKS ---
     mupdf
+    foliate # E-Book-Reader (GNOME/libadwaita)
 
     # --- MEDIA PLAYER ---
     celluloid # GTK-Frontend für mpv
