@@ -64,6 +64,9 @@
     # --- SYSTEM MONITORING ---
     mission-center
 
+    # --- AUDIO ---
+    helvum # GTK Patchbay für PipeWire
+
     # --- SYNCTHING ---
     # syncthingtray # Temporär deaktiviert (Cache-Problem mit acl-2.3.2 Hash-Mismatch)
 
