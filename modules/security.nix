@@ -435,4 +435,25 @@
       RestartSec = "10s";
     };
   };
+
+  # ==========================================
+  # FIDO2/NITROKEY PAM-AUTHENTIFIZIERUNG
+  # ==========================================
+
+  # FIDO2 mit PIN + Touch als Alternative zum Passwort
+  # Nitrokey eingesteckt → PIN eingeben + Key berühren → authentifiziert
+  # Kein Nitrokey → normales Passwort als Fallback
+  security.pam.u2f = {
+    enable = true;
+    control = "sufficient";
+    settings = {
+      cue = true;
+      pinverification = 1;
+    };
+  };
+
+  # PAM-Services für FIDO2 aktivieren
+  security.pam.services.sudo.u2fAuth = true;
+  security.pam.services.login.u2fAuth = true;
+  security.pam.services.gdm-password.u2fAuth = true;
 }
