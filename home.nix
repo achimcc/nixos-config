@@ -69,6 +69,11 @@ in
     usbguard-notifier # Desktop-Benachrichtigungen für blockierte USB-Geräte
     raider # Sicheres Löschen von Dateien (GNOME/libadwaita)
 
+    # --- NITROKEY 3C NFC ---
+    nitrokey-app2 # GUI-Verwaltung (FIDO2 PIN, Firmware-Update, OpenPGP)
+    pynitrokey # CLI-Tool: nitropy fido2/openpgp (Firmware-Updates, FIDO2-Verwaltung)
+    libfido2 # CLI: fido2-token (Low-Level FIDO2-Verwaltung)
+
     # --- GNOME ERWEITERUNGEN ---
     gnomeExtensions.pano
     libgda5

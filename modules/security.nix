@@ -159,6 +159,9 @@
 
       # SanDisk Portable SSD
       allow id 0781:55b0 serial "323233353036343034313530" name "Portable SSD" with-interface { 08:06:50 08:06:62 } with-connect-type "hotplug"
+
+      # Nitrokey 3C NFC
+      allow id 20a0:42b2 name "Nitrokey 3" with-connect-type "hotplug"
     '';
   };
 

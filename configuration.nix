@@ -83,6 +83,12 @@
   # BLUETOOTH
   # ==========================================
 
+  # ==========================================
+  # NITROKEY 3C NFC
+  # ==========================================
+
+  hardware.nitrokey.enable = true;
+
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
   hardware.bluetooth.settings = {
