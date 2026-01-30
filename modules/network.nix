@@ -109,39 +109,19 @@
     dbus-system.talk org.freedesktop.PolicyKit1
   '';
 
-  # Spot - GTK Spotify Client (Rust/librespot)
-  # Kein eingebautes Firejail-Profil, daher eigenes erstellen
-  environment.etc."firejail/spot.profile".text = ''
-    # Spot - GTK Spotify Client
-    include disable-common.inc
-    include disable-devel.inc
-    include disable-exec.inc
-    include disable-interpreters.inc
+  # Spotify-spezifische Firejail-Konfiguration
+  environment.etc."firejail/spotify.local".text = ''
+    # Spotify braucht Zugriff auf eigene Binaries und Configs
+    ignore private-bin
+    ignore private-etc
 
-    whitelist ''${HOME}/.cache/spot
-    whitelist ''${HOME}/.local/share/spot
-    include whitelist-common.inc
-
-    caps.drop all
-    netfilter
-    nodvd
-    nogroups
-    noinput
-    nonewprivs
-    noroot
-    notv
-    nou2f
-    novideo
-    protocol unix,inet,inet6
-    seccomp
-
-    # D-Bus: GNOME Keyring (OAuth Tokens), MPRIS, Notifications, Portal (Browser-Login)
+    # D-Bus: MPRIS (Media-Controls), Notifications, Secrets (OAuth), Portal (Browser-Login)
+    ignore dbus-user none
     dbus-user filter
-    dbus-user.talk org.freedesktop.secrets
+    dbus-user.own org.mpris.MediaPlayer2.spotify
     dbus-user.talk org.freedesktop.Notifications
-    dbus-user.own org.mpris.MediaPlayer2.Spot
+    dbus-user.talk org.freedesktop.secrets
     dbus-user.talk org.freedesktop.portal.*
-    dbus-system none
   '';
 
   programs.firejail = {
@@ -229,10 +209,10 @@
 
       # Flare - Signal-Client via Flatpak (eigene Bubblewrap-Sandbox)
 
-      # Spot - GTK Spotify Client mit Sandbox
-      spot = {
-        executable = "${pkgs.spot}/bin/spot";
-        profile = "/etc/firejail/spot.profile";
+      # Spotify - Musik-Streaming mit Sandbox
+      spotify = {
+        executable = "${pkgs.spotify}/bin/spotify";
+        profile = "${pkgs.firejail}/etc/firejail/spotify.profile";
       };
     };
   };
@@ -246,6 +226,6 @@
     freetube
     logseq
     discord
-    spot
+    spotify
   ];
 }
