@@ -24,9 +24,24 @@
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # LUKS Verschlüsselung
-  boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".device = 
+  # ==========================================
+  # LUKS Verschlüsselung mit FIDO2 (Nitrokey 3C NFC)
+  # ==========================================
+
+  # Systemd in Initrd für FIDO2 LUKS-Entsperrung
+  boot.initrd.systemd.enable = true;
+
+  # Root-Partition: FIDO2 mit Passwort-Fallback
+  boot.initrd.luks.devices."luks-fcef0557-8a09-4f30-b78e-aecc458a975a".crypttabExtraOpts = [
+    "fido2-device=auto"
+  ];
+
+  # Swap: FIDO2 mit Passwort-Fallback
+  boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".device =
     "/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b";
+  boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".crypttabExtraOpts = [
+    "fido2-device=auto"
+  ];
 
   # ==========================================
   # LOKALISIERUNG
@@ -63,6 +78,9 @@
   # ==========================================
 
   nixpkgs.config.allowUnfree = true;
+  nixpkgs.config.permittedInsecurePackages = [
+    "python3.12-ecdsa-0.19.1" # pynitrokey-Abhängigkeit, CVE-2024-23342 (Timing-Side-Channel, lokal irrelevant)
+  ];
 
   environment.systemPackages = with pkgs; [
     git
