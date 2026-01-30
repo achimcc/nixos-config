@@ -85,6 +85,12 @@
 
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
+  hardware.bluetooth.settings = {
+    General = {
+      Enable = "Source,Sink,Media,Socket";
+      Experimental = true;
+    };
+  };
 
   # ==========================================
   # DRUCKER (Brother MFC-7360N im Netzwerk)

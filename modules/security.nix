@@ -154,6 +154,9 @@
 
     # Erlaubte USB-Geräte (permanent)
     rules = ''
+      # Intel Bluetooth Adapter (intern, wird nach Firmware-Load re-inserted)
+      allow id 8087:0033 with-interface { e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 } with-connect-type "not used"
+
       # SanDisk Portable SSD
       allow id 0781:55b0 serial "323233353036343034313530" name "Portable SSD" with-interface { 08:06:50 08:06:62 } with-connect-type "hotplug"
     '';
