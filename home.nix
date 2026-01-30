@@ -61,6 +61,7 @@
 
     # --- AUDIO ---
     helvum # GTK Patchbay für PipeWire
+    easyeffects # Equalizer & Audio-Effekte für PipeWire
 
     # --- RADIO ---
     shortwave # Internet-Radio (GNOME/libadwaita)
