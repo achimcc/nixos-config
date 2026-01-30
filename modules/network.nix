@@ -107,6 +107,10 @@
     # System D-Bus für Polkit (Fingerprint-Authentifizierung)
     dbus-system filter
     dbus-system.talk org.freedesktop.PolicyKit1
+
+    # FIDO2/WebAuthn Zugriff für Nitrokey (braucht /dev/hidraw*)
+    ignore private-dev
+    ignore nou2f
   '';
 
   # Spotify-spezifische Firejail-Konfiguration
