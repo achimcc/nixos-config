@@ -109,21 +109,37 @@
     dbus-system.talk org.freedesktop.PolicyKit1
   '';
 
-  # Spotify-spezifische Firejail-Konfiguration
-  environment.etc."firejail/spotify.local".text = ''
-    # OAuth-Login: Spotify startet lokalen Server und öffnet Browser
-    # private-bin ist zu restriktiv (kein xdg-open), daher aufheben
-    ignore private-bin
-    ignore private-etc
+  # Spot - GTK Spotify Client (Rust/librespot)
+  # Kein eingebautes Firejail-Profil, daher eigenes erstellen
+  environment.etc."firejail/spot.profile".text = ''
+    # Spot - GTK Spotify Client
+    include disable-common.inc
+    include disable-devel.inc
+    include disable-exec.inc
+    include disable-interpreters.inc
 
-    # Portal-Zugriff für URL-Öffnung im Browser (OAuth-Flow)
-    ignore dbus-user filter
-    ignore dbus-system none
+    whitelist ''${HOME}/.cache/spot
+    whitelist ''${HOME}/.local/share/spot
+    include whitelist-common.inc
+
+    caps.drop all
+    netfilter
+    nodvd
+    nogroups
+    noinput
+    nonewprivs
+    noroot
+    notv
+    nou2f
+    novideo
+    protocol unix,inet,inet6
+    seccomp
+
+    # D-Bus: GNOME Keyring (OAuth Tokens), MPRIS, Notifications, Portal (Browser-Login)
     dbus-user filter
-    dbus-user.own org.mpris.MediaPlayer2.spotify
-    dbus-user.talk org.freedesktop.Notifications
     dbus-user.talk org.freedesktop.secrets
-    dbus-user.talk org.mpris.MediaPlayer2.Player
+    dbus-user.talk org.freedesktop.Notifications
+    dbus-user.own org.mpris.MediaPlayer2.Spot
     dbus-user.talk org.freedesktop.portal.*
     dbus-system none
   '';
@@ -213,10 +229,10 @@
 
       # Flare - Signal-Client via Flatpak (eigene Bubblewrap-Sandbox)
 
-      # Spotify - Musik-Streaming mit Sandbox
-      spotify = {
-        executable = "${pkgs.spotify}/bin/spotify";
-        profile = "${pkgs.firejail}/etc/firejail/spotify.profile";
+      # Spot - GTK Spotify Client mit Sandbox
+      spot = {
+        executable = "${pkgs.spot}/bin/spot";
+        profile = "/etc/firejail/spot.profile";
       };
     };
   };
@@ -230,6 +246,6 @@
     freetube
     logseq
     discord
-    spotify
+    spot
   ];
 }
