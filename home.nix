@@ -3,6 +3,26 @@
 
 { config, pkgs, pkgs-unstable, llm-agents, ... }:
 
+let
+  easyeffects-presets = pkgs.stdenv.mkDerivation {
+    name = "easyeffects-presets-jackhack96";
+    src = pkgs.fetchFromGitHub {
+      owner = "JackHack96";
+      repo = "EasyEffects-Presets";
+      rev = "master";
+      hash = "sha256-or5kH/vTwz7IO0Vz7W4zxK2ZcbL/P3sO9p5+EdcC2DA=";
+    };
+    dontBuild = true;
+    installPhase = ''
+      mkdir -p $out/output $out/irs
+      cp *.json $out/output/
+      cp irs/* $out/irs/ 2>/dev/null || true
+      # IRS-Pfade in Presets anpassen
+      substituteInPlace $out/output/*.json \
+        --replace-quiet "PRESETS_DIRECTORY" "$out"
+    '';
+  };
+in
 {
   imports = [
     ./modules/home/gnome-settings.nix
@@ -62,6 +82,7 @@
     # --- AUDIO ---
     helvum # GTK Patchbay für PipeWire
     easyeffects # Equalizer & Audio-Effekte für PipeWire
+    lsp-plugins # Audio-Plugins (Abhängigkeit für EasyEffects-Presets)
 
     # --- RADIO ---
     shortwave # Internet-Radio (GNOME/libadwaita)
@@ -487,6 +508,16 @@
         };
       };
     };
+  };
+
+  # --- EASYEFFECTS COMMUNITY PRESETS (JackHack96) ---
+  home.file.".config/easyeffects/output" = {
+    source = "${easyeffects-presets}/output";
+    recursive = true;
+  };
+  home.file.".config/easyeffects/irs" = {
+    source = "${easyeffects-presets}/irs";
+    recursive = true;
   };
 
   # --- RUST TOOLING KONFIGURATION ---
