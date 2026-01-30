@@ -74,6 +74,19 @@
   ];
 
   # ==========================================
+  # FIRMWARE
+  # ==========================================
+
+  hardware.enableRedistributableFirmware = true;
+
+  # ==========================================
+  # BLUETOOTH
+  # ==========================================
+
+  hardware.bluetooth.enable = true;
+  hardware.bluetooth.powerOnBoot = true;
+
+  # ==========================================
   # DRUCKER (Brother MFC-7360N im Netzwerk)
   # ==========================================
 
