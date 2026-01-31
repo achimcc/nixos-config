@@ -104,7 +104,6 @@
         [Interface]
         PrivateKey = ${config.sops.placeholder."wireguard-private-key"}
         Address = 10.2.0.2/32
-        DNS = 10.2.0.1
 
         [Peer]
         PublicKey = ${config.sops.placeholder."protonvpn/publickey"}
