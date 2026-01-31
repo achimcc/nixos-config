@@ -121,7 +121,6 @@ in
     xh # HTTP-Client mit JSON-Formatting
     dust # Visualisierte Festplattenbelegung
     yazi # Terminal-Dateimanager mit Vorschau
-    zellij # Terminal-Multiplexer (Rust, tmux-Alternative)
 
     # --- ENTWICKLER TOOLS ---
     wildcard # Regex-Tester (GNOME/libadwaita)
@@ -606,11 +605,6 @@ in
       NPM_CONFIG_PREFIX = "~/.npm-global";
     };
     extraConfig = ''
-      # Startet Zellij automatisch, wenn noch keins läuft, aber nicht in Subshells
-      if (not ("ZELLIJ" in $env)) {
-        zellij attach --create
-      }
-
       $env.config.show_banner = false
       $env.PATH = ($env.PATH | prepend $"($env.HOME)/.npm-global/bin")
 

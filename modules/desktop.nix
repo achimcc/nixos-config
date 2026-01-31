@@ -1,16 +1,17 @@
 # GNOME Desktop Umgebung
-# X11, GDM, GNOME Shell mit reduzierten Standard-Apps
+# Wayland, GDM, GNOME Shell mit reduzierten Standard-Apps
 
 { config, lib, pkgs, ... }:
 
 {
   # ==========================================
-  # X11 & DISPLAY MANAGER
+  # WAYLAND & DISPLAY MANAGER
   # ==========================================
 
   services.xserver = {
-    enable = true;
+    enable = true; # Nötig für GDM/GNOME-Infrastruktur + XWayland-Kompatibilität
     displayManager.gdm.enable = true;
+    displayManager.gdm.wayland = true;
     desktopManager.gnome.enable = true;
 
     # Tastaturlayout
@@ -53,6 +54,9 @@
   # ==========================================
   # SYSTEM PAKETE FÜR DESKTOP
   # ==========================================
+
+  # Electron-Apps nativ auf Wayland (global statt pro Firejail-Wrapper)
+  environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
   environment.systemPackages = with pkgs; [
     wl-clipboard

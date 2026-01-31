@@ -287,7 +287,6 @@ Modern Unix replacements with better UX, performance, and features.
 | **zoxide** | `z` | cd | Smart directory jumping |
 | **fd** | `fd` | find | Intuitive syntax, ignores node_modules |
 | **yazi** | `yazi` | ranger/nnn | Terminal-Dateimanager mit Bildvorschau |
-| **zellij** | `zellij` | tmux/screen | Terminal-Multiplexer (Rust), startet automatisch |
 
 ### Monitoring & Network
 
