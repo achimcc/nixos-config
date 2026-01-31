@@ -47,6 +47,7 @@ in
       "org.jdownloader.JDownloader"
       "info.portfolio_performance.PortfolioPerformance"
       "de.schmidhuberj.Flare"
+      "org.nickvision.money" # Denaro - Persönliche Finanzverwaltung
     ];
     update.auto = {
       enable = true;
