@@ -27,9 +27,15 @@
 
     # Deklaratives Flatpak
     nix-flatpak.url = "github:gmodena/nix-flatpak";
+
+    # RCU - reMarkable Connection Utility
+    rcu = {
+      url = "github:thozza/rcu";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, llm-agents, sops-nix, lanzaboote, nix-flatpak, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, llm-agents, sops-nix, lanzaboote, nix-flatpak, rcu, ... } @inputs:
     let
       system = "x86_64-linux";
       
@@ -64,7 +70,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             # Wichtig: llm-agents und pkgs-unstable an Home Manager durchreichen
-            home-manager.extraSpecialArgs = { inherit llm-agents pkgs-unstable; };
+            home-manager.extraSpecialArgs = { inherit llm-agents pkgs-unstable rcu; };
             home-manager.users.user = import ./home.nix;
             # Sops für Home Manager
             home-manager.sharedModules = [

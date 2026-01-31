@@ -1,7 +1,7 @@
 # Home Manager Konfiguration für User "user"
 # Ausgelagert aus configuration.nix für bessere Übersichtlichkeit
 
-{ config, pkgs, pkgs-unstable, llm-agents, ... }:
+{ config, pkgs, pkgs-unstable, llm-agents, rcu, ... }:
 
 let
   easyeffects-presets = pkgs.stdenv.mkDerivation {
@@ -226,6 +226,9 @@ in
     
     # --- NETWORK SIMULATOR ---
     shadow-simulator # Discrete-event network simulator für verteilte Systeme
+
+    # --- REMARKABLE TABLET ---
+    rcu.packages.${pkgs.system}.default # RCU - reMarkable Connection Utility
   ];
 
   # --- PGP KONFIGURATION ---
@@ -516,6 +519,23 @@ in
         };
       };
     };
+  };
+
+  # --- TOTP SCRIPT (Nitrokey → Clipboard) ---
+  home.file.".local/bin/totp-posteo" = {
+    executable = true;
+    text = ''
+      #!/bin/sh
+      CODE=$(${pkgs-unstable.pynitrokey}/bin/nitropy nk3 secrets get-otp "posteo" 2>/dev/null)
+      if [ -n "$CODE" ]; then
+        echo -n "$CODE" | ${pkgs.wl-clipboard}/bin/wl-copy
+        ${pkgs.libnotify}/bin/notify-send "Posteo TOTP" "Code in Zwischenablage kopiert" --icon=dialog-password -t 5000
+        # Clipboard nach 30s leeren
+        (sleep 30 && echo -n "" | ${pkgs.wl-clipboard}/bin/wl-copy) &
+      else
+        ${pkgs.libnotify}/bin/notify-send "Posteo TOTP" "Fehler: Nitrokey nicht erreichbar oder Touch nicht bestaetigt" --icon=dialog-error -t 5000
+      fi
+    '';
   };
 
   # --- EASYEFFECTS COMMUNITY PRESETS (JackHack96) ---

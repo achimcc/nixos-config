@@ -117,6 +117,7 @@
       custom-keybindings = [
         "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/"
         "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/"
+        "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2/"
       ];
     };
 
@@ -130,6 +131,12 @@
       name = "Screenshot (Swappy)";
       command = "sh -c 'grim -g \"$(slurp)\" - | swappy -f -'";
       binding = "<Control>Print";
+    };
+
+    "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2" = {
+      name = "Posteo TOTP";
+      command = "/home/user/.local/bin/totp-posteo";
+      binding = "<Super><Shift>t";
     };
 
     "org/gnome/desktop/wm/keybindings" = {
