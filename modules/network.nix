@@ -151,9 +151,6 @@
       freetube = {
         executable = "${pkgs.freetube}/bin/freetube";
         profile = "${pkgs.firejail}/etc/firejail/freetube.profile";
-        extraArgs = [
-          "--env=NIXOS_OZONE_WL=1"
-        ];
       };
 
       # Thunderbird - E-Mail-Client mit Sandbox
@@ -180,7 +177,6 @@
         executable = "${pkgs.logseq}/bin/logseq";
         profile = "${pkgs.firejail}/etc/firejail/obsidian.profile";
         extraArgs = [
-          "--env=NIXOS_OZONE_WL=1"
           "--whitelist=/home/achim/Dokumente/Logseq"
         ];
       };
@@ -190,7 +186,6 @@
         executable = "${pkgs.vscodium}/bin/codium";
         profile = "${pkgs.firejail}/etc/firejail/vscodium.profile";
         extraArgs = [
-          "--env=NIXOS_OZONE_WL=1"
           "--whitelist=/home/achim/Projects"
           "--whitelist=/home/achim/nixos-config"
         ];
@@ -206,9 +201,6 @@
       discord = {
         executable = "${pkgs.discord}/bin/discord";
         profile = "${pkgs.firejail}/etc/firejail/discord.profile";
-        extraArgs = [
-          "--env=NIXOS_OZONE_WL=1"
-        ];
       };
 
       # Flare - Signal-Client via Flatpak (eigene Bubblewrap-Sandbox)
