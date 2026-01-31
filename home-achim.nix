@@ -735,6 +735,30 @@ in
           autoAcceptFolders = false;
         };
       };
+
+      # Deklarative Ordner-Konfiguration (persistiert über Rebuilds)
+      folders = {
+        "Camera" = {
+          id = "g7mjx-p1dto";
+          path = "~/Camera";
+          devices = [ "handy" ];
+        };
+        "Google-camera" = {
+          id = "15egt-hkwhy";
+          path = "~/Google-camera";
+          devices = [ "handy-google" ];
+        };
+        "Logseq" = {
+          id = "mysej-smttg";
+          path = "~/Dokumente/Logseq";
+          devices = [ "handy" ];
+        };
+        "Documents-graphene" = {
+          id = "t40k6-q89pb";
+          path = "~/Documents-graphene";
+          devices = [ "handy" ];
+        };
+      };
     };
   };
 }
