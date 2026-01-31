@@ -66,7 +66,7 @@
 
   services.resolved = {
     enable = true;
-    dnssec = "allow-downgrade";
+    dnssec = "false";
     domains = [ "~." ];
     dnsovertls = "true";
     # Kein fallbackDns - verhindert DNS-Leaks wenn VPN down
@@ -76,6 +76,7 @@
       DNS=194.242.2.2#dns.mullvad.net
     '';
   };
+
 
   # ==========================================
   # FIREJAIL SANDBOX
