@@ -95,6 +95,10 @@ in
     # --- SYNCTHING ---
     # syncthingtray # Temporär deaktiviert (Cache-Problem mit acl-2.3.2 Hash-Mismatch)
 
+    # --- DOWNLOADS & TORRENTS ---
+    parabolic # Video/Audio-Downloader (yt-dlp Frontend, GNOME/libadwaita)
+    fragments # BitTorrent-Client (GNOME/libadwaita)
+
     # --- RSS READER ---
     newsflash # GTK RSS-Reader (mit Miniflux-Sync)
 
