@@ -28,11 +28,8 @@
     # Deklaratives Flatpak
     nix-flatpak.url = "github:gmodena/nix-flatpak";
 
-    # RCU - reMarkable Connection Utility
-    rcu = {
-      url = "github:thozza/rcu";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
-    };
+    # RCU - reMarkable Connection Utility (eigene nixpkgs wegen pyside2/shiboken2)
+    rcu.url = "git+https://github.com/thozza/rcu.git";
   };
 
   outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, llm-agents, sops-nix, lanzaboote, nix-flatpak, rcu, ... } @inputs:
