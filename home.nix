@@ -426,6 +426,9 @@ in
         };
         "terminal.integrated.fontFamily" = "'Hack Nerd Font Mono'";
 
+        # Externer Terminal: Black Box
+        "terminal.external.linuxExec" = "${pkgs.blackbox-terminal}/bin/blackbox";
+
         # -- PRIVACY --
         "telemetry.telemetryLevel" = "off";
         "update.mode" = "none"; # Updates via Nix
