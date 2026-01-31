@@ -21,6 +21,7 @@
   # BOOTLOADER (Secure Boot via Lanzaboote in modules/secureboot.nix)
   # ==========================================
 
+  boot.kernelParams = [ "intel_iommu=on" "iommu=force" ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;
 
@@ -170,8 +171,10 @@
     allowReboot = false;
     dates = "04:00";
     flake = "/home/achim/nixos-config#achim-laptop";
-    # Kein --update-input: flake.lock bleibt unverändert
-    # Updates manuell via: nix flake update
+    flags = [
+      "--update-input" "nixpkgs"
+      "--update-input" "nixpkgs-unstable"
+    ];
   };
 
   # ==========================================

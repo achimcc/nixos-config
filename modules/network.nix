@@ -66,9 +66,9 @@
 
   services.resolved = {
     enable = true;
-    dnssec = "allow-downgrade"; # "true" kann Probleme machen
+    dnssec = "true";
     domains = [ "~." ];
-    dnsovertls = "opportunistic"; # "true" blockiert VPN-DNS ohne TLS-Support
+    dnsovertls = "true";
     # Kein fallbackDns - verhindert DNS-Leaks wenn VPN down
     # Mullvad DNS-over-TLS (No-Log Policy, schwedisches Recht)
     # https://mullvad.net/en/help/dns-over-https-and-dns-over-tls
