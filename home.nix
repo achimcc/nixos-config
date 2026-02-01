@@ -282,9 +282,24 @@ in
     };
   };
 
+  # --- POSTEO KALENDER (GNOME Online Accounts / CalDAV) ---
+  # Deklarative Konfiguration des Posteo CalDAV-Accounts für GNOME Kalender
+  xdg.configFile."goa-1.0/accounts.conf".text = ''
+    [Account account_posteo_caldav_0]
+    Provider=webdav
+    Identity=user@posteo.de
+    PresentationIdentity=user@posteo.de
+    Uri=https://posteo.de:8443
+    CalendarEnabled=true
+    CalDavUri=https://posteo.de:8443/calendars/user@posteo.de/default/
+    ContactsEnabled=false
+    FilesEnabled=false
+    AcceptSslErrors=false
+  '';
+
   # --- POSTEO PASSWORT IN GNOME KEYRING ---
   # Lädt das Posteo-Passwort aus sops in den GNOME Keyring beim Login
-  # Thunderbird greift automatisch darauf zu
+  # Thunderbird und GNOME Online Accounts greifen automatisch darauf zu
   systemd.user.services.posteo-keyring-sync = {
     Unit = {
       Description = "Sync Posteo password from sops to GNOME Keyring";
@@ -297,23 +312,32 @@ in
       ExecStart = pkgs.writeShellScript "posteo-keyring-sync" ''
         # Warte bis Keyring bereit ist
         sleep 3
-        
+
         # Passwort aus sops lesen
         if [ -f /run/secrets/email/posteo ]; then
           PASSWORD=$(cat /run/secrets/email/posteo)
-          
+
           # In GNOME Keyring speichern (Format das Thunderbird erwartet)
           # IMAP Passwort
           echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo IMAP" \
             protocol imap \
             server posteo.de \
             user "user@posteo.de"
-          
+
           # SMTP Passwort
           echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo SMTP" \
             protocol smtp \
             server posteo.de \
             user "user@posteo.de"
+
+          # GNOME Online Accounts (CalDAV für GNOME Kalender)
+          # GVariant-Format: {'password': <'...'> }
+          ESCAPED_PW=$(echo "$PASSWORD" | sed "s/'/'\\\\''/g")
+          printf "{'password': <'%s'>}" "$ESCAPED_PW" | \
+            ${pkgs.libsecret}/bin/secret-tool store \
+              --label="GOA webdav credentials for identity account_posteo_caldav_0" \
+              xdg:schema org.gnome.OnlineAccounts \
+              goa-identity "webdav:gen0:account_posteo_caldav_0"
         fi
       '';
     };
