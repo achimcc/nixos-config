@@ -367,6 +367,17 @@ in
     };
   };
 
+  # --- SSH ---
+  programs.ssh = {
+    enable = true;
+    matchBlocks = {
+      "gitlab.com" = {
+        hostname = "altssh.gitlab.com";
+        port = 443;
+      };
+    };
+  };
+
   # --- GIT ---
   programs.git = {
     enable = true;
