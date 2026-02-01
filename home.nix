@@ -119,6 +119,7 @@ in
     # --- GIT TOOLS ---
     gitui # Terminal UI für Git
     delta # Syntax-Highlighting für Git Diffs
+    glab # GitLab CLI
 
     # --- MODERN UNIX CLI TOOLS ---
     ripgrep # rg - schnelle Suche, ersetzt grep
