@@ -49,6 +49,9 @@ in
       "de.schmidhuberj.Flare"
       "org.nickvision.money" # Denaro - Persönliche Finanzverwaltung
     ];
+    overrides = {
+      "de.schmidhuberj.Flare"."Session Bus Policy"."org.freedesktop.secrets" = "talk";
+    };
     update.auto = {
       enable = true;
       onCalendar = "weekly";

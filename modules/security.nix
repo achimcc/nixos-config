@@ -456,4 +456,8 @@
   security.pam.services.sudo.u2fAuth = true;
   security.pam.services.login.u2fAuth = true;
   security.pam.services.gdm-password.u2fAuth = true;
+
+  # GNOME Keyring bei Login automatisch entsperren (erstellt "login"-Collection)
+  security.pam.services.login.enableGnomeKeyring = true;
+  security.pam.services.gdm-password.enableGnomeKeyring = true;
 }
