@@ -174,6 +174,9 @@ in
     graphviz # Für cargo-depgraph Visualisierung
     gcc
 
+    # --- FLUTTER/DART ENTWICKLUNG ---
+    flutter
+
     # --- KOMMUNIKATION ---
     # Signal Desktop + Flare via Flatpak (siehe services.flatpak.packages)
 
