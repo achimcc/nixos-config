@@ -419,6 +419,7 @@ in
           };
         };
         "editor.formatOnSave" = true;
+        "files.trimTrailingWhitespace" = true;
 
         # -- RUST --
         "rust-analyzer.check.command" = "clippy";
