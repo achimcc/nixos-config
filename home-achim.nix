@@ -332,8 +332,7 @@ in
 
           # GNOME Online Accounts (CalDAV für GNOME Kalender)
           # GVariant-Format: {'password': <'...'> }
-          ESCAPED_PW=$(echo "$PASSWORD" | sed "s/'/'\\\\''/g")
-          printf "{'password': <'%s'>}" "$ESCAPED_PW" | \
+          printf "{'password': <'%s'>}" "$PASSWORD" | \
             ${pkgs.libsecret}/bin/secret-tool store \
               --label="GOA webdav credentials for identity account_posteo_caldav_0" \
               xdg:schema org.gnome.OnlineAccounts \
