@@ -244,6 +244,15 @@ in
     enableSshSupport = true;
   };
 
+  # GNOME Keyring SSH-Agent deaktivieren (unterstützt kein FIDO2/Nitrokey)
+  # gpg-agent mit enableSshSupport übernimmt stattdessen SSH_AUTH_SOCK
+  xdg.configFile."autostart/gnome-keyring-ssh.desktop".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=GNOME Keyring: SSH Agent
+    Hidden=true
+  '';
+
   # --- EMAIL ACCOUNT KONFIGURATION ---
   # Definiert den Posteo Account für Thunderbird und andere Mail-Tools
   accounts.email.accounts.posteo = {
