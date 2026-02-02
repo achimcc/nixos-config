@@ -38,11 +38,15 @@
   ];
 
   # Swap: FIDO2 mit Passwort-Fallback
+  # Swap-Verschlüsselung explizit verifiziert (LUKS2)
+  # Swap ist in LUKS-Container, wird über FIDO2 entsperrt
+  # Keine separaten swapDevices nötig - bereits in hardware-configuration.nix definiert
   boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".device =
     "/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b";
   boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".crypttabExtraOpts = [
     "fido2-device=auto"
   ];
+  boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".allowDiscards = true; # TRIM für SSD
 
   # ==========================================
   # LOKALISIERUNG
