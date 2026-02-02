@@ -438,6 +438,9 @@ in
         mkhl.direnv
         usernamehw.errorlens
         continue.continue
+        yzhang.markdown-all-in-one
+        davidanson.vscode-markdownlint
+        tomoki1207.pdf
       ] ++ [
         # TangleGuard - Dependency Graph Visualisierung
         (pkgs.vscode-utils.extensionFromVscodeMarketplace {
