@@ -61,6 +61,11 @@ in
   # WICHTIG FÜR RUST:
   home.sessionPath = [ "$HOME/.cargo/bin" ];
 
+  # SSH Agent Socket für FIDO2-Schlüssel
+  home.sessionVariables = {
+    SSH_AUTH_SOCK = "$XDG_RUNTIME_DIR/ssh-agent.socket";
+  };
+
   # User-spezifische Pakete
   home.packages = with pkgs; [
 
@@ -251,11 +256,26 @@ in
   services.gpg-agent = {
     enable = true;
     pinentry.package = pkgs.pinentry-gnome3;
-    enableSshSupport = true;
+    enableSshSupport = false; # Deaktiviert - gpg-agent unterstützt FIDO2-Schlüssel nicht vollständig
   };
 
-  # GNOME Keyring SSH-Agent deaktivieren (unterstützt kein FIDO2/Nitrokey)
-  # gpg-agent mit enableSshSupport übernimmt stattdessen SSH_AUTH_SOCK
+  # SSH-Agent als systemd user service (für FIDO2/Nitrokey-Unterstützung)
+  systemd.user.services.ssh-agent = {
+    Unit = {
+      Description = "SSH Agent (for FIDO2 keys)";
+    };
+    Service = {
+      Type = "simple";
+      Environment = "SSH_AUTH_SOCK=%t/ssh-agent.socket";
+      ExecStart = "${pkgs.openssh}/bin/ssh-agent -D -a $SSH_AUTH_SOCK";
+      Restart = "on-failure";
+    };
+    Install = {
+      WantedBy = [ "default.target" ];
+    };
+  };
+
+  # GNOME Keyring SSH-Agent deaktivieren (Konflikt mit ssh-agent service)
   xdg.configFile."autostart/gnome-keyring-ssh.desktop".text = ''
     [Desktop Entry]
     Type=Application
