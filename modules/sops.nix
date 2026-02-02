@@ -89,10 +89,11 @@
     };
 
     # ProtonVPN IP-Ranges (verschleiert Verwendung von ProtonVPN)
-    secrets."protonvpn/ip-ranges" = {
-      owner = "root";
-      mode = "0400";
-    };
+    # TODO: Aktiviere nach Hinzufügen in secrets.yaml (siehe docs/TODO-SOPS-PROTONVPN.md)
+    # secrets."protonvpn/ip-ranges" = {
+    #   owner = "root";
+    #   mode = "0400";
+    # };
 
     # Template für NetworkManager Environment-Datei
     templates."nm-wifi-env" = {

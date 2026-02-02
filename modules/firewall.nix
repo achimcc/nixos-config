@@ -57,14 +57,10 @@ in
       iptables -A OUTPUT -o wg+ -j ACCEPT
       
       # 5. WICHTIG: Erlaube den Verbindungsaufbau zum VPN (Physical Interface)
-      # ProtonVPN IP-Ranges aus sops-Secret (verschleiert VPN-Nutzung in Git)
-      if [ -f ${config.sops.secrets."protonvpn/ip-ranges".path} ]; then
-        for range in $(cat ${config.sops.secrets."protonvpn/ip-ranges".path}); do
-          iptables -A OUTPUT -d $range -j ACCEPT
-        done
-      fi
-      
-      # VPN-Ports als Fallback für nicht-ProtonVPN Server
+      # TODO: ProtonVPN IP-Ranges können später aus sops-Secret geladen werden
+      #       (siehe docs/TODO-SOPS-PROTONVPN.md für Anleitung)
+
+      # VPN-Ports für Verbindungsaufbau
       iptables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguard} -j ACCEPT
       iptables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguardAlt1} -j ACCEPT
       iptables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguardAlt2} -j ACCEPT
