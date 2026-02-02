@@ -52,12 +52,12 @@ in
     overrides = {
       "de.schmidhuberj.Flare" = {
         "Session Bus Policy"."org.freedesktop.secrets" = "talk";
-        # CA-Zertifikate für SSL-Verbindungen (Signal-Server)
+        # CA-Zertifikate über Home-Verzeichnis zugänglich machen
         "Context" = {
-          filesystems = [
-            "/etc/ssl/certs:ro"
-            "/etc/static/ssl/certs:ro"
-          ];
+          filesystems = [ "~/.local/share/ca-certificates:ro" ];
+        };
+        "Environment" = {
+          SSL_CERT_FILE = "/var/home/user/.local/share/ca-certificates/ca-bundle.crt";
         };
       };
     };
@@ -644,6 +644,9 @@ in
       fi
     '';
   };
+
+  # --- CA-ZERTIFIKATE FÜR FLATPAK APPS (Flare) ---
+  home.file.".local/share/ca-certificates/ca-bundle.crt".source = /etc/ssl/certs/ca-bundle.crt;
 
   # --- EASYEFFECTS COMMUNITY PRESETS (JackHack96) ---
   home.file.".config/easyeffects/output" = {
