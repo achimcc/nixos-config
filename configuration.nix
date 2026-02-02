@@ -188,6 +188,16 @@
   };
 
   # ==========================================
+  # ZUSÄTZLICHE CA-ZERTIFIKATE
+  # ==========================================
+
+  # Signal Messenger nutzt eigene Root-CA für chat.signal.org
+  # Siehe: https://github.com/signalapp/Signal-Desktop/issues/6707
+  security.pki.certificateFiles = [
+    ./ca-certificates/signal-messenger.pem
+  ];
+
+  # ==========================================
   # STATE VERSION - NICHT ÄNDERN!
   # ==========================================
 

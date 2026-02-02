@@ -52,12 +52,10 @@ in
     overrides = {
       "de.schmidhuberj.Flare" = {
         "Session Bus Policy"."org.freedesktop.secrets" = "talk";
-        # CA-Zertifikate über Home-Verzeichnis zugänglich machen
-        "Context" = {
-          filesystems = [ "~/.local/share/ca-certificates:ro" ];
-        };
+        # CA-Zertifikate für SSL-Verbindungen (Signal-Server)
+        # /etc/ssl/certs ist standardmäßig im Flatpak-Sandbox zugänglich
         "Environment" = {
-          SSL_CERT_FILE = "/var/home/user/.local/share/ca-certificates/ca-bundle.crt";
+          SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
         };
       };
     };
