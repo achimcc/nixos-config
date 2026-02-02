@@ -83,9 +83,22 @@ in
       iptables -A OUTPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT
       iptables -A INPUT -p udp --sport 5353 -j ACCEPT
 
-      # 9. Lokales Netzwerk komplett freigeben
-      iptables -A INPUT -s 192.168.178.0/24 -j ACCEPT
-      iptables -A OUTPUT -d 192.168.178.0/24 -j ACCEPT
+      # 9. Lokales Netzwerk - RESTRIKTIV (nur benötigte Dienste)
+      #
+      # Router-Zugriff (Gateway)
+      iptables -A INPUT -s 192.168.178.1 -j ACCEPT
+      iptables -A OUTPUT -d 192.168.178.1 -j ACCEPT
+
+      # Drucker (Brother MFC-7360N) - IPP/CUPS Port 631
+      # WICHTIG: Passe 192.168.178.X an die tatsächliche Drucker-IP an
+      # iptables -A INPUT -p tcp --sport 631 -s 192.168.178.0/24 -j ACCEPT
+      # iptables -A OUTPUT -p tcp --dport 631 -d 192.168.178.0/24 -j ACCEPT
+
+      # ICMP (Ping) im lokalen Netz erlauben (für Netzwerk-Debugging)
+      iptables -A INPUT -p icmp -s 192.168.178.0/24 -j ACCEPT
+      iptables -A OUTPUT -p icmp -d 192.168.178.0/24 -j ACCEPT
+
+      # Syncthing wird in Abschnitt 10 separat behandelt (bereits vorhanden)
 
       # 10. Syncthing - Lokales Netzwerk und über VPN
       # Eingehende Verbindungen für lokale Discovery und Datenübertragung
@@ -170,9 +183,10 @@ in
       ip6tables -A OUTPUT -p udp --dport 5353 -d ff02::fb -j ACCEPT
       ip6tables -A INPUT -p udp --sport 5353 -j ACCEPT
 
-      # 10. Link-Local Adressen erlauben (fe80::/10)
-      ip6tables -A INPUT -s fe80::/10 -j ACCEPT
-      ip6tables -A OUTPUT -d fe80::/10 -j ACCEPT
+      # 10. Link-Local Adressen RESTRIKTIV
+      # Nur für Router Discovery und Neighbor Discovery (bereits in Abschnitt 7)
+      ip6tables -A INPUT -s fe80::/10 -p ipv6-icmp -j ACCEPT
+      ip6tables -A OUTPUT -d fe80::/10 -p ipv6-icmp -j ACCEPT
 
       # 11. Syncthing über VPN
       ip6tables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i proton0 -j ACCEPT
