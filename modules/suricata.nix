@@ -79,20 +79,16 @@
       # Logging-Konfiguration
       logging = {
         default-log-level = "notice";
-        outputs = [
-          {
-            console = {
-              enabled = true;
-            };
-          }
-          {
-            file = {
-              enabled = true;
-              level = "info";
-              filename = "/var/log/suricata/suricata.log";
-            };
-          }
-        ];
+        outputs = {
+          console = {
+            enabled = true;
+          };
+          file = {
+            enabled = true;
+            level = "info";
+            filename = "/var/log/suricata/suricata.log";
+          };
+        };
       };
     };
   };
