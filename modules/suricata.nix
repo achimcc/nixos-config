@@ -96,13 +96,16 @@
   # Automatische Regel-Updates (täglich)
   systemd.services.suricata-update = {
     description = "Update Suricata Rules";
+
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${pkgs.suricata}/bin/suricata-update";
-      ExecStartPost = "${pkgs.systemd}/bin/systemctl reload suricata.service";
-      User = "suricata";
-      Group = "suricata";
+      User = "root";  # suricata-update benötigt root
     };
+
+    script = ''
+      ${pkgs.suricata}/bin/suricata-update
+      ${pkgs.systemd}/bin/systemctl reload suricata.service
+    '';
   };
 
   systemd.timers.suricata-update = {
