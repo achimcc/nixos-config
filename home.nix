@@ -231,7 +231,10 @@ in
     aider-chat # AI pair programming
     llm-agents.packages.${pkgs.system}.crush
     # claude-code via npm installieren: npm install -g @anthropic-ai/claude-code
-    
+
+    # --- RESUME / CV ---
+    resumed # JSON Resume builder (lightweight alternative to resume-cli)
+
     # --- NETWORK SIMULATOR ---
     shadow-simulator # Discrete-event network simulator für verteilte Systeme
 
