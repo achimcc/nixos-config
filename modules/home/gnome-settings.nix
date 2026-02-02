@@ -84,9 +84,13 @@
       show-in-lock-screen = false;
     };
 
+    "org/gnome/desktop/session" = {
+      idle-delay = 300; # Bildschirmschoner nach 5 Minuten Inaktivität
+    };
+
     "org/gnome/desktop/screensaver" = {
       lock-enabled = true;
-      lock-delay = 0; # Sofort sperren
+      lock-delay = 0; # Sofort sperren wenn Screensaver aktiv
     };
 
     "org/gnome/settings-daemon/plugins/power" = {

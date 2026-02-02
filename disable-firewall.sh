@@ -14,11 +14,11 @@ ip link set pvpnksintrf0 down 2>/dev/null && echo "  ✓ pvpnksintrf0 down" || e
 ip link set tun0 down 2>/dev/null && echo "  ✓ tun0 down" || echo "  ℹ tun0 nicht vorhanden"
 ip link set tun1 down 2>/dev/null && echo "  ✓ tun1 down" || echo "  ℹ tun1 nicht vorhanden"
 
-# 2. ProtonVPN disconnecten
+# 2. WireGuard VPN stoppen
 echo ""
-echo "2️⃣  Trenne ProtonVPN-Verbindungen..."
-protonvpn-cli d 2>/dev/null && echo "  ✓ ProtonVPN CLI disconnected" || echo "  ℹ ProtonVPN CLI nicht verbunden"
-protonvpn-app --disconnect 2>/dev/null && echo "  ✓ ProtonVPN GUI disconnected" || echo "  ℹ ProtonVPN GUI nicht verbunden"
+echo "2️⃣  Stoppe WireGuard VPN..."
+wg-quick down proton0 2>/dev/null && echo "  ✓ WireGuard proton0 gestoppt" || echo "  ℹ WireGuard proton0 nicht aktiv"
+systemctl stop wg-quick-proton0.service 2>/dev/null && echo "  ✓ wg-quick-proton0.service gestoppt" || echo "  ℹ Service nicht aktiv"
 
 # 3. iptables flushen
 echo ""

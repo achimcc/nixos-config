@@ -24,31 +24,33 @@ A security-oriented, declarative NixOS configuration focused on privacy, develop
 | **Shell** | Nushell + Starship + Modern Unix Tools |
 | **Editor** | Neovim (Rust IDE), VSCodium, Zed |
 | **VPN** | ProtonVPN (WireGuard, Auto-Connect) |
-| **Encryption** | LUKS Full-Disk, Secure Boot |
+| **Encryption** | LUKS Full-Disk + FIDO2 (Nitrokey 3C NFC), Secure Boot |
 | **Secrets** | sops-nix (Age-encrypted) |
+| **Hardware Key** | Nitrokey 3C NFC (FIDO2, SSH, OpenPGP, TOTP) |
 
 ### Architecture
 
 ```
-flake.nix                 # Flake Entry Point
+flake.nix                 # Flake Entry Point (gepinnte Inputs)
 ├── configuration.nix     # System Configuration
 ├── home.nix        # User Configuration (Home Manager)
 ├── hardware-configuration.nix
 ├── secrets/
-│   └── secrets.yaml      # Encrypted Secrets
+│   └── secrets.yaml      # Encrypted Secrets (Age)
+├── pkgs/
+│   └── default.nix       # Custom packages overlay
 └── modules/
     ├── network.nix       # NetworkManager, DNS-over-TLS, Firejail
-    ├── firewall.nix      # VPN Kill Switch
+    ├── firewall.nix      # VPN Kill Switch (iptables, Logging)
     ├── protonvpn.nix     # WireGuard Auto-Connect
     ├── desktop.nix       # GNOME Desktop
-    ├── audio.nix         # Pipewire
+    ├── audio.nix         # PipeWire
     ├── power.nix         # TLP, Thermald
     ├── sops.nix          # Secret Management
-    ├── security.nix      # Kernel Hardening, AppArmor, ClamAV
+    ├── security.nix      # Kernel Hardening, AppArmor, ClamAV, USBGuard
     ├── secureboot.nix    # Lanzaboote Secure Boot
-    ├── goldwarden.nix    # Bitwarden Client (hardened)
     └── home/
-        ├── gnome-settings.nix  # GNOME Dconf
+        ├── gnome-settings.nix  # GNOME Dconf (Privacy, Screen Lock)
         └── neovim.nix          # Neovim IDE
 ```
 
@@ -56,49 +58,70 @@ flake.nix                 # Flake Entry Point
 
 ### Network & VPN
 
-- **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel
-- **DNS-over-TLS**: Mullvad DNS (194.242.2.2) with DNSSEC
+- **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel (IPv4 + IPv6)
+- **IPv6 VPN-Schutz**: WireGuard AllowedIPs umfasst `0.0.0.0/0` und `::/0`
+- **DNS-over-TLS**: Mullvad DNS (194.242.2.2) mit DNSSEC-Validierung
+- **DoT Port-Einschränkung**: Port 853 nur zu Mullvad DNS erlaubt (verhindert Daten-Exfiltration)
+- **Firewall-Logging**: Verworfene Pakete werden rate-limitiert geloggt (Intrusion Detection)
 - **IPv6 Privacy Extensions**: Temporäre Adressen gegen Tracking
-- **Random MAC addresses**: On every WiFi scan and connection
-- **WireGuard Auto-Connect**: VPN connects before login
+- **Random MAC addresses**: Bei jedem WiFi-Scan und jeder Verbindung
+- **WireGuard Auto-Connect**: VPN verbindet sich vor dem Login
 
-### Encryption
+### Encryption & Authentication
 
-- **LUKS Full-Disk Encryption**: Entire disk encrypted
-- **Secure Boot**: Lanzaboote with custom signing keys
-- **sops-nix**: Secrets encrypted in Git repository
-- **SSH Commit Signing**: Git commits signed with Ed25519
+- **LUKS Full-Disk Encryption**: Mit FIDO2 (Nitrokey 3C NFC) + Passwort-Fallback
+- **Secure Boot**: Lanzaboote mit eigenen Signatur-Keys
+- **sops-nix**: Secrets mit Age verschlüsselt im Git Repository
+- **SSH Commit Signing**: Git Commits mit Ed25519 Security Key signiert
+- **FIDO2 PAM**: sudo, login und GDM mit Nitrokey + PIN als Alternative zum Passwort
 
 ### Sandboxing & Hardening
 
-- **Firejail**: Tor Browser, LibreWolf, Spotify, Discord, Flare, FreeTube und weitere isoliert
-- **AppArmor**: Mandatory Access Control enabled
-- **Hardened Kernel**: With additional security options
-- **USBGuard**: USB device authorization (blocks unknown devices)
-- **ClamAV**: Real-time antivirus scanner for /home
-- **Fail2Ban**: Protection against brute-force attacks
-- **AIDE**: File Integrity Monitoring for critical system files
-- **unhide/chkrootkit**: Rootkit detection (weekly scans)
+- **Firejail**: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, VSCodium, Zathura, Newsflash isoliert
+- **AppArmor**: Mandatory Access Control mit Enforcement (`killUnconfinedConfinables = true`)
+- **Hardened Kernel**: `linuxPackages_hardened` mit zusätzlichen sysctl-Parametern
+- **USBGuard**: USB-Geräte-Autorisierung (blockiert unbekannte Geräte)
+- **ClamAV**: Echtzeit-Antivirus mit aktiver Prävention (`OnAccessPrevention = yes`)
+- **Fail2Ban**: Schutz gegen Brute-Force (exponentieller Backoff, max 48h)
+- **AIDE**: File Integrity Monitoring für kritische Systemdateien
+- **unhide/chkrootkit**: Rootkit-Erkennung (wöchentliche Scans)
+- **Audit Framework**: Überwachung von sudo, su, Passwort-Änderungen, SSH-Config
+
+### Screen Lock & Session
+
+- **Idle-Timeout**: Bildschirmschoner nach 5 Minuten Inaktivität
+- **Sofortige Sperre**: Screen Lock greift sofort bei Screensaver-Aktivierung
+- **Keine Benachrichtigungen**: Auf dem Sperrbildschirm ausgeblendet
 
 ### Kernel Hardening
 
-```nix
-# Enabled protections:
-- ASLR maximized
-- Kernel pointers hidden
-- dmesg restricted
-- Kexec disabled
-- BPF JIT hardened
-- Ptrace restricted
-- Core dumps limited
+```
+- ASLR maximiert (randomize_va_space=2)
+- Kernel Pointer versteckt (kptr_restrict=2)
+- dmesg nur für root (dmesg_restrict=1)
+- Kexec deaktiviert
+- BPF JIT gehärtet
+- Ptrace eingeschränkt (yama.ptrace_scope=1)
+- Core Dumps deaktiviert (suid_dumpable=0)
+- Unprivilegierte BPF deaktiviert
+- TCP Timestamps deaktiviert (OS-Fingerprinting-Schutz)
+- SYN Cookies aktiviert
+- Source Routing deaktiviert
+- ICMP Redirects ignoriert
 ```
 
 ### Blacklisted Kernel Modules
 
-Unused and potentially insecure modules are blocked:
-- Network protocols: dccp, sctp, rds, tipc
-- Filesystems: cramfs, freevxfs, jffs2, hfs, hfsplus, udf
+Ungenutzte und potenziell unsichere Module sind blockiert:
+- Netzwerk-Protokolle: dccp, sctp, rds, tipc
+- Dateisysteme: cramfs, freevxfs, jffs2, hfs, hfsplus, udf
 - Firewire: firewire-core, firewire-ohci, firewire-sbp2
+
+### Supply Chain Security
+
+- **Flake-Inputs gepinnt**: sops-nix und rcu auf geprüfte Commit-Hashes fixiert
+- **VSCodium Extensions via Nix**: Versioniert und reproduzierbar
+- **Auto-Updates ohne Reboot**: Tägliche Updates um 04:00 (ohne automatischen Neustart)
 
 ## Installation
 
@@ -107,6 +130,7 @@ Unused and potentially insecure modules are blocked:
 - NixOS 25.05 or newer
 - UEFI system with Secure Boot support
 - Age key for secrets decryption
+- Nitrokey 3C NFC (optional, für FIDO2)
 
 ### Initial Installation
 
@@ -143,38 +167,45 @@ sudo nixos-rebuild switch --flake .#nixos
 
 ### network.nix
 
-- NetworkManager with random MAC addresses
-- DNS-over-TLS (systemd-resolved)
-- Firejail profiles for browsers and messengers
-- WiFi auto-connect with sops password
+- NetworkManager mit zufälligen MAC-Adressen
+- DNS-over-TLS (systemd-resolved, Mullvad DNS, DNSSEC)
+- Firejail-Profile für Browser und Messenger
+- WiFi Auto-Connect mit sops-Passwort
 
 ### firewall.nix
 
-VPN Kill Switch with iptables:
+VPN Kill Switch mit iptables (IPv4 + IPv6):
 - Default Policy: DROP
-- Only allows traffic over VPN interfaces (proton0, tun+, wg+)
-- DNS only via localhost (127.0.0.53)
-- Syncthing only on local network
+- Traffic nur über VPN-Interfaces (proton0, tun+, wg+)
+- DNS nur via localhost (127.0.0.53 / ::1)
+- DoT (Port 853) nur zu Mullvad DNS (194.242.2.2)
+- Firewall-Logging: Verworfene Pakete mit Rate-Limiting (5/min)
+- Syncthing nur im lokalen Netzwerk + über VPN
 
 ### protonvpn.nix
 
-WireGuard configuration for ProtonVPN:
-- Server: DE#782 (Frankfurt)
-- Auto-connect at boot
-- Private key from sops
+WireGuard-Konfiguration für ProtonVPN:
+- Auto-Connect beim Boot (vor Display Manager)
+- Private Key aus sops
+- AllowedIPs: IPv4 + IPv6 (kein IPv6-Leak)
+- Automatischer Neustart bei Verbindungsabbruch
 
 ### security.nix
 
-Comprehensive security configuration:
-- Hardened Kernel
-- AppArmor with enforcement
-- ClamAV on-access scanning
-- Fail2Ban
-- Audit framework
+Umfassende Sicherheitskonfiguration:
+- Gehärteter Kernel mit sysctl-Tuning
+- AppArmor mit Enforcement (killUnconfinedConfinables)
+- ClamAV mit Echtzeit-Scanning und aktiver Prävention
+- Fail2Ban mit exponentiellem Backoff
+- Audit Framework für Incident Response
+- USBGuard mit Default-Deny
+- AIDE File Integrity Monitoring
+- Rootkit-Erkennung (unhide, chkrootkit)
+- FIDO2/Nitrokey PAM-Authentifizierung
 
 ### home/neovim.nix
 
-Neovim as Rust IDE:
+Neovim als Rust IDE:
 - rustaceanvim (LSP, Clippy)
 - nvim-cmp (Completion)
 - nvim-treesitter (Syntax)
@@ -190,10 +221,14 @@ Neovim as Rust IDE:
 | Secret | Path | Usage |
 |--------|------|-------|
 | WiFi Password | `wifi/home` | NetworkManager |
-| Email Password | `email/posteo` | Thunderbird |
-| Anthropic API Key | `anthropic-api-key` | avante.nvim, crush |
+| Email Password | `email/posteo` | Thunderbird, GNOME Keyring |
+| Anthropic API Key | `anthropic-api-key` | avante.nvim, crush, claude-code |
 | GitHub Token | `github-token` | gh CLI, octo.nvim |
 | WireGuard Key | `wireguard-private-key` | ProtonVPN |
+| VPN Endpoint | `protonvpn/endpoint` | WireGuard Config |
+| VPN Public Key | `protonvpn/publickey` | WireGuard Config |
+| SSH Key (Hetzner) | `ssh/hetzner-vps` | SSH |
+| Miniflux Credentials | `miniflux/*` | Newsflash RSS-Reader |
 
 ### Editing Secrets
 
@@ -223,15 +258,20 @@ sops updatekeys secrets/secrets.yaml
 ### Rust
 
 ```bash
-# Toolchain (via rustup)
-rustup default stable
-rustup component add rust-analyzer clippy rustfmt
+# Toolchain aus nixpkgs-unstable (deklarativ verwaltet):
+# cargo, rustc, rust-analyzer, clippy, rustfmt
+# cargo-nextest (Test Runner), cargo-depgraph (Dependency Graph)
 
 # In Neovim:
-# - Automatic completion
+# - Automatische Completion
 # - Clippy on save
-# - Debugging with F5
-# - Code actions with <leader>ca
+# - Debugging mit F5
+# - Code Actions mit <leader>ca
+
+# In VSCodium:
+# - rust-analyzer + clippy
+# - LLDB Debugging
+# - TangleGuard (Dependency Graph Visualisierung)
 ```
 
 ### Nix
@@ -239,9 +279,27 @@ rustup component add rust-analyzer clippy rustfmt
 ```bash
 # LSP: nil
 # Formatter: nixpkgs-fmt
-
-# Format on save enabled in VSCodium
+# Format on save in VSCodium aktiviert
 ```
+
+### VSCodium Extensions
+
+| Extension | Funktion |
+|-----------|----------|
+| nix-ide | Nix Language Support |
+| rust-analyzer | Rust LSP |
+| even-better-toml | TOML Syntax |
+| vscode-lldb | Rust Debugging |
+| tinymist | Typst Language Support |
+| crates | Crate-Versionen in Cargo.toml |
+| direnv | direnv Integration |
+| errorlens | Inline Error Annotations |
+| continue | AI Pair Programming |
+| cline (claude-dev) | AI Coding Assistant |
+| markdown-all-in-one | Markdown Support |
+| vscode-markdownlint | Markdown Linting |
+| pdf | PDF Preview |
+| TangleGuard | Dependency Graph Visualisierung (autoPatchelfHook) |
 
 ### Neovim Keybindings
 
@@ -264,50 +322,54 @@ rustup component add rust-analyzer clippy rustfmt
 ### AI Tools
 
 ```bash
-# Anthropic API key is automatically loaded from sops
-echo $ANTHROPIC_API_KEY  # Available in nushell
+# Anthropic API key wird automatisch aus sops geladen
+echo $ANTHROPIC_API_KEY  # Verfügbar in nushell
 
 # Tools:
 # - avante.nvim (in Neovim)
 # - crush (CLI)
 # - claude-code (npm install -g @anthropic-ai/claude-code)
+# - continue (VSCodium Extension)
+# - cline (VSCodium Extension)
+# - aider-chat (CLI)
 ```
 
 ## CLI Tools
 
-Modern Unix replacements with better UX, performance, and features.
+Modern Unix Ersetzungen mit besserer UX, Performance und Features.
 
 ### Modern Unix Essentials
 
 | Tool | Command | Replaces | Feature |
 |------|---------|----------|---------|
-| **ripgrep** | `rg` | grep | Fastest search, respects .gitignore |
-| **bat** | `bat` | cat | Syntax highlighting, Git integration |
-| **eza** | `eza` | ls | Icons, colors, Git status, tree view |
-| **zoxide** | `z` | cd | Smart directory jumping |
-| **fd** | `fd` | find | Intuitive syntax, ignores node_modules |
+| **ripgrep** | `rg` | grep | Schnellste Suche, respektiert .gitignore |
+| **bat** | `bat` | cat | Syntax-Highlighting, Git Integration |
+| **eza** | `eza` | ls | Icons, Farben, Git-Status, Baumansicht |
+| **zoxide** | `z` | cd | Intelligentes Verzeichnis-Springen |
+| **fd** | `fd` | find | Intuitive Syntax, ignoriert node_modules |
 | **yazi** | `yazi` | ranger/nnn | Terminal-Dateimanager mit Bildvorschau |
 
 ### Monitoring & Network
 
 | Tool | Command | Replaces | Feature |
 |------|---------|----------|---------|
-| **bottom** | `btm` | top/htop | Graphical process monitor |
+| **bottom** | `btm` | top/htop | Grafischer Prozess-Monitor |
 | **mission-center** | GUI | gnome-system-monitor | CPU, RAM, Disk, GPU Monitor |
-| **xh** | `xh` | curl | HTTP client with JSON formatting |
-| **dust** | `dust` | du | Visual disk usage |
+| **xh** | `xh` | curl | HTTP Client mit JSON Formatting |
+| **dust** | `dust` | du | Visuelle Festplattenbelegung |
 | **baobab** | GUI | - | GNOME Disk Usage Analyzer |
 
 ### Git Tools
 
 | Tool | Command | Feature |
 |------|---------|---------|
-| **gitui** | `gitui` | Terminal UI for Git |
-| **delta** | (pager) | Syntax highlighting for diffs |
+| **gitui** | `gitui` | Terminal UI für Git |
+| **delta** | (pager) | Syntax-Highlighting für Diffs |
+| **glab** | `glab` | GitLab CLI |
 
 ### Shell Aliases
 
-All tools are aliased in Nushell for seamless replacement:
+Alle Tools sind in Nushell für nahtlose Ersetzung aliased:
 
 ```bash
 ls   → eza --icons
@@ -320,111 +382,89 @@ find → fd
 top  → btm
 du   → dust
 z    → zoxide (smart cd)
-```
-
-### Usage Examples
-
-```bash
-# Fast recursive search
-rg "TODO" --type rust
-
-# Find files by pattern
-fd "\.nix$"
-
-# Smart directory navigation
-z nixos    # Jumps to ~/nixos-config
-
-# Visual disk usage
-dust /home
-
-# HTTP request with JSON
-xh get https://api.example.com/data
-
-# Git with syntax-highlighted diffs
-git diff   # Automatically uses delta
-
-# Interactive Git UI
-gitui
+gs   → git status
+gc   → git commit
+gp   → git push
+nrs  → sudo nixos-rebuild switch --flake ...#nixos
 ```
 
 ## Applications
 
 ### Browsers (Firejail)
 
-- **LibreWolf**: Primary browser with uBlock Origin, KeePassXC, ClearURLs
-- **Tor Browser**: For anonymous browsing (private Downloads-Verzeichnis)
+- **LibreWolf**: Primary Browser mit uBlock Origin, Bitwarden, ClearURLs, Multi-Account Containers
+- **Tor Browser**: Für anonymes Browsen (privates Downloads-Verzeichnis)
 
 ### Communication (Firejail / Flatpak)
 
-- **Thunderbird**: Email (Posteo, hardened, Firejail)
-- **Signal Desktop**: Messenger (Flatpak)
-- **Flare**: Inoffizieller Signal-Client (GTK/libadwaita, Flatpak) - leichtgewichtige Alternative zu Signal Desktop
+- **Thunderbird**: Email (Posteo, gehärtet, Firejail) -- Remote Images deaktiviert, JS deaktiviert
+- **Flare**: Signal-Client (GTK/libadwaita, Flatpak)
 - **Discord**: Chat-Client (Firejail)
 
 ### Media & Audio
 
-- **Spotify**: Musik-Streaming (Firejail) - Login erfordert `spotify.local`-Override für OAuth
-- **Amberol**: GNOME Musik-Player für lokale Audiodateien - spielt eine Playlist ohne Bibliotheksverwaltung
-- **Shortwave**: Internet-Radio mit Sender-Datenbank (radio-browser.info)
+- **Spotify**: Musik-Streaming (Firejail)
+- **Amberol**: GNOME Musik-Player für lokale Audiodateien
+- **Shortwave**: Internet-Radio (radio-browser.info)
 - **Celluloid**: GTK-Frontend für mpv (Video)
-- **VLC**: Universeller Media Player
 - **FreeTube**: YouTube-Client ohne Tracking (Firejail)
-- **Helvum**: GTK Patchbay für PipeWire - zum visuellen Verbinden von Audio-Ein/Ausgängen
+- **Helvum**: GTK Patchbay für PipeWire
+- **EasyEffects**: Equalizer & Audio-Effekte (mit JackHack96 Presets)
 
 ### Lesen & Notizen
 
-- **Zathura**: PDF-Viewer mit Vim-Keybindings (Firejail)
+- **Zathura**: PDF-Viewer mit Vim-Keybindings (Firejail, MuPDF Backend)
 - **MuPDF**: Leichtgewichtiger PDF-Viewer
-- **Foliate**: E-Book-Reader (EPUB, MOBI, FB2) mit GNOME-Integration
-- **Rnote**: Handschriftliche Notizen und Skizzen mit Stift-Unterstützung
+- **Foliate**: E-Book-Reader (EPUB, MOBI, FB2)
+- **Rnote**: Handschriftliche Notizen und Skizzen
 - **Apostrophe**: Distraction-free Markdown-Editor
+- **Logseq**: Wissensmanagement / Personal Wiki (Firejail)
 
 ### Password Management
 
-- **KeePassXC**: Offline password manager (Firejail)
-- **Goldwarden**: Bitwarden-compatible client with enhanced security
+- **Bitwarden Desktop**: Passwort-Manager mit Browser-Biometrics (Native Messaging zu LibreWolf)
+- **KeePassXC**: Offline Passwort-Manager (Firejail)
 
 ### Productivity & Tools
 
-- **Syncthing**: File synchronization (local, no cloud)
-- **Portfolio Performance**: Investment portfolio management (Flatpak)
-- **Logseq**: Wissensmanagement / Personal Wiki (Firejail)
+- **Syncthing**: Dateisynchronisation (lokal + eigener Relay-Server)
+- **Portfolio Performance**: Investment Portfolio (Flatpak)
+- **Denaro**: Persönliche Finanzverwaltung (Flatpak)
 - **Newsflash**: RSS-Reader mit Miniflux-Sync
 
 ### System & Utilities
 
 - **Mission Center**: System-Monitor (CPU, RAM, Disk, GPU)
-- **Baobab**: Grafische Festplattenbelegung (GNOME Disk Usage Analyzer)
-- **Czkawka**: Duplikate-Finder - findet doppelte Dateien, ähnliche Bilder, leere Ordner, temporäre Dateien
-- **Raider**: Sicheres Löschen von Dateien (überschreibt Daten vor dem Löschen)
-- **TextSnatcher**: OCR - Text aus Bildern/Screenshots in die Zwischenablage kopieren
-- **Blackbox Terminal**: GTK4-Terminalemulator für GNOME
+- **Baobab**: Grafische Festplattenbelegung
+- **Czkawka**: Duplikate-Finder (Dateien, ähnliche Bilder, leere Ordner)
+- **Raider**: Sicheres Löschen von Dateien
+- **TextSnatcher**: OCR -- Text aus Bildern/Screenshots kopieren
+- **Blackbox Terminal**: GTK4-Terminalemulator
 
 ### Download Manager
 
 - **Motrix**: Download-Manager (HTTP, FTP, BitTorrent, Magnet)
-- **Fragments**: GNOME BitTorrent-Client (leichtgewichtig, libadwaita)
+- **Fragments**: GNOME BitTorrent-Client
+- **Parabolic**: Video/Audio-Downloader (yt-dlp Frontend)
 - **JDownloader 2**: Download-Manager (Flatpak)
 
 ### Entwicklung
 
-- **Neovim**: Primary editor (Rust IDE)
-- **VSCodium**: VS Code without telemetry (Firejail)
-- **Zed**: Modern editor
-- **Wildcard**: Regex-Tester zum interaktiven Testen regulärer Ausdrücke
-- **Elastic**: Spring-Animationen designen und visualisieren (Easing-Kurven für UI-Entwicklung)
+- **Neovim**: Primary Editor (Rust IDE)
+- **VSCodium**: VS Code ohne Telemetrie (Firejail, 14 Extensions)
+- **Zed**: Modern Editor
+- **Wildcard**: Regex-Tester
+- **Elastic**: Spring-Animationen designen
 
 ### Firejail-Sandboxed Applications
 
-Folgende Apps laufen in isolierten Firejail-Sandboxes mit eingeschränktem Dateisystemzugriff:
-
 | App | Profil | Besonderheiten |
 |-----|--------|----------------|
-| LibreWolf | librewolf.profile + .local | Goldwarden Native Messaging, Portal-Zugriff |
+| LibreWolf | librewolf.profile + .local | Bitwarden Native Messaging, FIDO2, Portal-Zugriff |
 | Tor Browser | tor-browser.profile | Private Downloads-Verzeichnis |
-| Spotify | spotify.profile + .local | OAuth-Login mit Browser-Redirect |
-| Discord | discord.profile | Wayland (NIXOS_OZONE_WL) |
-| FreeTube | freetube.profile | Wayland |
+| Spotify | spotify.profile + .local | MPRIS, OAuth-Login |
+| Discord | discord.profile | Standard-Profil |
+| FreeTube | freetube.profile | Standard-Profil |
 | Thunderbird | thunderbird.profile | E-Mail |
 | KeePassXC | keepassxc.profile | Passwort-Datenbank |
 | Newsflash | newsflash.profile | RSS-Feeds |
@@ -438,67 +478,10 @@ Deklarativ verwaltet über `nix-flatpak` mit wöchentlichen Auto-Updates:
 
 | App | Flatpak ID |
 |-----|------------|
-| Signal Desktop | org.signal.Signal |
 | Flare (Signal) | de.schmidhuberj.Flare |
 | JDownloader 2 | org.jdownloader.JDownloader |
 | Portfolio Performance | info.portfolio_performance.PortfolioPerformance |
-
-## Goldwarden Setup
-
-Goldwarden is a Bitwarden-compatible desktop client with enhanced security features:
-- Vault content encrypted in memory (memguard)
-- Kernel-level memory protection for keys
-- Biometric authentication via Polkit
-- Systemd service hardening
-
-### Initial Setup
-
-```bash
-# 1. Set a PIN (required for security)
-goldwarden config set-pin
-
-# 2. Login to Bitwarden
-goldwarden vault login
-
-# 3. Optional: Run setup wizard for integrations
-goldwarden setup
-```
-
-### Browser Integration
-
-The Bitwarden browser extension works with Goldwarden for biometric unlock:
-
-1. Install [Bitwarden Extension](https://addons.mozilla.org/firefox/addon/bitwarden-password-manager/) in LibreWolf
-2. In extension settings: Enable "Unlock with biometrics"
-3. Goldwarden handles the native messaging
-
-### Useful Commands
-
-```bash
-# List saved logins
-goldwarden logins list
-
-# Get a specific password
-goldwarden logins get --name "example.com"
-
-# Run command with secrets as environment variables
-goldwarden run -- my-command
-
-# Lock the vault
-goldwarden vault lock
-
-# Check service status
-systemctl --user status goldwarden.service
-```
-
-### Security Features
-
-| Feature | Description |
-|---------|-------------|
-| **memguard** | Kernel-level memory protection |
-| **Polkit Auth** | Biometric unlock via fingerprint |
-| **Systemd Hardening** | PrivateTmp, ProtectSystem, NoNewPrivileges |
-| **UMask 0077** | Restrictive file permissions |
+| Denaro | org.nickvision.money |
 
 ## Maintenance
 
@@ -513,128 +496,140 @@ sudo nixos-rebuild switch --flake .#nixos
 
 # Or just test (without activation)
 sudo nixos-rebuild test --flake .#nixos
+
+# Kurzform (nushell alias)
+nrs
 ```
 
 ### Garbage Collection
 
-Automatically configured:
-- Weekly GC
-- Keeps last 30 days
+Automatisch konfiguriert:
+- Wöchentliche GC
+- Behält letzte 30 Tage
 
-Manual:
+Manuell:
 ```bash
-# Delete old generations
+# Alte Generationen löschen
 sudo nix-collect-garbage -d
 
-# Optimize store
+# Store optimieren
 nix store optimise
 ```
 
 ### Auto-Updates
 
-Enabled for:
-- nixpkgs
-- home-manager
+Aktiviert für:
+- nixpkgs (stable)
+- nixpkgs-unstable
 
-Daily at 04:00 (without automatic reboot).
+Täglich um 04:00 (ohne automatischen Neustart).
 
 ## Security Monitoring
 
 ### AIDE (File Integrity Monitoring)
 
-AIDE monitors critical system files for unauthorized changes.
+AIDE überwacht kritische Systemdateien auf unautorisierte Änderungen.
 
 ```bash
-# Initial database setup (after first rebuild)
+# Initiale Datenbank erstellen (nach erstem Rebuild)
 sudo mkdir -p /var/lib/aide
 sudo aide --init --config=/etc/aide.conf
 sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
 
-# Manual integrity check
+# Manuelle Integritätsprüfung
 sudo aide --check --config=/etc/aide.conf
 
-# Update database after legitimate changes
+# Datenbank nach legitimen Änderungen aktualisieren
 sudo aide --update --config=/etc/aide.conf
 sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
 ```
 
-Automated scan: Daily at 04:30
+Automatisierter Scan: Täglich um 04:30
 
 ### Rootkit Detection
 
-Two complementary tools scan for rootkits weekly:
+Zwei komplementäre Tools scannen wöchentlich nach Rootkits:
 
 ```bash
-# unhide - Find hidden processes and ports
-sudo unhide sys procall                  # Check for hidden processes
-sudo unhide-tcp                          # Check for hidden TCP/UDP ports
+# unhide - Versteckte Prozesse und Ports finden
+sudo unhide sys procall                  # Versteckte Prozesse
+sudo unhide-tcp                          # Versteckte TCP/UDP Ports
 
-# chkrootkit - Rootkit scanner
-sudo chkrootkit                          # Full scan
-sudo chkrootkit -q                       # Quiet mode (only warnings)
+# chkrootkit - Rootkit Scanner
+sudo chkrootkit                          # Vollständiger Scan
+sudo chkrootkit -q                       # Quiet Mode (nur Warnungen)
 ```
 
-Automated scans:
-- unhide (processes): Sunday 05:00
-- unhide-tcp (ports): Sunday 05:15
-- chkrootkit: Sunday 05:30
+Automatisierte Scans:
+- unhide (Prozesse): Sonntag 05:00
+- unhide-tcp (Ports): Sonntag 05:15
+- chkrootkit: Sonntag 05:30
 
-### Security Logs with journalctl
+### Firewall-Logging
+
+Verworfene Pakete werden mit Rate-Limiting geloggt:
 
 ```bash
-# View all security-related logs
-journalctl -u aide-check              # AIDE integrity checks
-journalctl -u unhide-check            # unhide process scans
-journalctl -u unhide-tcp-check        # unhide port scans
-journalctl -u chkrootkit-check        # chkrootkit scans
-journalctl -u clamav-daemon           # ClamAV antivirus
-journalctl -u fail2ban                # Brute-force protection
-journalctl -u usbguard                # USB device monitoring
+# Verworfene Pakete anzeigen (IPv4)
+journalctl --grep="iptables-dropped"
 
-# Real-time monitoring
+# Verworfene Pakete anzeigen (IPv6)
+journalctl --grep="ip6tables-dropped"
+
+# Echtzeit-Monitoring
+journalctl -f --grep="iptables-dropped"
+```
+
+### Security Logs mit journalctl
+
+```bash
+# Alle sicherheitsrelevanten Logs
+journalctl -u aide-check              # AIDE Integritätsprüfungen
+journalctl -u unhide-check            # unhide Prozess-Scans
+journalctl -u unhide-tcp-check        # unhide Port-Scans
+journalctl -u chkrootkit-check        # chkrootkit Scans
+journalctl -u clamav-daemon           # ClamAV Antivirus
+journalctl -u clamonacc               # ClamAV Echtzeit-Scanner
+journalctl -u fail2ban                # Brute-Force Schutz
+journalctl -u usbguard                # USB-Geräte-Monitoring
+
+# Echtzeit-Monitoring
 journalctl -f -u aide-check -u unhide-check -u chkrootkit-check
 
-# Filter by priority (errors and warnings only)
-journalctl -p err -u clamav-daemon
-
-# Show logs from last boot
-journalctl -b -u fail2ban
-
-# Audit logs (sudo, password changes, SSH)
+# Audit Logs (sudo, Passwort-Änderungen, SSH)
 journalctl _TRANSPORT=audit
 
-# Search for specific security events
-journalctl --grep="INFECTED"          # ClamAV detections
-journalctl --grep="Warning"           # General warnings
-journalctl --grep="blocked"           # USBGuard blocks
+# ClamAV Erkennungen
+journalctl --grep="INFECTED"
+
+# USBGuard blockierte Geräte
+journalctl --grep="blocked"
 ```
 
 ### Security Timer Status
 
 ```bash
-# List all security timers
+# Alle Security-Timer auflisten
 systemctl list-timers | grep -E "aide|unhide|chkrootkit|clamav"
 
-# Check timer details
+# Timer-Details
 systemctl status aide-check.timer
 systemctl status unhide-check.timer
-systemctl status unhide-tcp-check.timer
 systemctl status chkrootkit-check.timer
 ```
 
-### Manual Security Audit
+### Manuelles Security Audit
 
 ```bash
-# Run all security scans immediately
+# Alle Security-Scans sofort starten
 sudo systemctl start aide-check
 sudo systemctl start unhide-check
 sudo systemctl start unhide-tcp-check
 sudo systemctl start chkrootkit-check
 
-# Check results
+# Ergebnisse prüfen
 journalctl -u aide-check --since "5 minutes ago"
 journalctl -u unhide-check --since "10 minutes ago"
-journalctl -u unhide-tcp-check --since "10 minutes ago"
 journalctl -u chkrootkit-check --since "10 minutes ago"
 ```
 
@@ -643,23 +638,23 @@ journalctl -u chkrootkit-check --since "10 minutes ago"
 ### VPN Not Connecting
 
 ```bash
-# Check status
+# Status prüfen
 systemctl status wg-quick-proton0
 
-# View logs
+# Logs anzeigen
 journalctl -u wg-quick-proton0 -f
 
-# Connect manually
+# Manuell verbinden
 sudo wg-quick up proton0
 ```
 
 ### No Internet (Kill Switch Active)
 
 ```bash
-# Emergency: Temporarily disable firewall
+# Notfall: Firewall temporär deaktivieren
 sudo ./disable-firewall.sh
 
-# Or manually:
+# Oder manuell:
 sudo iptables -P INPUT ACCEPT
 sudo iptables -P OUTPUT ACCEPT
 sudo iptables -F
@@ -668,72 +663,70 @@ sudo iptables -F
 ### Secrets Not Available
 
 ```bash
-# Check sops-nix service
+# sops-nix Service prüfen
 systemctl status sops-nix
 
-# Check Age key
-cat /var/lib/sops-nix/key.txt
+# Age Key prüfen
+ls -la /var/lib/sops-nix/key.txt
 
-# Test manual decryption
+# Manuelle Entschlüsselung testen
 sops -d secrets/secrets.yaml
 ```
 
 ### Secure Boot Problems
 
 ```bash
-# Check status
+# Status prüfen
 sbctl status
 
-# Show unsigned files
+# Unsignierte Dateien anzeigen
 sbctl verify
 
-# Re-sign
+# Neu signieren
 sudo sbctl sign-all
 ```
 
 ### USBGuard: Blocked USB Device
 
-USBGuard blocks all newly connected USB devices by default for security.
+USBGuard blockiert alle neu angeschlossenen USB-Geräte standardmäßig.
 
-**List all USB devices:**
 ```bash
+# Alle USB-Geräte auflisten
 pkexec usbguard list-devices
-```
 
-**Allow a blocked device temporarily:**
-```bash
-# Find device number (e.g., "15: block id 0781:55b0 ...")
+# Blockiertes Gerät temporär erlauben
 pkexec usbguard list-devices | grep block
+pkexec usbguard allow-device 15  # Gerätenummer aus der Liste
 
-# Allow device by number
-pkexec usbguard allow-device 15
+# Gerät permanent erlauben: Regel in modules/security.nix hinzufügen
 ```
 
-**Allow a device permanently:**
+Desktop-Benachrichtigungen: `usbguard-notifier` zeigt Popups für blockierte Geräte.
 
-Add device rule to `/nix/store/.../modules/security.nix`:
+### DNSSEC-Probleme
 
-```nix
-services.usbguard = {
-  enable = true;
-  rules = ''
-    # Allow specific device (e.g., SanDisk Portable SSD)
-    allow id 0781:55b0 serial "323233353036343034313530" name "Portable SSD"
-    
-    # Or allow all devices with specific vendor ID
-    allow id 0781:*
-  '';
-};
-```
+Falls DNSSEC DNS-Auflösung für bestimmte Domains verhindert:
 
-**Get device rule from logs:**
 ```bash
-journalctl -u usbguard -n 50 | grep "block.*Device.Insert"
+# DNSSEC-Status prüfen
+resolvectl status
+
+# Temporär auf allow-downgrade setzen (in modules/network.nix):
+# dnssec = "allow-downgrade";
 ```
 
-**Desktop notifications:**
+### AppArmor blockiert Anwendung
 
-`usbguard-notifier` is installed and shows popup notifications when devices are blocked.
+```bash
+# AppArmor-Status prüfen
+sudo aa-status
+
+# Betroffenes Profil identifizieren
+journalctl --grep="apparmor.*DENIED"
+
+# Profil temporär in Complain-Modus setzen
+sudo aa-complain /path/to/profile
+```
 
 ## License
 
@@ -742,4 +735,4 @@ Private configuration. Use at your own risk.
 ## Contact
 
 - **Email**: user@posteo.de
-- **Git Signing Key**: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKxoCdoA7621jMhv0wX3tx66NEZMv9tp8xdE76sEfjBI
+- **Git Signing Key**: sk-ssh-ed25519@openssh.com (Nitrokey 3C NFC)

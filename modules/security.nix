@@ -217,7 +217,7 @@
     # Zusätzliche AppArmor-Profile aus Paketen laden
     packages = with pkgs; [ apparmor-profiles ];
     # Alle Profile im Enforce-Modus
-    killUnconfinedConfinables = false; # Nicht automatisch killen
+    killUnconfinedConfinables = true; # Unkontrollierte Prozesse mit AppArmor-Profil stoppen
   };
 
   # ==========================================
@@ -401,7 +401,7 @@
         # Echtzeit-Scanning Konfiguration (für clamonacc)
         OnAccessIncludePath = [ "/home" ];
         OnAccessExcludeUname = "clamav";
-        OnAccessPrevention = "no"; # Nur loggen, nicht blockieren
+        OnAccessPrevention = "yes"; # Erkannte Bedrohungen blockieren
       };
     };
     updater = {

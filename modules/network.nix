@@ -66,7 +66,7 @@
 
   services.resolved = {
     enable = true;
-    dnssec = "false";
+    dnssec = "true";
     domains = [ "~." ];
     dnsovertls = "true";
     # Kein fallbackDns - verhindert DNS-Leaks wenn VPN down

@@ -75,8 +75,8 @@ in
       # 7. DNS NUR über systemd-resolved (127.0.0.53) - verhindert DNS-Leaks
       iptables -A OUTPUT -p udp --dport 53 -d 127.0.0.53 -j ACCEPT
       iptables -A OUTPUT -p tcp --dport 53 -d 127.0.0.53 -j ACCEPT
-      # DNS-over-TLS (Port 853) - systemd-resolved braucht ausgehende Verbindungen
-      iptables -A OUTPUT -p tcp --dport 853 -j ACCEPT
+      # DNS-over-TLS (Port 853) NUR zu Mullvad DNS - verhindert Exfiltration über DoT
+      iptables -A OUTPUT -p tcp --dport 853 -d 194.242.2.2 -j ACCEPT
       
       # 8. mDNS für lokale Discovery (Avahi)
       iptables -A OUTPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT
@@ -105,6 +105,12 @@ in
       # Broadcast für lokale Discovery (Syncthing Announce)
       iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 255.255.255.255 -j ACCEPT
       iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 192.168.178.255 -j ACCEPT
+
+      # 11. Logging für verworfene Pakete (Intrusion Detection, rate-limited)
+      # WICHTIG: Muss nach allen ACCEPT-Regeln stehen, damit nur tatsächlich
+      # verworfene Pakete geloggt werden (direkt vor implizitem DROP)
+      iptables -A INPUT -m limit --limit 5/min -j LOG --log-prefix "iptables-dropped-in: " --log-level 4
+      iptables -A OUTPUT -m limit --limit 5/min -j LOG --log-prefix "iptables-dropped-out: " --log-level 4
 
       # ==========================================
       # IPv6 REGELN - Gleiche Logik wie IPv4
@@ -156,7 +162,8 @@ in
       # 8. DNS NUR über systemd-resolved (::1)
       ip6tables -A OUTPUT -p udp --dport 53 -d ::1 -j ACCEPT
       ip6tables -A OUTPUT -p tcp --dport 53 -d ::1 -j ACCEPT
-      ip6tables -A OUTPUT -p tcp --dport 853 -j ACCEPT
+      # DNS-over-TLS (Port 853) NUR zu Mullvad DNS
+      ip6tables -A OUTPUT -p tcp --dport 853 -d 194.242.2.2 -j ACCEPT
 
       # 9. mDNS für lokale Discovery
       ip6tables -A OUTPUT -p udp --dport 5353 -d ff02::fb -j ACCEPT
@@ -173,6 +180,11 @@ in
       ip6tables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i proton0 -j ACCEPT
       ip6tables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i tun+ -j ACCEPT
       ip6tables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i wg+ -j ACCEPT
+
+      # 12. Logging für verworfene Pakete (IPv6, rate-limited)
+      # WICHTIG: Muss nach allen ACCEPT-Regeln stehen
+      ip6tables -A INPUT -m limit --limit 5/min -j LOG --log-prefix "ip6tables-dropped-in: " --log-level 4
+      ip6tables -A OUTPUT -m limit --limit 5/min -j LOG --log-prefix "ip6tables-dropped-out: " --log-level 4
     '';
 
     extraStopCommands = ''

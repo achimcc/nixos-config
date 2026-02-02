@@ -13,9 +13,9 @@
     # LLM-Agents für Crush
     llm-agents.url = "github:numtide/llm-agents.nix";
 
-    # Sops-nix für verschlüsselte Secrets
+    # Sops-nix für verschlüsselte Secrets (gepinnt auf geprüften Commit)
     sops-nix = {
-      url = "github:Mic92/sops-nix";
+      url = "github:Mic92/sops-nix/5e8fae80726b66e9fec023d21cd3b3e638597aa9";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -28,8 +28,8 @@
     # Deklaratives Flatpak
     nix-flatpak.url = "github:gmodena/nix-flatpak";
 
-    # RCU - reMarkable Connection Utility (eigene nixpkgs wegen pyside2/shiboken2)
-    rcu.url = "git+https://github.com/thozza/rcu.git";
+    # RCU - reMarkable Connection Utility (gepinnt auf geprüften Commit)
+    rcu.url = "git+https://github.com/thozza/rcu.git?rev=0dc42d188af723569a07f827b43713e9c56ef6c7";
   };
 
   outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, llm-agents, sops-nix, lanzaboote, nix-flatpak, rcu, ... } @inputs:
