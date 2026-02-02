@@ -445,24 +445,15 @@ in
       ] ++ [
         # TangleGuard - Dependency Graph Visualisierung
         # Binary wird mit autoPatchelfHook gepatcht statt systemweitem nix-ld
-        (let
-          tangleguard-raw = pkgs.vscode-utils.extensionFromVscodeMarketplace {
-            publisher = "ArchwiseSolutionsUG";
-            name = "tangleguard";
-            version = "0.0.8";
-            sha256 = "09cd8ka4nrys1wcg09c20i65mxxl6mk6li8rxap60w8f2rn6gixq";
-          };
-        in pkgs.stdenv.mkDerivation {
-          pname = "tangleguard-patched";
+        ((pkgs.vscode-utils.extensionFromVscodeMarketplace {
+          publisher = "ArchwiseSolutionsUG";
+          name = "tangleguard";
           version = "0.0.8";
-          src = tangleguard-raw;
-          nativeBuildInputs = [ pkgs.autoPatchelfHook ];
-          buildInputs = [ pkgs.stdenv.cc.cc.lib ];
-          dontBuild = true;
-          installPhase = ''
-            cp -r . $out
-          '';
-        })
+          sha256 = "09cd8ka4nrys1wcg09c20i65mxxl6mk6li8rxap60w8f2rn6gixq";
+        }).overrideAttrs (old: {
+          nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ pkgs.autoPatchelfHook ];
+          buildInputs = (old.buildInputs or []) ++ [ pkgs.stdenv.cc.cc.lib ];
+        }))
       ];
 
       userSettings = {
