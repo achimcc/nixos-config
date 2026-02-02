@@ -8,6 +8,7 @@
     ./hardware-configuration.nix
     ./modules/network.nix
     ./modules/firewall.nix
+    ./modules/firewall-zones.nix
     ./modules/protonvpn.nix
     ./modules/desktop.nix
     ./modules/audio.nix

@@ -3,6 +3,10 @@
 
 { config, lib, pkgs, ... }:
 
+# HINWEIS: Netzwerk-Zonen-Konzept dokumentiert in firewall-zones.nix
+# Diese Datei implementiert die Zonen-Regeln mit iptables
+# Migration zu nftables mit nativen Zonen in Zukunft geplant
+
 let
   # VPN-Ports zentral definiert für einfache Wartung
   vpnPorts = {
