@@ -99,6 +99,8 @@
 
     serviceConfig = {
       Type = "oneshot";
+      # Exit-Status 1 ist OK (suricata-update erfolgreich, nur reload schlägt fehl)
+      SuccessExitStatus = "0 1";
     };
 
     script = ''

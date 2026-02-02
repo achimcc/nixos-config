@@ -192,10 +192,10 @@
         ];
       };
 
-      # Zathura - PDF-Viewer mit Sandbox
-      zathura = {
-        executable = "${pkgs.zathura}/bin/zathura";
-        profile = "${pkgs.firejail}/etc/firejail/zathura.profile";
+      # Evince - GNOME PDF-Viewer mit Sandbox
+      evince = {
+        executable = "${pkgs.evince}/bin/evince";
+        profile = "${pkgs.firejail}/etc/firejail/evince.profile";
       };
 
       # Discord - Chat-Client mit Sandbox

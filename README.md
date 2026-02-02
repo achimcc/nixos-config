@@ -82,7 +82,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 
 ### Sandboxing & Hardening
 
-- **Firejail**: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, VSCodium, Zathura, Newsflash isoliert
+- **Firejail**: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, VSCodium, Evince, Newsflash isoliert
 - **AppArmor**: Mandatory Access Control mit Enforcement (`killUnconfinedConfinables = true`)
 - **Hardened Kernel**: `linuxPackages_hardened` mit zusätzlichen sysctl-Parametern
 - **Kernel Module Locking**: Verhindert Runtime-Laden von Kernel-Modulen (Rootkit-Schutz)
@@ -435,8 +435,7 @@ nrs  → sudo nixos-rebuild switch --flake ...#nixos
 
 ### Lesen & Notizen
 
-- **Zathura**: PDF-Viewer mit Vim-Keybindings (Firejail, MuPDF Backend)
-- **MuPDF**: Leichtgewichtiger PDF-Viewer
+- **Evince**: GNOME Document Viewer (benutzerfreundlich, Firejail-gesandboxt)
 - **Foliate**: E-Book-Reader (EPUB, MOBI, FB2)
 - **Rnote**: Handschriftliche Notizen und Skizzen
 - **Apostrophe**: Distraction-free Markdown-Editor
@@ -492,7 +491,7 @@ nrs  → sudo nixos-rebuild switch --flake ...#nixos
 | Newsflash | newsflash.profile | RSS-Feeds |
 | Logseq | obsidian.profile | Whitelist ~/Dokumente/Logseq |
 | VSCodium | vscodium.profile | Whitelist ~/Projects, ~/nixos-config |
-| Zathura | zathura.profile | PDF-Dateien |
+| Evince | evince.profile | PDF-Dateien |
 
 ### Flatpak Applications
 

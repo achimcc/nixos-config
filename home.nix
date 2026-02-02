@@ -145,7 +145,7 @@ in
     hunspellDicts.de-de
 
     # --- PDF VIEWER & E-BOOKS ---
-    mupdf
+    evince # GNOME Document Viewer (via Firejail in modules/network.nix)
     foliate # E-Book-Reader (GNOME/libadwaita)
 
     # --- MEDIA PLAYER ---
@@ -721,41 +721,6 @@ in
       }
     '';
   };
-
-  # --- PDF VIEWER (Zathura mit MuPDF Backend) ---
-  programs.zathura = {
-    enable = true;
-    options = {
-      # Darstellung
-      default-bg = "#1e1e2e";
-      default-fg = "#cdd6f4";
-      recolor = true;
-      recolor-lightcolor = "#1e1e2e";
-      recolor-darkcolor = "#cdd6f4";
-      recolor-keephue = true;
-
-      # Verhalten
-      selection-clipboard = "clipboard";
-      adjust-open = "best-fit";
-      scroll-page-aware = true;
-      smooth-scroll = true;
-      scroll-step = 100;
-
-      # Statusbar
-      statusbar-home-tilde = true;
-      window-title-home-tilde = true;
-    };
-    mappings = {
-      # Vim-ähnliche Navigation
-      "<C-d>" = "scroll half-down";
-      "<C-u>" = "scroll half-up";
-      D = "toggle_page_mode";
-      r = "reload";
-      R = "rotate";
-      i = "recolor";
-    };
-  };
-
 
   # ProtonVPN wird via systemd beim Boot gestartet (siehe modules/protonvpn.nix)
   # GUI läuft zusätzlich und zeigt die bestehende Verbindung an
