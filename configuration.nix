@@ -17,6 +17,7 @@
     ./modules/security.nix
     ./modules/secureboot.nix
     ./modules/suricata.nix
+    ./modules/logwatch.nix
   ];
 
   # ==========================================
