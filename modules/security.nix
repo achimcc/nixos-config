@@ -112,6 +112,9 @@
     # "thunderbolt" # Auskommentiert falls Thunderbolt-Dock genutzt wird
   ];
 
+  # USB-Storage Module explizit laden (für externe SSDs)
+  boot.kernelModules = [ "usb_storage" "uas" ];
+
   # ==========================================
   # ZUSÄTZLICHE SICHERHEIT
   # ==========================================
