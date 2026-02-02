@@ -145,6 +145,11 @@
     # Socket liegt in /run/user/1000/gnupg/
     noblacklist /run/user/1000/gnupg
     whitelist /run/user/1000/gnupg
+
+    # Wayland Display Zugriff (GNOME/Wayland Session)
+    # Thunderbird-Default-Profil hat "ignore include whitelist-runuser-common.inc"
+    # was den Wayland-Socket blockiert. Wir aktivieren die Whitelist wieder:
+    ignore ignore include whitelist-runuser-common.inc
   '';
 
   programs.firejail = {
