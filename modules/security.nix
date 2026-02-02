@@ -120,7 +120,7 @@
   security.protectKernelImage = true;
 
   # Lockdown Mode (integrity = Module müssen signiert sein)
-  # security.lockKernelModules = true; # Vorsicht: Kann Probleme verursachen
+  security.lockKernelModules = true; # Verhindert Rootkit-Installation zur Laufzeit
 
   # Sudo Timeout verkürzen (Default: 15min)
   security.sudo.extraConfig = ''
