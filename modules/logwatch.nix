@@ -389,7 +389,6 @@
   # ==========================================
 
   environment.systemPackages = with pkgs; [
-    logwatch
     libnotify  # Für Desktop Notifications
   ];
 }
