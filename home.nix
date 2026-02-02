@@ -50,7 +50,16 @@ in
       "org.nickvision.money" # Denaro - Persönliche Finanzverwaltung
     ];
     overrides = {
-      "de.schmidhuberj.Flare"."Session Bus Policy"."org.freedesktop.secrets" = "talk";
+      "de.schmidhuberj.Flare" = {
+        "Session Bus Policy"."org.freedesktop.secrets" = "talk";
+        # CA-Zertifikate für SSL-Verbindungen (Signal-Server)
+        "Context" = {
+          filesystems = [
+            "/etc/ssl/certs:ro"
+            "/etc/static/ssl/certs:ro"
+          ];
+        };
+      };
     };
     update.auto = {
       enable = true;
@@ -398,9 +407,15 @@ in
   programs.ssh = {
     enable = true;
     matchBlocks = {
+      "github.com" = {
+        identityFile = "~/.ssh/id_ed25519_sk";
+        identitiesOnly = true;
+      };
       "gitlab.com" = {
         hostname = "altssh.gitlab.com";
         port = 443;
+        identityFile = "~/.ssh/id_ed25519_sk";
+        identitiesOnly = true;
       };
     };
   };
