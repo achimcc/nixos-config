@@ -99,7 +99,6 @@
 
     serviceConfig = {
       Type = "oneshot";
-      User = "root";  # suricata-update benötigt root
     };
 
     script = ''
