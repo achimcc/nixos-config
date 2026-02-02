@@ -646,7 +646,7 @@ in
   };
 
   # --- CA-ZERTIFIKATE FÜR FLATPAK APPS (Flare) ---
-  home.file.".local/share/ca-certificates/ca-bundle.crt".source = /etc/ssl/certs/ca-bundle.crt;
+  home.file.".local/share/ca-certificates/ca-bundle.crt".source = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
   # --- EASYEFFECTS COMMUNITY PRESETS (JackHack96) ---
   home.file.".config/easyeffects/output" = {
