@@ -262,8 +262,11 @@ in
 
   services.gpg-agent = {
     enable = true;
-    pinentry.package = pkgs.pinentry-gnome3;
+    pinentryPackage = pkgs.pinentry-gnome3;
     enableSshSupport = false; # Deaktiviert - gpg-agent unterstützt FIDO2-Schlüssel nicht vollständig
+    # Cache GPG-Passwort für 8 Stunden (verhindert ständige Passwort-Prompts)
+    defaultCacheTtl = 28800;  # 8 Stunden in Sekunden
+    maxCacheTtl = 28800;      # Maximale Cache-Zeit
   };
 
   # SSH-Agent als systemd user service (für FIDO2/Nitrokey-Unterstützung)
@@ -383,22 +386,18 @@ in
   };
 
   # --- EMAIL CLIENT (Thunderbird - Hardened) ---
+  # WICHTIG: Thunderbird wird über programs.firejail.wrappedBinaries installiert (modules/network.nix)
+  # Deaktiviere automatische Installation hier, um Firejail-Wrapper nicht zu überschreiben
   programs.thunderbird = {
-    enable = true;
-    profiles = {
-      "user" = {
-        isDefault = true;
-        settings = {
-          "privacy.donottrackheader.enabled" = true;
-          "mailnews.message_display.disable_remote_image" = true;
-          "datareporting.healthreport.uploadEnabled" = false;
-          "datareporting.policy.dataSubmissionEnabled" = false;
-          "toolkit.telemetry.enabled" = false;
-          "javascript.enabled" = false;
-          "mailnews.display.html_as" = 3;
-        };
-      };
-    };
+    enable = false;
+    # Profil-Einstellungen müssen manuell in about:config gesetzt werden:
+    # - privacy.donottrackheader.enabled = true
+    # - mailnews.message_display.disable_remote_image = true
+    # - datareporting.healthreport.uploadEnabled = false
+    # - datareporting.policy.dataSubmissionEnabled = false
+    # - toolkit.telemetry.enabled = false
+    # - javascript.enabled = false
+    # - mailnews.display.html_as = 3 (Plain Text)
   };
 
   # --- SSH ---
@@ -406,7 +405,7 @@ in
     enable = true;
     matchBlocks = {
       "github.com" = {
-        identityFile = "~/.ssh/id_ed25519_sk";
+        identityFile = "~/.ssh/id_ed25519";
         identitiesOnly = true;
       };
       "gitlab.com" = {
@@ -741,6 +740,7 @@ in
     environmentVariables = {
       EDITOR = "vim";
       NPM_CONFIG_PREFIX = "~/.npm-global";
+      SOPS_AGE_KEY_FILE = "~/.config/sops/age/keys.txt";
     };
     extraConfig = ''
       $env.config.show_banner = false

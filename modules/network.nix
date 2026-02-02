@@ -129,6 +129,24 @@
     dbus-user.talk org.freedesktop.portal.*
   '';
 
+  # Thunderbird-spezifische Firejail-Konfiguration
+  environment.etc."firejail/thunderbird.local".text = ''
+    # GNOME Keyring Zugriff für Posteo-Passwort
+    # Das Passwort wird vom posteo-keyring-sync Service in den Keyring kopiert
+    dbus-user.talk org.freedesktop.secrets
+
+    # OpenPGP/Smartcard Zugriff für Nitrokey (E-Mail-Verschlüsselung)
+    # Thunderbird hat native OpenPGP-Unterstützung seit v78
+    # Smartcard-Zugriff braucht /dev/hidraw* für Nitrokey
+    ignore private-dev
+    ignore nou2f
+
+    # GPG-Agent Socket Zugriff für Smartcard-PIN-Eingabe
+    # Socket liegt in /run/user/1000/gnupg/
+    noblacklist /run/user/1000/gnupg
+    whitelist /run/user/1000/gnupg
+  '';
+
   programs.firejail = {
     enable = true;
     wrappedBinaries = {
@@ -215,7 +233,9 @@
   };
 
   # Pakete die von Firejail gewrappt werden
-  # (Thunderbird, KeePassXC, Newsflash, Zathura, VSCodium sind in home.nix)
+  # Thunderbird: nur via Firejail-Wrapper (siehe wrappedBinaries oben)
+  # NICHT über home.nix installieren, sonst wird Wrapper überschrieben!
+  # (KeePassXC, Newsflash, VSCodium sind in home.nix)
   # Signal via Flatpak (home.nix), nicht mehr hier
   environment.systemPackages = with pkgs; [
     tor-browser
