@@ -318,6 +318,7 @@
         "url": "https://github.com/thozza/rcu.git"
       },
       "original": {
+        "rev": "0dc42d188af723569a07f827b43713e9c56ef6c7",
         "type": "git",
         "url": "https://github.com/thozza/rcu.git"
       }
@@ -372,6 +373,7 @@
       "original": {
         "owner": "Mic92",
         "repo": "sops-nix",
+        "rev": "5e8fae80726b66e9fec023d21cd3b3e638597aa9",
         "type": "github"
       }
     },
