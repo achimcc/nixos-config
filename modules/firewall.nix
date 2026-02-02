@@ -162,8 +162,8 @@ in
       # 8. DNS NUR über systemd-resolved (::1)
       ip6tables -A OUTPUT -p udp --dport 53 -d ::1 -j ACCEPT
       ip6tables -A OUTPUT -p tcp --dport 53 -d ::1 -j ACCEPT
-      # DNS-over-TLS (Port 853) NUR zu Mullvad DNS
-      ip6tables -A OUTPUT -p tcp --dport 853 -d 194.242.2.2 -j ACCEPT
+      # DNS-over-TLS: systemd-resolved verbindet über IPv4 zu Mullvad DNS,
+      # daher keine IPv6 DoT-Regel nötig (IPv4-Regel in Abschnitt oben reicht)
 
       # 9. mDNS für lokale Discovery
       ip6tables -A OUTPUT -p udp --dport 5353 -d ff02::fb -j ACCEPT

@@ -430,6 +430,8 @@
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       Type = "simple";
+      # Warte bis clamd-Socket bereit ist (max 60s)
+      ExecStartPre = "${pkgs.bash}/bin/bash -c 'for i in $(seq 1 60); do [ -S /run/clamav/clamd.ctl ] && exit 0; sleep 1; done; exit 1'";
       ExecStart = "${pkgs.clamav}/bin/clamonacc --foreground --log=/var/log/clamav/clamonacc.log";
       Restart = "on-failure";
       RestartSec = "10s";
