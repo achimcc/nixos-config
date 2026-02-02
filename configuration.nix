@@ -16,6 +16,7 @@
     ./modules/sops.nix
     ./modules/security.nix
     ./modules/secureboot.nix
+    ./modules/suricata.nix
   ];
 
   # ==========================================
