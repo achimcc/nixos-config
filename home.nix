@@ -184,6 +184,9 @@ in
     # --- NODE.JS ---
     nodejs_22 # Enthält npm für globale Pakete
 
+    # --- FHS COMPATIBILITY ---
+    steam-run # FHS-Umgebung für nicht-NixOS Binaries
+
     # ---- youtube
     freetube
 

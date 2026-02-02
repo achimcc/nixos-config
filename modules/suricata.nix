@@ -103,7 +103,13 @@
 
     script = ''
       ${pkgs.suricata}/bin/suricata-update
-      ${pkgs.systemd}/bin/systemctl reload suricata.service
+    '';
+
+    # Reload Suricata nach erfolgreichem Rule-Update
+    postStop = ''
+      if systemctl is-active --quiet suricata.service; then
+        ${pkgs.systemd}/bin/systemctl reload suricata.service 2>/dev/null || true
+      fi
     '';
   };
 
