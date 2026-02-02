@@ -35,6 +35,9 @@
   # Systemd in Initrd für FIDO2 LUKS-Entsperrung
   boot.initrd.systemd.enable = true;
 
+  # TPM 2.0 für zusätzliche Boot-Sicherheit
+  boot.initrd.systemd.tpm2.enable = true;
+
   # Root-Partition: FIDO2 mit Passwort-Fallback
   boot.initrd.luks.devices."luks-fcef0557-8a09-4f30-b78e-aecc458a975a".crypttabExtraOpts = [
     "fido2-device=auto"
