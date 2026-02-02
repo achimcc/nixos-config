@@ -1,96 +1,12 @@
-# Logwatch - Automated Log Analysis and Security Monitoring
+# Automated Security Monitoring
 # Aggregiert Logs von AIDE, Suricata, Fail2ban, USBGuard, ClamAV, etc.
 # Erstellt tägliche Security Reports und überwacht kritische Ereignisse
+#
+# HINWEIS: NixOS hat kein services.logwatch - wir verwenden custom systemd-Services
 
 { config, lib, pkgs, ... }:
 
 {
-  # ==========================================
-  # LOGWATCH SERVICE
-  # ==========================================
-
-  services.logwatch = {
-    enable = true;
-
-    # E-Mail aus SOPS Secret (TODO: Secret manuell in secrets.yaml hinzufügen)
-    mailto = lib.fileContents config.sops.secrets."system/admin-email".path;
-
-    # Details Level: Low (0-4), Med (5-9), High (10+)
-    # Med zeigt wichtige Ereignisse ohne zu viel Spam
-    details = "Med";
-
-    # Range: yesterday (täglicher Report über gestrigen Tag)
-    range = "yesterday";
-
-    # Output: stdout (an systemd journal, statt direkt E-Mail)
-    # Erlaubt spätere Weiterverarbeitung/Archivierung
-    output = "stdout";
-
-    # Services zu überwachen
-    extraConfig = ''
-      # ==========================================
-      # ÜBERWACHTE SERVICES
-      # ==========================================
-
-      # Authentifizierung & Zugriff
-      Service = sudo
-      Service = sshd
-      Service = pam
-
-      # Kernel & System
-      Service = kernel
-      Service = systemd
-
-      # Sicherheits-Subsysteme
-      Service = fail2ban
-      Service = iptables
-      Service = clamav
-      Service = audit
-
-      # ==========================================
-      # DETAIL LEVELS PRO SERVICE
-      # ==========================================
-
-      # Kritische Services: High Detail
-      Detail = sudo = 10
-      Detail = sshd = 10
-      Detail = fail2ban = 10
-      Detail = audit = 10
-
-      # Wichtige Services: Med Detail
-      Detail = pam = 5
-      Detail = kernel = 5
-      Detail = iptables = 5
-      Detail = clamav = 5
-
-      # Standard Services: Low Detail
-      Detail = systemd = 3
-
-      # ==========================================
-      # FILTER KONFIGURATION
-      # ==========================================
-
-      # Nur Fehler und Warnungen, keine normalen Ereignisse
-      # (außer bei Security-relevanten Services)
-
-      # Kernel: Nur Fehler, Panics, OOMs
-      $kernel_ignore_list = "normal network activity"
-
-      # Systemd: Nur Failed Units
-      $systemd_detail = "failed"
-
-      # ==========================================
-      # FORMATIERUNG
-      # ==========================================
-
-      # Datum Format: ISO 8601
-      $ENV{'LOGWATCH_DATE_FORMAT'} = "%Y-%m-%d"
-
-      # Numerische IPs statt Hostnamen (schneller, präziser)
-      $ENV{'LOGWATCH_NUMERIC'} = "1"
-    '';
-  };
-
   # ==========================================
   # DAILY SECURITY REPORT SERVICE
   # ==========================================

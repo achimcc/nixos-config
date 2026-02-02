@@ -88,12 +88,6 @@
       mode = "0400";
     };
 
-    # E-Mail für System-Benachrichtigungen (Logwatch, AIDE, etc.)
-    secrets."system/admin-email" = {
-      owner = "root";
-      mode = "0400";
-    };
-
     # ProtonVPN IP-Ranges (verschleiert Verwendung von ProtonVPN)
     secrets."protonvpn/ip-ranges" = {
       owner = "root";
