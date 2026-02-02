@@ -441,6 +441,7 @@ in
         yzhang.markdown-all-in-one
         davidanson.vscode-markdownlint
         tomoki1207.pdf
+        saoudrizwan.claude-dev # Cline
       ] ++ [
         # TangleGuard - Dependency Graph Visualisierung
         (pkgs.vscode-utils.extensionFromVscodeMarketplace {
