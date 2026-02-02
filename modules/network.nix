@@ -233,7 +233,7 @@
   };
 
   # Pakete die von Firejail gewrappt werden
-  # Thunderbird: nur via Firejail-Wrapper (siehe wrappedBinaries oben)
+  # Thunderbird: System-Paket (für Desktop-Datei) + Firejail-Wrapper (siehe wrappedBinaries oben)
   # NICHT über home-achim.nix installieren, sonst wird Wrapper überschrieben!
   # (KeePassXC, Newsflash, VSCodium sind in home-achim.nix)
   # Signal via Flatpak (home-achim.nix), nicht mehr hier
@@ -244,5 +244,6 @@
     logseq
     discord
     spotify
+    thunderbird
   ];
 }
