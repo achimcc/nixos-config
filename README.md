@@ -42,13 +42,16 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 └── modules/
     ├── network.nix       # NetworkManager, DNS-over-TLS, Firejail
     ├── firewall.nix      # VPN Kill Switch (iptables, Logging)
+    ├── firewall-zones.nix # Network Segmentation Zones
     ├── protonvpn.nix     # WireGuard Auto-Connect
     ├── desktop.nix       # GNOME Desktop
     ├── audio.nix         # PipeWire
     ├── power.nix         # TLP, Thermald
     ├── sops.nix          # Secret Management
     ├── security.nix      # Kernel Hardening, AppArmor, ClamAV, USBGuard
-    ├── secureboot.nix    # Lanzaboote Secure Boot
+    ├── secureboot.nix    # Lanzaboote Secure Boot + TPM2 Support
+    ├── suricata.nix      # Intrusion Detection System (IDS)
+    ├── logwatch.nix      # Automated Security Monitoring & Daily Reports
     └── home/
         ├── gnome-settings.nix  # GNOME Dconf (Privacy, Screen Lock)
         └── neovim.nix          # Neovim IDE
@@ -70,6 +73,8 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 ### Encryption & Authentication
 
 - **LUKS Full-Disk Encryption**: Mit FIDO2 (Nitrokey 3C NFC) + Passwort-Fallback
+- **Swap Encryption**: Verschlüsselter Swap mit TRIM-Support für SSDs
+- **TPM2 Support**: Optionales automatisches LUKS-Unlock via TPM2
 - **Secure Boot**: Lanzaboote mit eigenen Signatur-Keys
 - **sops-nix**: Secrets mit Age verschlüsselt im Git Repository
 - **SSH Commit Signing**: Git Commits mit Ed25519 Security Key signiert
@@ -80,12 +85,26 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - **Firejail**: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, VSCodium, Zathura, Newsflash isoliert
 - **AppArmor**: Mandatory Access Control mit Enforcement (`killUnconfinedConfinables = true`)
 - **Hardened Kernel**: `linuxPackages_hardened` mit zusätzlichen sysctl-Parametern
+- **Kernel Module Locking**: Verhindert Runtime-Laden von Kernel-Modulen (Rootkit-Schutz)
 - **USBGuard**: USB-Geräte-Autorisierung (blockiert unbekannte Geräte)
 - **ClamAV**: Echtzeit-Antivirus mit aktiver Prävention (`OnAccessPrevention = yes`)
 - **Fail2Ban**: Schutz gegen Brute-Force (exponentieller Backoff, max 48h)
 - **AIDE**: File Integrity Monitoring für kritische Systemdateien
 - **unhide/chkrootkit**: Rootkit-Erkennung (wöchentliche Scans)
 - **Audit Framework**: Überwachung von sudo, su, Passwort-Änderungen, SSH-Config
+
+### Intrusion Detection & Monitoring
+
+- **Suricata IDS**: Network Intrusion Detection System mit automatischen Regel-Updates
+- **Logwatch**: Automatisierte Sicherheitsberichte und kritische Alarmierung
+- **Daily Security Reports**: Tägliche Berichte um 06:00 gespeichert in `/var/log/security-reports/`
+- **Critical Alert Monitoring**: Prüft alle 5 Minuten auf kritische Sicherheitsereignisse
+
+### Network Segmentation
+
+- **Firewall Zones Architecture**: Netzwerksegmentierung mit dedizierten Zonen
+- **Local Network Restrictions**: Lokaler Zugriff nur zu Router und ICMP
+- **VPN Zone Separation**: Getrennte Behandlung von lokalem und VPN-Traffic
 
 ### Screen Lock & Session
 
@@ -108,6 +127,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - SYN Cookies aktiviert
 - Source Routing deaktiviert
 - ICMP Redirects ignoriert
+- Kernel Module Locking aktiviert (lockKernelModules = true)
 ```
 
 ### Blacklisted Kernel Modules
@@ -227,6 +247,8 @@ Neovim als Rust IDE:
 | WireGuard Key | `wireguard-private-key` | ProtonVPN |
 | VPN Endpoint | `protonvpn/endpoint` | WireGuard Config |
 | VPN Public Key | `protonvpn/publickey` | WireGuard Config |
+| ProtonVPN IP Ranges | `protonvpn/ip-ranges` | Firewall Zones |
+| Admin Email | `system/admin-email` | Logwatch Security Reports |
 | SSH Key (Hetzner) | `ssh/hetzner-vps` | SSH |
 | Miniflux Credentials | `miniflux/*` | Newsflash RSS-Reader |
 
@@ -501,6 +523,24 @@ sudo nixos-rebuild test --flake .#nixos
 nrs
 ```
 
+### Suricata Rule Management
+
+```bash
+# Update Suricata rules manually
+sudo suricata-update
+
+# List enabled rulesets
+sudo suricata-update list-enabled-sources
+
+# Check rule syntax
+sudo suricata -T -c /etc/suricata/suricata.yaml
+
+# Restart Suricata after rule updates
+sudo systemctl restart suricata
+```
+
+Automatische Regel-Updates: Täglich um 03:00
+
 ### Garbage Collection
 
 Automatisch konfiguriert:
@@ -525,6 +565,56 @@ Aktiviert für:
 Täglich um 04:00 (ohne automatischen Neustart).
 
 ## Security Monitoring
+
+### Suricata IDS (Intrusion Detection System)
+
+Suricata überwacht den Netzwerkverkehr auf verdächtige Aktivitäten und Angriffsmuster.
+
+```bash
+# Status prüfen
+systemctl status suricata
+
+# Live-Überwachung der Alerts
+sudo tail -f /var/log/suricata/fast.log
+
+# Detaillierte Event-Logs
+sudo tail -f /var/log/suricata/eve.json | jq .
+
+# Statistiken anzeigen
+sudo suricatasc -c "dump-counters"
+
+# Regel-Update manuell durchführen
+sudo suricata-update
+
+# Suricata neu starten (nach Regel-Updates)
+sudo systemctl restart suricata
+```
+
+Automatische Regel-Updates: Täglich um 03:00
+
+### Logwatch (Automated Security Reports)
+
+Logwatch erstellt tägliche Sicherheitsberichte und überwacht kritische Ereignisse.
+
+```bash
+# Tägliche Security Reports
+ls -la /var/log/security-reports/
+
+# Letzten Bericht anzeigen
+cat /var/log/security-reports/security-report-$(date +%Y-%m-%d).txt
+
+# Manuell Bericht erstellen
+sudo logwatch --output file --filename /tmp/security-report.txt --detail High
+
+# Critical Alert Monitor Status
+systemctl status logwatch-critical-alerts.timer
+journalctl -u logwatch-critical-alerts -f
+```
+
+Automatisierung:
+- Daily Security Report: Täglich um 06:00 (gespeichert in `/var/log/security-reports/`)
+- Critical Alert Monitor: Alle 5 Minuten
+- Email-Berichte an: Admin-Email aus sops secrets
 
 ### AIDE (File Integrity Monitoring)
 
