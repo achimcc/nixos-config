@@ -11,7 +11,8 @@
   networking = {
     # Generischer Hostname (wird nicht im Netzwerk gebroadcastet)
     hostName = "nixos";
-    enableIPv6 = true;
+    # SICHERHEIT: IPv6 deaktiviert (verhindert VPN-Bypass und IPv6-Leaks)
+    enableIPv6 = false;
 
     # NetworkManager für alles (WLAN, Ethernet, VPN)
     networkmanager = {
@@ -71,10 +72,11 @@
     };
   };
 
-  # IPv6 Privacy Extensions (temporäre Adressen gegen Tracking)
-  # net.ipv6.conf.default.use_tempaddr wird bereits von NixOS gesetzt (enableIPv6 = true)
+  # IPv6 auf Kernel-Ebene deaktivieren (zusätzliche Absicherung)
   boot.kernel.sysctl = {
-    "net.ipv6.conf.all.use_tempaddr" = 2;
+    "net.ipv6.conf.all.disable_ipv6" = 1;
+    "net.ipv6.conf.default.disable_ipv6" = 1;
+    "net.ipv6.conf.lo.disable_ipv6" = 1;
   };
 
   # ==========================================

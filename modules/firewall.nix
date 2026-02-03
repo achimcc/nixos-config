@@ -127,8 +127,11 @@ in
       iptables -A OUTPUT -m limit --limit 5/min -j LOG --log-prefix "iptables-dropped-out: " --log-level 4
 
       # ==========================================
-      # IPv6 REGELN - Gleiche Logik wie IPv4
+      # IPv6 REGELN - KOMPLETT BLOCKIERT (IPv6 ist deaktiviert)
       # ==========================================
+
+      # IPv6 ist systemweit deaktiviert (network.nix: enableIPv6 = false)
+      # Firewall blockiert trotzdem alles als zusätzliche Absicherung
 
       # 1. Alles löschen & Standard auf DROP setzen
       ip6tables -F INPUT
@@ -138,68 +141,16 @@ in
       ip6tables -P OUTPUT DROP
       ip6tables -P FORWARD DROP
 
-      # 2. Loopback erlauben (Lokale Prozesse)
+      # HINWEIS: IPv6 ist deaktiviert, daher werden folgende Regeln nicht aktiv
+      # Sie bleiben als Defense-in-Depth Maßnahme erhalten (falls IPv6 versehentlich aktiviert wird)
+
+      # 2. Nur Loopback erlaubt (falls IPv6 aktiv wäre)
       ip6tables -A INPUT -i lo -j ACCEPT
       ip6tables -A OUTPUT -o lo -j ACCEPT
 
-      # 3. Bestehende Verbindungen erlauben
-      ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-      ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-
-      # 4. VPN Interfaces erlauben
-      ip6tables -A OUTPUT -o proton0 -j ACCEPT
-      ip6tables -A OUTPUT -o tun+ -j ACCEPT
-      ip6tables -A OUTPUT -o wg+ -j ACCEPT
-
-      # 5. VPN-Ports erlauben (für IPv6-fähige VPN-Server)
-      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguard} -j ACCEPT
-      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguardAlt1} -j ACCEPT
-      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguardAlt2} -j ACCEPT
-      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.openvpn} -j ACCEPT
-      ip6tables -A OUTPUT -p tcp --dport ${toString vpnPorts.https} -j ACCEPT
-      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.https} -j ACCEPT
-      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.ikev2} -j ACCEPT
-      ip6tables -A OUTPUT -p udp --dport ${toString vpnPorts.ikev2Nat} -j ACCEPT
-
-      # 6. DHCPv6 erlauben
-      ip6tables -A OUTPUT -p udp --dport 546:547 -j ACCEPT
-      ip6tables -A INPUT -p udp --sport 547 -j ACCEPT
-
-      # 7. ICMPv6 für Neighbor Discovery (essentiell für IPv6)
-      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type router-advertisement -j ACCEPT
-      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type neighbor-solicitation -j ACCEPT
-      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type neighbor-advertisement -j ACCEPT
-      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type router-solicitation -j ACCEPT
-      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type neighbor-solicitation -j ACCEPT
-      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type neighbor-advertisement -j ACCEPT
-
-      # 8. DNS NUR über systemd-resolved (::1)
-      ip6tables -A OUTPUT -p udp --dport 53 -d ::1 -j ACCEPT
-      ip6tables -A OUTPUT -p tcp --dport 53 -d ::1 -j ACCEPT
-      # DNS-over-TLS: systemd-resolved verbindet über IPv4 zu Mullvad DNS,
-      # daher keine IPv6 DoT-Regel nötig (IPv4-Regel in Abschnitt oben reicht)
-
-      # 9. mDNS für lokale Discovery
-      ip6tables -A OUTPUT -p udp --dport 5353 -d ff02::fb -j ACCEPT
-      ip6tables -A INPUT -p udp --sport 5353 -j ACCEPT
-
-      # 10. Link-Local Adressen RESTRIKTIV
-      # Nur für Router Discovery und Neighbor Discovery (bereits in Abschnitt 7)
-      ip6tables -A INPUT -s fe80::/10 -p ipv6-icmp -j ACCEPT
-      ip6tables -A OUTPUT -d fe80::/10 -p ipv6-icmp -j ACCEPT
-
-      # 11. Syncthing über VPN
-      ip6tables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i proton0 -j ACCEPT
-      ip6tables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i tun+ -j ACCEPT
-      ip6tables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i wg+ -j ACCEPT
-      ip6tables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i proton0 -j ACCEPT
-      ip6tables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i tun+ -j ACCEPT
-      ip6tables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i wg+ -j ACCEPT
-
-      # 12. Logging für verworfene Pakete (IPv6, rate-limited)
-      # WICHTIG: Muss nach allen ACCEPT-Regeln stehen
-      ip6tables -A INPUT -m limit --limit 5/min -j LOG --log-prefix "ip6tables-dropped-in: " --log-level 4
-      ip6tables -A OUTPUT -m limit --limit 5/min -j LOG --log-prefix "ip6tables-dropped-out: " --log-level 4
+      # 3. Alles andere blockieren (Logging für Debugging)
+      ip6tables -A INPUT -m limit --limit 1/min -j LOG --log-prefix "ip6-blocked-in: " --log-level 4
+      ip6tables -A OUTPUT -m limit --limit 1/min -j LOG --log-prefix "ip6-blocked-out: " --log-level 4
     '';
 
     extraStopCommands = ''
