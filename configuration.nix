@@ -143,6 +143,14 @@
     enable = true;
     nssmdns4 = true;
     openFirewall = true;
+
+    # ANONYMITÄT: Kein Hostname/Service-Broadcasting im Netzwerk
+    publish = {
+      enable = false;       # Kein Hostname/Service-Publishing
+      addresses = false;    # Keine IP-Adressen publishen
+      workstation = false;  # Nicht als Workstation ankündigen
+      domain = false;       # Keine Domain ankündigen
+    };
   };
 
   # ==========================================
