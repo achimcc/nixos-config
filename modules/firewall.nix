@@ -6,6 +6,13 @@
 # HINWEIS: Netzwerk-Zonen-Konzept dokumentiert in firewall-zones.nix
 # Diese Datei implementiert die Zonen-Regeln mit iptables
 # Migration zu nftables mit nativen Zonen in Zukunft geplant
+#
+# SERVICE-REIHENFOLGE (KRITISCH!):
+# 1. network-pre.target (Kernel-Module laden)
+# 2. NetworkManager.service (Netzwerk-Interfaces aktivieren, DHCP)
+# 3. network-online.target (Netzwerk ist online)
+# 4. nixos-firewall.service (Firewall aktivieren - MUSS NACH network-online sein!)
+# 5. wg-quick-proton0.service (VPN verbinden)
 
 let
   # VPN-Ports zentral definiert für einfache Wartung
@@ -27,6 +34,18 @@ let
   };
 in
 {
+  # ==========================================
+  # FIREWALL SERVICE ORDERING (KRITISCH!)
+  # ==========================================
+  # Firewall MUSS nach NetworkManager starten, damit DHCP/DNS funktionieren
+  # ABER vor dem VPN-Start, um den Kill Switch zu garantieren
+
+  systemd.services.nixos-firewall = {
+    after = [ "NetworkManager.service" "network-online.target" ];
+    wants = [ "network-online.target" ];
+    before = [ "wg-quick-proton0.service" ];
+  };
+
   networking.firewall = {
     enable = true;
     checkReversePath = "loose"; # Wichtig für WireGuard/ProtonVPN

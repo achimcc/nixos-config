@@ -51,6 +51,9 @@
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;
 
+  # Dateisystem-Unterstützung (Kernel-Module)
+  boot.supportedFilesystems = [ "exfat" ];  # Für externe SSDs/USB-Sticks
+
   # ==========================================
   # LUKS Verschlüsselung mit FIDO2 (Nitrokey 3C NFC)
   # ==========================================

@@ -33,9 +33,10 @@
   systemd.services."wg-quick-proton0" = {
     description = "WireGuard VPN - ProtonVPN";
 
-    # Starte nach Netzwerk und sops
-    after = [ "network-online.target" "sops-nix.service" ];
+    # Starte nach Netzwerk, sops UND Firewall (Kill Switch muss zuerst aktiv sein!)
+    after = [ "network-online.target" "sops-nix.service" "nixos-firewall.service" ];
     wants = [ "network-online.target" ];
+    requires = [ "nixos-firewall.service" ]; # Firewall MUSS laufen, sonst kein VPN
     wantedBy = [ "multi-user.target" ];
 
     # Vor dem Display Manager starten
