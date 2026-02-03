@@ -131,6 +131,12 @@
 
   # Thunderbird-spezifische Firejail-Konfiguration
   environment.etc."firejail/thunderbird.local".text = ''
+    # Kritische Restriktionen deaktivieren für GPG/Pinentry-Kompatibilität
+    ignore private-tmp
+    ignore noexec /tmp
+    ignore apparmor
+    ignore seccomp
+
     # D-Bus Zugriff (erforderlich für pinentry-gnome3 und GNOME Keyring)
     ignore dbus-user none
     ignore dbus-system none
