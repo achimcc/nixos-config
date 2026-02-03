@@ -262,7 +262,11 @@ in
 
   services.gpg-agent = {
     enable = true;
-    pinentry.package = pkgs.pinentry-gnome3;
+    # Wrapper für pinentry-gnome3 mit D-Bus Umgebung
+    pinentry.package = pkgs.writeShellScriptBin "pinentry" ''
+      export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+      exec ${pkgs.pinentry-gnome3}/bin/pinentry "$@"
+    '';
     enableSshSupport = false; # Deaktiviert - gpg-agent unterstützt FIDO2-Schlüssel nicht vollständig
     # Cache GPG-Passwort für 8 Stunden (verhindert ständige Passwort-Prompts)
     defaultCacheTtl = 28800;  # 8 Stunden in Sekunden
