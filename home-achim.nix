@@ -444,9 +444,11 @@ in
   # --- SSH ---
   programs.ssh = {
     enable = true;
+    # SSH-Keys automatisch zum Agent hinzufügen beim ersten Nutzen
+    addKeysToAgent = "yes";
     matchBlocks = {
       "github.com" = {
-        identityFile = "~/.ssh/id_ed25519";
+        identityFile = "~/.ssh/id_ed25519_sk";
         identitiesOnly = true;
       };
       "gitlab.com" = {
