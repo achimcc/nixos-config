@@ -481,6 +481,12 @@
     settings = {
       cue = true;
       pinverification = 1;
+      # nouserok: Erlaubt Fallback zu Passwort wenn:
+      # - Nitrokey nicht eingesteckt ist
+      # - PIN-Dialog fehlschlägt (kein Terminal verfügbar)
+      # - u2f_keys Datei fehlt
+      # Ohne diesen Parameter würde "conversation failed" die Authentifizierung blockieren
+      nouserok = true;
     };
   };
 
