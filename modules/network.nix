@@ -92,10 +92,10 @@
     # SICHERHEIT: Kein Fallback-DNS (verhindert DNS-Leaks wenn VPN down)
     fallbackDns = [];  # Explizit leer - keine Fallback-DNS-Server
 
-    # Mullvad DNS-over-TLS (No-Log Policy, schwedisches Recht)
-    # https://mullvad.net/en/help/dns-over-https-and-dns-over-tls
+    # Quad9 DNS-over-TLS (Non-Profit, Schweizer Recht, Malware-Blocking)
+    # https://www.quad9.net/service/service-addresses-and-features
     extraConfig = ''
-      DNS=194.242.2.2#dns.mullvad.net
+      DNS=9.9.9.9#dns.quad9.net
       # Fallback explizit deaktivieren
       FallbackDNS=
       # DNS-Anfragen nur über spezifizierten Server
