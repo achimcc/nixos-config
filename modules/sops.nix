@@ -115,7 +115,7 @@
         [Peer]
         PublicKey = ${config.sops.placeholder."protonvpn/publickey"}
         Endpoint = ${config.sops.placeholder."protonvpn/endpoint"}
-        AllowedIPs = 0.0.0.0/0, ::/0
+        AllowedIPs = 0.0.0.0/0
         PersistentKeepalive = 25
       '';
       path = "/etc/wireguard/proton0.conf";
