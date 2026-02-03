@@ -131,9 +131,18 @@
 
   # Thunderbird-spezifische Firejail-Konfiguration
   environment.etc."firejail/thunderbird.local".text = ''
-    # GNOME Keyring Zugriff für Posteo-Passwort
-    # Das Passwort wird vom posteo-keyring-sync Service in den Keyring kopiert
+    # D-Bus Zugriff (erforderlich für pinentry-gnome3 und GNOME Keyring)
+    ignore dbus-user none
+    ignore dbus-system none
+
+    dbus-user filter
     dbus-user.talk org.freedesktop.secrets
+    dbus-user.talk org.gnome.keyring.*
+    dbus-user.talk org.freedesktop.portal.*
+
+    # System D-Bus für Polkit (Smartcard-PIN-Authentifizierung)
+    dbus-system filter
+    dbus-system.talk org.freedesktop.PolicyKit1
 
     # OpenPGP/Smartcard Zugriff für Nitrokey (E-Mail-Verschlüsselung)
     # Thunderbird hat native OpenPGP-Unterstützung seit v78
