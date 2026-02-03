@@ -146,6 +146,10 @@
     noblacklist /run/user/1000/gnupg
     whitelist /run/user/1000/gnupg
 
+    # GPG Public Key Import (dedizierter Ordner für Key-Austausch)
+    noblacklist ''${HOME}/.config/thunderbird-gpg
+    whitelist ''${HOME}/.config/thunderbird-gpg
+
     # Wayland Display Zugriff (GNOME/Wayland Session)
     # Thunderbird-Default-Profil hat "ignore include whitelist-runuser-common.inc"
     # was den Wayland-Socket blockiert. Wir aktivieren die Whitelist wieder:
