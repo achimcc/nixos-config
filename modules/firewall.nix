@@ -103,9 +103,12 @@ in
       # iptables -A OUTPUT -d 192.168.178.1 -p tcp --dport 443 -j ACCEPT
 
       # Drucker (Brother MFC-7360N) - IPP/CUPS Port 631
-      # WICHTIG: Aktiviere diese Regeln und passe IP an (z.B. 192.168.178.50)
-      # iptables -A INPUT -s 192.168.178.50 -p tcp --sport 631 -j ACCEPT
-      # iptables -A OUTPUT -d 192.168.178.50 -p tcp --dport 631 -j ACCEPT
+      # IP-Adresse: 192.168.178.28 (via Avahi erkannt)
+      iptables -A INPUT -s 192.168.178.28 -p tcp --sport 631 -j ACCEPT
+      iptables -A OUTPUT -d 192.168.178.28 -p tcp --dport 631 -j ACCEPT
+
+      # Brother-Drucker verwendet auch Raw-Printing (Port 9100)
+      iptables -A OUTPUT -d 192.168.178.28 -p tcp --dport 9100 -j ACCEPT
 
       # ICMP (Ping) im lokalen Netz NUR für Debugging
       # Auskommentiert für mehr Sicherheit (verhindert Netzwerk-Scans)
