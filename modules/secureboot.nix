@@ -31,6 +31,37 @@
   ];
 
   # ==========================================
+  # SECURE BOOT MONITORING
+  # ==========================================
+
+  # Systemd-Service zur Verifikation, ob Secure Boot aktiv ist
+  systemd.services.verify-secureboot = {
+    description = "Verify Secure Boot Status";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "multi-user.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+
+    script = ''
+      # Prüfe ob Secure Boot aktiviert ist
+      if ! ${pkgs.sbctl}/bin/sbctl status | grep -q "Secure Boot.*enabled"; then
+        # Desktop-Benachrichtigung für User
+        sudo -u user DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+          ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=dialog-error \
+          "Secure Boot WARNUNG" "Secure Boot ist NICHT aktiviert! System ist ungeschützt." || true
+
+        # System-Log
+        echo "WARNING: Secure Boot is NOT enabled!" | ${pkgs.systemd}/bin/systemd-cat -t secureboot -p err
+      else
+        echo "Secure Boot is enabled and active." | ${pkgs.systemd}/bin/systemd-cat -t secureboot -p info
+      fi
+    '';
+  };
+
+  # ==========================================
   # TPM 2.0 INTEGRATION
   # ==========================================
   #
