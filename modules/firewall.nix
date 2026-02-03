@@ -76,8 +76,16 @@ in
       # 7. DNS NUR über systemd-resolved (127.0.0.53) - verhindert DNS-Leaks
       iptables -A OUTPUT -p udp --dport 53 -d 127.0.0.53 -j ACCEPT
       iptables -A OUTPUT -p tcp --dport 53 -d 127.0.0.53 -j ACCEPT
-      # DNS-over-TLS (Port 853) NUR zu Mullvad DNS - verhindert Exfiltration über DoT
-      iptables -A OUTPUT -p tcp --dport 853 -d 194.242.2.2 -j ACCEPT
+
+      # DNS-over-TLS (Port 853) NUR über VPN zu Mullvad DNS
+      # WICHTIG: DNS-Anfragen gehen nur über verschlüsseltes VPN-Interface
+      iptables -A OUTPUT -o proton0 -p tcp --dport 853 -d 194.242.2.2 -j ACCEPT
+      iptables -A OUTPUT -o tun+ -p tcp --dport 853 -d 194.242.2.2 -j ACCEPT
+      iptables -A OUTPUT -o wg+ -p tcp --dport 853 -d 194.242.2.2 -j ACCEPT
+
+      # Alle anderen DNS-over-TLS Verbindungen blockieren (verhindert DNS-Leaks)
+      iptables -A OUTPUT -p tcp --dport 853 -j DROP
+      iptables -A OUTPUT -p udp --dport 853 -j DROP
       
       # 8. mDNS für lokale Discovery (Avahi)
       iptables -A OUTPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT

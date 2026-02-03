@@ -88,11 +88,20 @@
     dnssec = "true";
     domains = [ "~." ];
     dnsovertls = "true";
-    # Kein fallbackDns - verhindert DNS-Leaks wenn VPN down
+
+    # SICHERHEIT: Kein Fallback-DNS (verhindert DNS-Leaks wenn VPN down)
+    fallbackDns = [];  # Explizit leer - keine Fallback-DNS-Server
+
     # Mullvad DNS-over-TLS (No-Log Policy, schwedisches Recht)
     # https://mullvad.net/en/help/dns-over-https-and-dns-over-tls
     extraConfig = ''
       DNS=194.242.2.2#dns.mullvad.net
+      # Fallback explizit deaktivieren
+      FallbackDNS=
+      # DNS-Anfragen nur über spezifizierten Server
+      DNSStubListener=yes
+      # DNS-Cache auf Minimum (verhindert Stale Entries)
+      Cache=no-negative
     '';
   };
 
