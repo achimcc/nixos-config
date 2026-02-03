@@ -141,6 +141,9 @@
     ignore private-dev
     ignore nou2f
 
+    # Nix-Store Zugriff für GPG-Binary und Abhängigkeiten
+    noblacklist /nix/store
+
     # GPG-Agent Socket Zugriff für Smartcard-PIN-Eingabe
     # Socket liegt in /run/user/1000/gnupg/
     noblacklist /run/user/1000/gnupg
