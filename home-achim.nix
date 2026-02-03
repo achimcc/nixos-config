@@ -385,6 +385,25 @@ in
     };
   };
 
+  # --- GPG PUBLIC KEY EXPORT FÜR THUNDERBIRD ---
+  # Exportiert den öffentlichen GPG-Schlüssel beim Login für Thunderbird-Import
+  systemd.user.services.export-gpg-pubkey = {
+    Unit = {
+      Description = "Export GPG public key for Thunderbird";
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = pkgs.writeShellScript "export-gpg-key" ''
+        mkdir -p ~/.config/thunderbird-gpg
+        ${pkgs.gnupg}/bin/gpg --armor --export achim.schneider@posteo.de \
+          -o ~/.config/thunderbird-gpg/gpg-public-key.asc
+      '';
+    };
+    Install = {
+      WantedBy = [ "default.target" ];
+    };
+  };
+
   # --- EMAIL CLIENT (Thunderbird - Hardened) ---
   # WICHTIG: Thunderbird wird über programs.firejail.wrappedBinaries installiert (modules/network.nix)
   # Deaktiviere automatische Installation hier, um Firejail-Wrapper nicht zu überschreiben
