@@ -9,7 +9,8 @@
   # ==========================================
 
   networking = {
-    hostName = "achim-laptop";
+    # Generischer Hostname (wird nicht im Netzwerk gebroadcastet)
+    hostName = "nixos";
     enableIPv6 = true;
 
     # NetworkManager für alles (WLAN, Ethernet, VPN)
@@ -22,7 +23,23 @@
       ethernet.macAddress = "random";
       # NetworkManager nutzt systemd-resolved
       dns = "systemd-resolved";
-      
+
+      # ANONYMITÄT: Kein Hostname im DHCP senden
+      dhcp = "internal";
+
+      # NetworkManager Dispatcher: Hostname nicht senden
+      dispatcherScripts = [
+        {
+          source = pkgs.writeText "no-hostname" ''
+            # Verhindert, dass Hostname im DHCP gesendet wird
+            if [ "$2" = "dhcp4-change" ] || [ "$2" = "dhcp6-change" ]; then
+              exit 0
+            fi
+          '';
+          type = "basic";
+        }
+      ];
+
       # Deklaratives Home-Netzwerk (wird automatisch verbunden)
       ensureProfiles = {
         environmentFiles = [ config.sops.templates."nm-wifi-env".path ];
