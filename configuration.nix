@@ -80,7 +80,7 @@
   users.users.user = {
     isNormalUser = true;
     description = "NixOS User";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "input" ];
     shell = pkgs.nushell;
   };
 
