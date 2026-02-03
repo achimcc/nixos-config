@@ -396,7 +396,7 @@ in
       ExecStart = pkgs.writeShellScript "export-gpg-key" ''
         mkdir -p ~/.config/thunderbird-gpg
         ${pkgs.gnupg}/bin/gpg --armor --export user@posteo.de \
-          -o ~/.config/thunderbird-gpg/gpg-public-key.asc
+          > ~/.config/thunderbird-gpg/gpg-public-key.asc
       '';
     };
     Install = {
