@@ -269,6 +269,11 @@ in
     maxCacheTtl = 28800;      # Maximale Cache-Zeit
   };
 
+  # GPG-Agent Service: D-Bus Umgebung für Pinentry setzen
+  systemd.user.services.gpg-agent.Service.Environment = [
+    "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
+  ];
+
   # SSH-Agent als systemd user service (für FIDO2/Nitrokey-Unterstützung)
   systemd.user.services.ssh-agent = {
     Unit = {
