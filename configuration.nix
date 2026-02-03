@@ -207,18 +207,53 @@
   };
 
   # ==========================================
-  # AUTOMATISCHE UPDATES
+  # AUTOMATISCHE UPDATE-BENACHRICHTIGUNGEN
   # ==========================================
 
-  system.autoUpgrade = {
-    enable = true;
-    allowReboot = false;
-    dates = "04:00";
-    flake = "/home/achim/nixos-config#achim-laptop";
-    flags = [
-      "--update-input" "nixpkgs"
-      "--update-input" "nixpkgs-unstable"
-    ];
+  # SICHERHEIT: Automatische Updates deaktiviert (manuelle Kontrolle bevorzugt)
+  # Stattdessen: Benachrichtigung bei verfügbaren Updates
+  system.autoUpgrade.enable = false;
+
+  # Systemd-Service: Prüft täglich auf Updates und benachrichtigt
+  systemd.services.notify-updates = {
+    description = "Check for NixOS Updates and Notify";
+    serviceConfig = {
+      Type = "oneshot";
+      User = "achim";
+    };
+
+    script = ''
+      cd /home/achim/nixos-config
+
+      # Flake-Inputs aktualisieren (nur lokal, kein rebuild)
+      ${pkgs.nix}/bin/nix flake update --commit-lock-file 2>&1 | tee /tmp/flake-update.log
+
+      # Prüfe ob Updates verfügbar sind
+      if ${pkgs.git}/bin/git diff --quiet flake.lock; then
+        # Keine Updates
+        echo "No updates available"
+      else
+        # Updates verfügbar - Benachrichtigung senden
+        DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+          ${pkgs.libnotify}/bin/notify-send \
+          --urgency=normal \
+          --icon=software-update-available \
+          "NixOS Updates verfügbar" \
+          "Neue Flake-Updates wurden heruntergeladen. Rebuild mit: sudo nixos-rebuild switch"
+
+        echo "Updates available - notification sent"
+      fi
+    '';
+  };
+
+  systemd.timers.notify-updates = {
+    description = "Daily NixOS Update Check";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "daily";
+      Persistent = true;
+      RandomizedDelaySec = "1h";
+    };
   };
 
   # ==========================================
