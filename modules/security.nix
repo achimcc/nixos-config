@@ -120,7 +120,7 @@
   ];
 
   # USB-Storage Module explizit laden (für externe SSDs)
-  boot.kernelModules = [ "usb_storage" "uas" ];
+  boot.kernelModules = [ "usb_storage" "uas" "sd_mod" ];
 
   # ==========================================
   # ZUSÄTZLICHE SICHERHEIT
