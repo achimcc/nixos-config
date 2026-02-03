@@ -126,6 +126,9 @@
     };
   };
 
+  # Lade uhid-Modul für Bluetooth HID-Geräte (Mäuse, Tastaturen)
+  boot.kernelModules = [ "uhid" ];
+
   # ==========================================
   # DRUCKER (Brother MFC-7360N im Netzwerk)
   # ==========================================
