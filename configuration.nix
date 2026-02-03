@@ -131,6 +131,9 @@
     fd       # Schnelles find
     fzf      # Fuzzy Finder
     htop     # Interaktiver Process Viewer
+
+    # Dateisystem-Unterstützung
+    exfatprogs  # exFAT für externe SSDs/USB-Sticks
   ];
 
   # ==========================================
