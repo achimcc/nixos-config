@@ -586,12 +586,32 @@ in
     enable = true;
     package = null; # Paket kommt via Firejail-Wrapper aus network.nix
     settings = {
+      # Privacy & Fingerprinting-Schutz
       "privacy.clearOnShutdown.history" = false;
-      "privacy.resistFingerprinting" = true; # Manchmal nötig für Streaming/Captchas
       "privacy.clearOnShutdown.cookies" = false;
       "privacy.clearOnShutdown.sessions" = false;
       "browser.startup.page" = 3;
       "xpinstall.signatures.required" = true;
+
+      # ANTI-FINGERPRINTING (erweitert)
+      "privacy.resistFingerprinting" = true;
+      "privacy.resistFingerprinting.letterboxing" = true; # Fenster-Größe normalisieren
+      "privacy.firstparty.isolate" = true; # Strikte Cookie-Isolation
+      "privacy.trackingprotection.fingerprinting.enabled" = true;
+      "privacy.trackingprotection.cryptomining.enabled" = true;
+
+      # WebGL/Canvas deaktivieren (Fingerprinting-Vektor)
+      "webgl.disabled" = true; # Bricht manche 3D-Websites
+      "privacy.resistFingerprinting.autoDeclineNoUserInputCanvasPrompts" = true;
+
+      # Fonts & Hardware
+      "gfx.font_rendering.opentype_svg.enabled" = false;
+      "media.peerconnection.enabled" = false; # WebRTC komplett deaktivieren (IP-Leak)
+
+      # Telemetrie & Reporting
+      "browser.safebrowsing.malware.enabled" = false;
+      "browser.safebrowsing.phishing.enabled" = false;
+      "browser.safebrowsing.downloads.enabled" = false;
     };
 
     policies = {
