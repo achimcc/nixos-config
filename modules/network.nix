@@ -135,10 +135,15 @@
     ignore dbus-user none
     ignore dbus-system none
 
+    # D-Bus Session Socket explizit whitelisten
+    noblacklist /run/user/1000/bus
+
     dbus-user filter
     dbus-user.talk org.freedesktop.secrets
     dbus-user.talk org.gnome.keyring.*
     dbus-user.talk org.freedesktop.portal.*
+    dbus-user.talk org.gtk.vfs.*
+    dbus-user.own org.gnome.gcr.*
 
     # System D-Bus für Polkit (Smartcard-PIN-Authentifizierung)
     dbus-system filter
