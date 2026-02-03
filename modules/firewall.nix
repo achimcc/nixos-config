@@ -91,20 +91,26 @@ in
       iptables -A OUTPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT
       iptables -A INPUT -p udp --sport 5353 -j ACCEPT
 
-      # 9. Lokales Netzwerk - RESTRIKTIV (nur benötigte Dienste)
+      # 9. Lokales Netzwerk - MAXIMALE RESTRIKTION (nur explizit benötigte Dienste)
       #
-      # Router-Zugriff (Gateway)
-      iptables -A INPUT -s 192.168.178.1 -j ACCEPT
-      iptables -A OUTPUT -d 192.168.178.1 -j ACCEPT
+      # Router-Zugriff (Gateway) - NUR benötigte Ports
+      # DHCP (UDP 67-68) für IP-Lease
+      iptables -A INPUT -s 192.168.178.1 -p udp --sport 67:68 -j ACCEPT
+      iptables -A OUTPUT -d 192.168.178.1 -p udp --dport 67:68 -j ACCEPT
+
+      # Router Web-Interface (optional, auskommentiert für mehr Sicherheit)
+      # iptables -A OUTPUT -d 192.168.178.1 -p tcp --dport 80 -j ACCEPT
+      # iptables -A OUTPUT -d 192.168.178.1 -p tcp --dport 443 -j ACCEPT
 
       # Drucker (Brother MFC-7360N) - IPP/CUPS Port 631
-      # WICHTIG: Passe 192.168.178.X an die tatsächliche Drucker-IP an
-      # iptables -A INPUT -p tcp --sport 631 -s 192.168.178.0/24 -j ACCEPT
-      # iptables -A OUTPUT -p tcp --dport 631 -d 192.168.178.0/24 -j ACCEPT
+      # WICHTIG: Aktiviere diese Regeln und passe IP an (z.B. 192.168.178.50)
+      # iptables -A INPUT -s 192.168.178.50 -p tcp --sport 631 -j ACCEPT
+      # iptables -A OUTPUT -d 192.168.178.50 -p tcp --dport 631 -j ACCEPT
 
-      # ICMP (Ping) im lokalen Netz erlauben (für Netzwerk-Debugging)
-      iptables -A INPUT -p icmp -s 192.168.178.0/24 -j ACCEPT
-      iptables -A OUTPUT -p icmp -d 192.168.178.0/24 -j ACCEPT
+      # ICMP (Ping) im lokalen Netz NUR für Debugging
+      # Auskommentiert für mehr Sicherheit (verhindert Netzwerk-Scans)
+      # iptables -A INPUT -p icmp -s 192.168.178.0/24 -j ACCEPT
+      # iptables -A OUTPUT -p icmp -d 192.168.178.0/24 -j ACCEPT
 
       # Syncthing wird in Abschnitt 10 separat behandelt (bereits vorhanden)
 
