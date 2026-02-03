@@ -262,7 +262,8 @@ in
 
   services.gpg-agent = {
     enable = true;
-    pinentry.package = pkgs.pinentry-gnome3;
+    # pinentry-curses für Firejail-Kompatibilität (funktioniert ohne D-Bus)
+    pinentry.package = pkgs.pinentry-curses;
     enableSshSupport = false; # Deaktiviert - gpg-agent unterstützt FIDO2-Schlüssel nicht vollständig
     # Cache GPG-Passwort für 8 Stunden (verhindert ständige Passwort-Prompts)
     defaultCacheTtl = 28800;  # 8 Stunden in Sekunden
