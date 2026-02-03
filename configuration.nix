@@ -24,7 +24,27 @@
   # BOOTLOADER (Secure Boot via Lanzaboote in modules/secureboot.nix)
   # ==========================================
 
-  boot.kernelParams = [ "intel_iommu=on" "iommu=force" ];
+  boot.kernelParams = [
+    # IOMMU (DMA-Schutz)
+    "intel_iommu=on"
+    "iommu=force"
+
+    # Memory Hardening (Exploit-Mitigation)
+    "init_on_alloc=1"              # Speicher bei Allokation nullen (verhindert Info-Leaks)
+    "init_on_free=1"               # Speicher bei Freigabe nullen (verhindert Use-After-Free)
+    "page_alloc.shuffle=1"         # Page-Allocator randomisieren (Anti-Exploit)
+    "randomize_kstack_offset=on"   # Kernel-Stack randomisieren (KASLR++)
+    "slab_nomerge"                 # Slab-Caches nicht mergen (verhindert Exploits)
+
+    # Kernel Lockdown
+    "lockdown=confidentiality"     # Kernel-Lockdown-Modus (verhindert Kernel-Modifikationen)
+
+    # Legacy-Features deaktivieren
+    "vsyscall=none"                # Vsyscall komplett deaktivieren (alt, unsicher)
+
+    # CPU Mitigations (Spectre/Meltdown)
+    "mitigations=auto,nosmt"       # Alle CPU-Mitigations, SMT deaktivieren (Performance-Hit)
+  ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;
 
