@@ -111,6 +111,8 @@
         [Interface]
         PrivateKey = ${config.sops.placeholder."wireguard-private-key"}
         Address = 10.2.0.2/32
+        # Table = 51820 statt "auto" vermeidet iptables-restore (nftables-Konflikt)
+        Table = 51820
 
         [Peer]
         PublicKey = ${config.sops.placeholder."protonvpn/publickey"}
