@@ -54,6 +54,13 @@
     "fs.suid_dumpable" = 0;
 
     # ==========================================
+    # MEMORY MANAGEMENT
+    # ==========================================
+
+    # Swap-Nutzung minimieren (verhindert sensitive Daten im Swap)
+    "vm.swappiness" = 1;  # Nur bei Speicher-Druck swappen (0-100, default: 60)
+
+    # ==========================================
     # NETZWERK HARDENING
     # ==========================================
 

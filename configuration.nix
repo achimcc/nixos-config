@@ -72,7 +72,9 @@
   boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".crypttabExtraOpts = [
     "fido2-device=auto"
   ];
-  boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".allowDiscards = true; # TRIM für SSD
+  # SICHERHEIT: allowDiscards deaktiviert (verhindert Metadata-Leaks)
+  # Trade-off: Minimal schlechtere SSD-Performance, deutlich bessere Sicherheit
+  boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".allowDiscards = false;
 
   # ==========================================
   # LOKALISIERUNG
