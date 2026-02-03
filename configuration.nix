@@ -125,6 +125,12 @@
     nano # Für EDITOR Variable in nushell
     vim
     python3
+
+    # CLI Tools
+    ripgrep  # Schnelles grep (rg)
+    fd       # Schnelles find
+    fzf      # Fuzzy Finder
+    htop     # Interaktiver Process Viewer
   ];
 
   # ==========================================
