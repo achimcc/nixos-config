@@ -18,6 +18,7 @@
     ./modules/secureboot.nix
     ./modules/suricata.nix
     ./modules/logwatch.nix
+    ./modules/ssh-hardening.nix
   ];
 
   # ==========================================
