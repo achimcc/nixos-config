@@ -420,7 +420,8 @@ in
   };
 
   # Thunderbird user.js - Deklarative Konfiguration für externes GnuPG
-  home.file.".thunderbird/user/user.js".text = ''
+  # Verwendet das tatsächliche Thunderbird-Profil (urcekwf0.default)
+  home.file.".thunderbird/urcekwf0.default/user.js".text = ''
     // Externes GnuPG aktivieren (für Nitrokey-Unterstützung)
     user_pref("mail.openpgp.allow_external_gnupg", true);
 
