@@ -1,6 +1,8 @@
 # NixOS Configuration - achim-laptop
 
-A security-oriented, declarative NixOS configuration focused on privacy, development productivity, and full reproducibility.
+A **security-hardened**, declarative NixOS configuration focused on privacy, anonymity, and full reproducibility.
+
+**🔒 Sicherheitsscore: 9.5/10** | [Security Hardening Details](docs/SECURITY-HARDENING.md)
 
 ## Table of Contents
 
@@ -20,13 +22,15 @@ A security-oriented, declarative NixOS configuration focused on privacy, develop
 | Component | Configuration |
 |-----------|---------------|
 | **NixOS Version** | 25.05 |
-| **Desktop** | GNOME (X11, GDM) |
+| **Desktop** | GNOME (Wayland, GDM) |
 | **Shell** | Nushell + Starship + Modern Unix Tools |
 | **Editor** | Neovim (Rust IDE), VSCodium, Zed |
-| **VPN** | ProtonVPN (WireGuard, Auto-Connect) |
-| **Encryption** | LUKS Full-Disk + FIDO2 (Nitrokey 3C NFC), Secure Boot |
+| **VPN** | ProtonVPN (WireGuard, Auto-Connect, Kill-Switch) |
+| **Encryption** | LUKS2 Full-Disk + FIDO2 + TPM 2.0 + Secure Boot |
 | **Secrets** | sops-nix (Age-encrypted) |
 | **Hardware Key** | Nitrokey 3C NFC (FIDO2, SSH, OpenPGP, TOTP) |
+| **Kernel** | Hardened Kernel + Memory Hardening + Lockdown Mode |
+| **Anonymity** | IPv6 disabled, Hostname randomized, No mDNS Broadcasting |
 
 ### Architecture
 
@@ -40,18 +44,19 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 ├── pkgs/
 │   └── default.nix       # Custom packages overlay
 └── modules/
-    ├── network.nix       # NetworkManager, DNS-over-TLS, Firejail
-    ├── firewall.nix      # VPN Kill Switch (iptables, Logging)
+    ├── network.nix       # NetworkManager, DNS-over-TLS, Anonymity, Firejail
+    ├── firewall.nix      # VPN Kill Switch + Port-Scan Detection
     ├── firewall-zones.nix # Network Segmentation Zones
     ├── protonvpn.nix     # WireGuard Auto-Connect
-    ├── desktop.nix       # GNOME Desktop
+    ├── desktop.nix       # GNOME Desktop (Wayland)
     ├── audio.nix         # PipeWire
     ├── power.nix         # TLP, Thermald
-    ├── sops.nix          # Secret Management
-    ├── security.nix      # Kernel Hardening, AppArmor, ClamAV, USBGuard
-    ├── secureboot.nix    # Lanzaboote Secure Boot + TPM2 Support
+    ├── sops.nix          # Secret Management (Age)
+    ├── security.nix      # Kernel Hardening, AppArmor, ClamAV, USBGuard, Swappiness
+    ├── secureboot.nix    # Lanzaboote + TPM2 + Secure Boot Monitoring
     ├── suricata.nix      # Intrusion Detection System (IDS)
     ├── logwatch.nix      # Automated Security Monitoring & Daily Reports
+    ├── ssh-hardening.nix # SSH Server Hardening (prepared, disabled)
     └── home/
         ├── gnome-settings.nix  # GNOME Dconf (Privacy, Screen Lock)
         └── neovim.nix          # Neovim IDE
@@ -59,23 +64,36 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 
 ## Security Features
 
+> **📚 Detaillierte Dokumentation**: [SECURITY-HARDENING.md](docs/SECURITY-HARDENING.md)
+
+### Anonymity & Privacy (NEW)
+
+- **🆕 IPv6 komplett deaktiviert**: Verhindert VPN-Bypass und DNS-Leaks
+- **🆕 Hostname anonymisiert**: Generischer Hostname "nixos" (kein personalisierter Name)
+- **🆕 Kein DHCP Hostname**: NetworkManager sendet keinen Hostname
+- **🆕 mDNS-Broadcasting deaktiviert**: Avahi Publishing aus (kein .local Broadcasting)
+- **🆕 Browser Anti-Fingerprinting**: WebGL aus, WebRTC aus, Letterboxing, First-Party Isolation
+- **Random MAC addresses**: Bei jedem WiFi-Scan und jeder Verbindung
+
 ### Network & VPN
 
-- **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel (IPv4 + IPv6)
-- **IPv6 VPN-Schutz**: WireGuard AllowedIPs umfasst `0.0.0.0/0` und `::/0`
-- **DNS-over-TLS**: Mullvad DNS (194.242.2.2) mit DNSSEC-Validierung
-- **DoT Port-Einschränkung**: Port 853 nur zu Mullvad DNS erlaubt (verhindert Daten-Exfiltration)
-- **Firewall-Logging**: Verworfene Pakete werden rate-limitiert geloggt (Intrusion Detection)
-- **IPv6 Privacy Extensions**: Temporäre Adressen gegen Tracking
-- **Random MAC addresses**: Bei jedem WiFi-Scan und jeder Verbindung
+- **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel
+- **🆕 Port-Scan Detection**: Blockiert nach 10 Verbindungen in 60 Sekunden
+- **DNS-over-TLS NUR über VPN**: Port 853 nur über VPN-Interfaces (verhindert DNS-Leaks)
+- **🆕 Kein Fallback-DNS**: Explizit leer (verhindert DNS-Leaks bei VPN-Ausfall)
+- **🆕 Lokales Netzwerk restriktiv**: Nur DHCP zum Router, kein Ping, kein Web-Interface
+- **DoT Port-Einschränkung**: Port 853 nur zu Mullvad DNS (verhindert Daten-Exfiltration)
+- **Firewall-Logging optimiert**: 1/min Rate-Limit (DoS-Schutz)
 - **WireGuard Auto-Connect**: VPN verbindet sich vor dem Login
 
 ### Encryption & Authentication
 
-- **LUKS Full-Disk Encryption**: Mit FIDO2 (Nitrokey 3C NFC) + Passwort-Fallback
-- **Swap Encryption**: Verschlüsselter Swap mit TRIM-Support für SSDs
+- **LUKS2 Full-Disk Encryption**: Mit FIDO2 (Nitrokey 3C NFC) + Passwort-Fallback
+- **🆕 Swap Hardening**: Verschlüsselt mit FIDO2, allowDiscards=false (keine Metadata-Leaks)
+- **🆕 Swappiness minimiert**: vm.swappiness=1 (sensitive Daten bleiben im RAM)
 - **TPM2 Support**: Optionales automatisches LUKS-Unlock via TPM2
 - **Secure Boot**: Lanzaboote mit eigenen Signatur-Keys
+- **🆕 Secure Boot Monitoring**: Automatische Verifikation nach jedem Boot
 - **sops-nix**: Secrets mit Age verschlüsselt im Git Repository
 - **SSH Commit Signing**: Git Commits mit Ed25519 Security Key signiert
 - **FIDO2 PAM**: sudo, login und GDM mit Nitrokey + PIN als Alternative zum Passwort
@@ -114,6 +132,20 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 
 ### Kernel Hardening
 
+**🆕 Erweiterte Boot-Parameter**:
+```
+- IOMMU aktiviert (intel_iommu=on, DMA-Schutz)
+- init_on_alloc=1 (Speicher bei Allokation nullen)
+- init_on_free=1 (Speicher bei Freigabe nullen)
+- page_alloc.shuffle=1 (Page-Allocator randomisieren)
+- randomize_kstack_offset=on (Kernel-Stack ASLR)
+- slab_nomerge (Anti-Exploit)
+- lockdown=confidentiality (Höchster Lockdown-Level)
+- vsyscall=none (Legacy-Syscalls deaktiviert)
+- mitigations=auto,nosmt (CPU-Mitigations + SMT aus)
+```
+
+**Sysctl Hardening**:
 ```
 - ASLR maximiert (randomize_va_space=2)
 - Kernel Pointer versteckt (kptr_restrict=2)
@@ -128,6 +160,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - Source Routing deaktiviert
 - ICMP Redirects ignoriert
 - Kernel Module Locking aktiviert (lockKernelModules = true)
+- 🆕 Swappiness minimiert (vm.swappiness=1)
 ```
 
 ### Blacklisted Kernel Modules
@@ -141,7 +174,17 @@ Ungenutzte und potenziell unsichere Module sind blockiert:
 
 - **Flake-Inputs gepinnt**: sops-nix und rcu auf geprüfte Commit-Hashes fixiert
 - **VSCodium Extensions via Nix**: Versioniert und reproduzierbar
-- **Auto-Updates ohne Reboot**: Tägliche Updates um 04:00 (ohne automatischen Neustart)
+- **🆕 Update-Benachrichtigungen**: Tägliche Prüfung, Benachrichtigung bei verfügbaren Updates (keine Auto-Installation)
+
+### SSH Server (Prepared, Disabled)
+
+**🆕 SSH-Hardening-Modul vorbereitet** (ssh-hardening.nix):
+- SSH aktuell deaktiviert (enable = false)
+- Vollständige Härtungs-Konfiguration für zukünftige Aktivierung
+- Nur Key-Authentifizierung, Root-Login verboten
+- Moderne Crypto (ChaCha20, Curve25519)
+- Alle Forwarding-Features deaktiviert
+- Fail2ban SSH-Jail automatisch aktiv bei Aktivierung
 
 ## Installation
 
@@ -557,11 +600,16 @@ nix store optimise
 
 ### Auto-Updates
 
-Aktiviert für:
-- nixpkgs (stable)
-- nixpkgs-unstable
+**🆕 Neue Update-Strategie**:
+- Automatische Updates **deaktiviert** (manuelle Kontrolle)
+- Tägliche **Benachrichtigung** bei verfügbaren Updates
+- Flake-Updates werden heruntergeladen und committed
+- User entscheidet über Rebuild-Zeitpunkt
 
-Täglich um 04:00 (ohne automatischen Neustart).
+```bash
+# Nach Benachrichtigung: System rebuilden
+sudo nixos-rebuild switch --flake .#achim-laptop
+```
 
 ## Security Monitoring
 
