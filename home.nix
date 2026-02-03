@@ -262,7 +262,7 @@ in
 
   services.gpg-agent = {
     enable = true;
-    pinentryPackage = pkgs.pinentry-gnome3;
+    pinentry.package = pkgs.pinentry-gnome3;
     enableSshSupport = false; # Deaktiviert - gpg-agent unterstützt FIDO2-Schlüssel nicht vollständig
     # Cache GPG-Passwort für 8 Stunden (verhindert ständige Passwort-Prompts)
     defaultCacheTtl = 28800;  # 8 Stunden in Sekunden
