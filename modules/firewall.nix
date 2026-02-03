@@ -134,11 +134,22 @@ in
       iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 255.255.255.255 -j ACCEPT
       iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 192.168.178.255 -j ACCEPT
 
-      # 11. Logging für verworfene Pakete (Intrusion Detection, rate-limited)
+      # 11. Port-Scan Detection (vor Logging)
+      # Erkennt und blockiert Port-Scans aggressiv
+      iptables -N PORT_SCAN 2>/dev/null || true
+      iptables -F PORT_SCAN
+      iptables -A PORT_SCAN -m recent --set --name portscan
+      iptables -A PORT_SCAN -m recent --update --seconds 60 --hitcount 10 --name portscan -j DROP
+      iptables -A PORT_SCAN -j RETURN
+
+      # Port-Scan Detection auf INPUT anwenden
+      iptables -A INPUT -j PORT_SCAN
+
+      # 12. Logging für verworfene Pakete (Intrusion Detection, aggressives Rate-Limiting)
       # WICHTIG: Muss nach allen ACCEPT-Regeln stehen, damit nur tatsächlich
       # verworfene Pakete geloggt werden (direkt vor implizitem DROP)
-      iptables -A INPUT -m limit --limit 5/min -j LOG --log-prefix "iptables-dropped-in: " --log-level 4
-      iptables -A OUTPUT -m limit --limit 5/min -j LOG --log-prefix "iptables-dropped-out: " --log-level 4
+      iptables -A INPUT -m limit --limit 1/min --limit-burst 3 -j LOG --log-prefix "FW-DROP-IN: " --log-level 4
+      iptables -A OUTPUT -m limit --limit 1/min --limit-burst 3 -j LOG --log-prefix "FW-DROP-OUT: " --log-level 4
 
       # ==========================================
       # IPv6 REGELN - KOMPLETT BLOCKIERT (IPv6 ist deaktiviert)
