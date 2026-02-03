@@ -120,7 +120,10 @@
   ];
 
   # USB-Storage Module explizit laden (für externe SSDs)
-  boot.kernelModules = [ "usb_storage" "uas" "sd_mod" ];
+  boot.kernelModules = [ "usb_storage" "uas" ];
+
+  # FIDO2/Nitrokey Module im Initrd laden (vor Kernel-Lockdown und USBGuard)
+  boot.initrd.kernelModules = [ "usbhid" "hid_generic" ];
 
   # ==========================================
   # ZUSÄTZLICHE SICHERHEIT
@@ -158,8 +161,8 @@
     implicitPolicyTarget = "block";
 
     # Bereits angeschlossene Geräte beim Boot erlauben
-    # WICHTIG: Nach erstem Boot mit `sudo usbguard generate-policy > /etc/usbguard/rules.conf`
-    # eine Policy generieren, dann presentDevicePolicy auf "apply-policy" ändern
+    # WICHTIG: presentDevicePolicy auf "allow" verhindert nicht das FIDO2-Problem im Initrd,
+    # da USBGuard erst NACH dem Initrd startet. Das Problem liegt woanders.
     presentDevicePolicy = "allow";
 
     # Eingefügte Geräte: Regeln vor Blockierung anwenden (verhindert Timing-Probleme)

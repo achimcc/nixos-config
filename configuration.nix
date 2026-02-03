@@ -38,7 +38,9 @@
     "slab_nomerge"                 # Slab-Caches nicht mergen (verhindert Exploits)
 
     # Kernel Lockdown
-    "lockdown=confidentiality"     # Kernel-Lockdown-Modus (verhindert Kernel-Modifikationen)
+    # "integrity" erlaubt FIDO2-HID-Zugriff im Initrd (für Nitrokey LUKS-Entsperrung)
+    # "confidentiality" würde USB-HID blockieren und FIDO2 verhindern
+    "lockdown=integrity"           # Kernel-Lockdown-Modus (verhindert unsigned Module)
 
     # Legacy-Features deaktivieren
     "vsyscall=none"                # Vsyscall komplett deaktivieren (alt, unsicher)
