@@ -425,8 +425,8 @@ in
     // Externes GnuPG aktivieren (für Nitrokey-Unterstützung)
     user_pref("mail.openpgp.allow_external_gnupg", true);
 
-    // GPG-Binary explizit setzen (Firejail-kompatibel)
-    user_pref("mail.openpgp.gnupg_path", "/run/current-system/sw/bin/gpg");
+    // GPG-Binary explizit setzen (korrekter Pfad für Home Manager)
+    user_pref("mail.openpgp.gnupg_path", "${pkgs.gnupg}/bin/gpg");
 
     // Öffentliche Schlüssel aus GnuPG-Keyring importieren
     user_pref("mail.openpgp.fetch_pubkeys_from_gnupg", true);
