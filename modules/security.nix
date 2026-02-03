@@ -119,11 +119,24 @@
     # "thunderbolt" # Auskommentiert falls Thunderbolt-Dock genutzt wird
   ];
 
-  # USB-Storage Module explizit laden (für externe SSDs)
-  boot.kernelModules = [ "usb_storage" "uas" ];
+  # Kernel-Module beim Boot laden (vor Kernel-Lockdown)
+  # WICHTIG: security.lockKernelModules=true verhindert Laden nach Boot
+  boot.kernelModules = [
+    # USB-Storage (für externe SSDs)
+    "usb_storage"
+    "uas"
 
-  # FIDO2/Nitrokey Module im Initrd laden (vor Kernel-Lockdown und USBGuard)
-  boot.initrd.kernelModules = [ "usbhid" "hid_generic" ];
+    # Netzwerk-Module
+    # iwlwifi/iwlmvm = Intel WiFi, e1000e = Intel Ethernet
+    "iwlwifi"
+    "iwlmvm"
+    "mac80211"
+    "cfg80211"
+    "e1000e"
+  ];
+
+  # FIDO2/Nitrokey Module werden bereits in hardware-configuration.nix geladen
+  # Keine Doppelung nötig - boot.initrd.kernelModules werden automatisch zusammengeführt
 
   # ==========================================
   # ZUSÄTZLICHE SICHERHEIT
