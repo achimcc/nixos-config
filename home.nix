@@ -598,25 +598,84 @@ in
       "browser.startup.page" = 3;
       "xpinstall.signatures.required" = true;
 
-      # ANTI-FINGERPRINTING (erweitert)
+      # ANTI-FINGERPRINTING (Maximum Privacy Mode)
       "privacy.resistFingerprinting" = true;
       "privacy.resistFingerprinting.letterboxing" = true; # Fenster-Größe normalisieren
+      "privacy.resistFingerprinting.block_mozAddonManager" = true;
+      "privacy.resistFingerprinting.exemptedDomains" = ""; # Keine Ausnahmen
+      "privacy.spoof_english" = 2; # Englisch vortäuschen (häufigste Sprache)
       "privacy.firstparty.isolate" = true; # Strikte Cookie-Isolation
       "privacy.trackingprotection.fingerprinting.enabled" = true;
       "privacy.trackingprotection.cryptomining.enabled" = true;
+      "privacy.trackingprotection.enabled" = true;
+      "privacy.trackingprotection.socialtracking.enabled" = true;
 
-      # WebGL/Canvas deaktivieren (Fingerprinting-Vektor)
-      "webgl.disabled" = true; # Bricht manche 3D-Websites
+      # WebGL/Canvas komplett blockieren (Fingerprinting-Vektor)
+      "webgl.disabled" = true;
+      "webgl.enable-webgl2" = false;
       "privacy.resistFingerprinting.autoDeclineNoUserInputCanvasPrompts" = true;
+      "gfx.canvas.azure.backends" = "skia"; # Minimiert Canvas-Fingerprinting
 
-      # Fonts & Hardware
+      # Audio-Fingerprinting blockieren
+      "media.webaudio.enabled" = false;
+      "media.audiochannel.audioCompeting.backgroundPlaybackMuted" = true;
+
+      # Fonts & Hardware-Fingerprinting (MAXIMUM PROTECTION)
       "gfx.font_rendering.opentype_svg.enabled" = false;
+      "gfx.downloadable_fonts.enabled" = false; # Keine Web-Fonts
+      "gfx.font_rendering.graphite.enabled" = false; # Graphite Fonts deaktivieren
+      "layout.css.font-visibility.enabled" = true; # Font-Visibility API
+      "layout.css.font-visibility.standard" = 1; # Nur Standard-Fonts exposieren
+      "layout.css.font-visibility.private" = 1; # System-Fonts verstecken
+      "layout.css.font-visibility.trackingprotection" = 1;
       "media.peerconnection.enabled" = false; # WebRTC komplett deaktivieren (IP-Leak)
+      "media.navigator.enabled" = false; # Kein Kamera/Mikrofon-Zugriff
+      "media.video_stats.enabled" = false;
 
-      # Telemetrie & Reporting
+      # JavaScript-basierte APIs deaktivieren (Fingerprinting-Vektoren)
+      "dom.battery.enabled" = false; # Battery Status API
+      "dom.event.clipboardevents.enabled" = false; # Clipboard Events
+      "dom.gamepad.enabled" = false; # Gamepad API
+      "dom.netinfo.enabled" = false; # Network Information API
+      "dom.webaudio.enabled" = false; # Web Audio API
+      "dom.webnotifications.enabled" = false; # Web Notifications
+      "dom.vr.enabled" = false; # WebVR
+      "dom.vibrator.enabled" = false; # Vibration API
+      "device.sensors.enabled" = false; # Motion/Orientation Sensors
+
+      # HTTP Headers minimieren
+      "network.http.referer.XOriginPolicy" = 2; # Nur same-origin Referer
+      "network.http.referer.XOriginTrimmingPolicy" = 2; # Referer auf Origin reduzieren
+      "network.http.sendRefererHeader" = 1; # Referer nur bei Klicks senden
+      "network.http.sendSecureXSiteReferrer" = false;
+
+      # User-Agent vereinheitlichen (Windows-Spoofing für bessere Anonymität)
+      # WICHTIG: Diese müssen VOR resistFingerprinting gesetzt werden
+      "general.useragent.override" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0";
+      "general.appversion.override" = "5.0 (Windows)";
+      "general.oscpu.override" = "Windows NT 10.0; Win64; x64";
+      "general.platform.override" = "Win32";
+      "general.buildID.override" = "20100101";
+
+      # Geo-Location komplett deaktivieren
+      "geo.enabled" = false;
+      "geo.provider.network.url" = "";
+      "geo.wifi.uri" = "";
+
+      # Weitere Tracking-Schutz
+      "beacon.enabled" = false; # Navigator.sendBeacon deaktivieren
+      "dom.storage.enabled" = false; # LocalStorage deaktivieren (kann Websites brechen!)
+      "network.cookie.cookieBehavior" = 5; # Total Cookie Protection (dFPI)
+
+      # Telemetrie & Reporting komplett deaktivieren
       "browser.safebrowsing.malware.enabled" = false;
       "browser.safebrowsing.phishing.enabled" = false;
       "browser.safebrowsing.downloads.enabled" = false;
+      "browser.send_pings" = false;
+      "browser.urlbar.speculativeConnect.enabled" = false;
+      "network.dns.disablePrefetch" = true;
+      "network.prefetch-next" = false;
+      "network.predictor.enabled" = false;
     };
 
     policies = {
