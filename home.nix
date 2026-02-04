@@ -664,7 +664,8 @@ in
 
       # Weitere Tracking-Schutz
       "beacon.enabled" = false; # Navigator.sendBeacon deaktivieren
-      "dom.storage.enabled" = false; # LocalStorage deaktivieren (kann Websites brechen!)
+      # WICHTIG: LocalStorage MUSS aktiviert bleiben für Extensions wie Bitwarden!
+      # "dom.storage.enabled" = false würde Extensions brechen
       "network.cookie.cookieBehavior" = 5; # Total Cookie Protection (dFPI)
 
       # Telemetrie & Reporting komplett deaktivieren
