@@ -665,7 +665,8 @@ in
 
       # JavaScript-basierte APIs deaktivieren (Fingerprinting-Vektoren)
       "dom.battery.enabled" = false; # Battery Status API
-      "dom.event.clipboardevents.enabled" = false; # Clipboard Events
+      # WICHTIG: Clipboard Events MÜSSEN aktiviert sein für Paste (Strg+V)!
+      # "dom.event.clipboardevents.enabled" = false würde Paste brechen
       "dom.gamepad.enabled" = false; # Gamepad API
       "dom.netinfo.enabled" = false; # Network Information API
       "dom.webaudio.enabled" = false; # Web Audio API
