@@ -217,6 +217,16 @@
         ];
       };
 
+      # Mullvad Browser - Maximum Anti-Fingerprinting (Tor Browser ohne Tor)
+      # Nutzt das gleiche Firejail-Profil wie Tor Browser (technisch identisch)
+      mullvad-browser = {
+        executable = "${pkgs.mullvad-browser}/bin/mullvad-browser";
+        profile = "${pkgs.firejail}/etc/firejail/tor-browser_en-US.profile";
+        extraArgs = [
+          "--private=/home/user/Downloads"
+        ];
+      };
+
       # Signal Desktop - via Flatpak (siehe home.nix)
 
       # LibreWolf - Privacy Browser mit Sandbox
@@ -298,8 +308,8 @@
   # Signal via Flatpak (home.nix), nicht mehr hier
   environment.systemPackages = with pkgs; [
     tor-browser
+    mullvad-browser  # Maximum Anti-Fingerprinting (Firejail-wrapped)
     librewolf
-    mullvad-browser  # Maximum Anti-Fingerprinting (Tor Browser ohne Tor)
     freetube
     logseq
     discord

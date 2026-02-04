@@ -579,7 +579,8 @@ nrs  → sudo nixos-rebuild switch --flake ...#nixos
 
 | App | Profil | Besonderheiten |
 |-----|--------|----------------|
-| LibreWolf | librewolf.profile + .local | Bitwarden Native Messaging, FIDO2, Portal-Zugriff |
+| **Mullvad Browser** | tor-browser.profile | Private Downloads, Maximum Anti-Fingerprinting |
+| LibreWolf | librewolf.profile + .local | Bitwarden Native Messaging, FIDO2, Portal-Zugriff, Wayland Clipboard |
 | Tor Browser | tor-browser.profile | Private Downloads-Verzeichnis |
 | Spotify | spotify.profile + .local | MPRIS, OAuth-Login |
 | Discord | discord.profile | Standard-Profil |
