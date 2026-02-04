@@ -166,6 +166,7 @@ in
 
     # --- TERMINAL ---
     blackbox-terminal
+    wezterm
 
     # --- NOTIZEN & ZEICHNEN ---
     rnote # Handschriftliche Notizen und Skizzen (GTK/libadwaita)
