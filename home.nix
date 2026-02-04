@@ -739,18 +739,37 @@ in
               # WICHTIG: Die Namen müssen exakt den internen IDs von uBlock entsprechen.
               "selectedFilterLists" = [
                 "user-filters" # Deine eigenen Filter
+
+                # uBlock Origin Built-in
                 "ublock-filters" # uBlock Base
                 "ublock-badware" # Malware Protection
                 "ublock-privacy" # Privacy Protection
                 "ublock-unbreak" # Fixes für kaputte Seiten
-                "easylist" # Ads
-                "easyprivacy" # Tracking
-                "urlhaus-1" # Online Malicious URL Blocklist
+
+                # Ads & Tracking
+                "easylist" # EasyList (Ads)
+                "easyprivacy" # EasyPrivacy (Tracking)
+                "DEU-0" # EasyList Germany (Deutsche Seiten!)
                 "plowe-0" # Peter Lowe's Ad and tracking server list
-                "DEU-0" # EasyList Germany (Wichtig für deutsche Seiten!)
-                "ublock-cookies-easylist" # Cookie-Banner Blocker (EasyList Cookie)
-                "adguard-generic" # AdGuard Base (Ergänzung zu EasyList)
-                "ublock-cookies-adguard" # AdGuard Cookie-Banner Liste
+
+                # AdGuard (Ergänzung zu EasyList)
+                "adguard-generic" # AdGuard Base Filter
+                "adguard-spyware" # AdGuard Spyware & Tracking
+                "adguard-mobile" # AdGuard Mobile Ads (auch für Responsive Sites)
+
+                # Cookie-Banner
+                "ublock-cookies-easylist" # EasyList Cookie List
+                "ublock-cookies-adguard" # AdGuard Cookie Notices
+                "fanboy-cookiemonster" # Fanboy's Cookie Monster List
+
+                # Annoyances (Popups, Newsletter, Social Widgets)
+                "ublock-annoyances" # uBlock Annoyances
+                "fanboy-annoyance" # Fanboy's Annoyances (Popups, Overlays)
+                "fanboy-social" # Fanboy's Social Blocking (Social Media Widgets)
+
+                # Malware & Security
+                "urlhaus-1" # Online Malicious URL Blocklist (URLhaus)
+                "curben-phishing" # Phishing URL Blocklist
               ];
             };
           };
