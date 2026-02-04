@@ -791,9 +791,16 @@ in
       #!/bin/sh
       CODE=$(${pkgs-unstable.pynitrokey}/bin/nitropy nk3 secrets get-otp "posteo" 2>/dev/null)
       if [ -n "$CODE" ]; then
+        # Code in Zwischenablage kopieren
         echo -n "$CODE" | ${pkgs.wl-clipboard}/bin/wl-copy
-        ${pkgs.libnotify}/bin/notify-send "Posteo TOTP" "Code in Zwischenablage kopiert" --icon=dialog-password -t 5000
-        # Clipboard nach 30s leeren
+
+        # Kurzes Delay um sicherzustellen, dass wl-copy fertig ist
+        sleep 0.2
+
+        # Notification erst NACH erfolgreichem Copy
+        ${pkgs.libnotify}/bin/notify-send "Posteo TOTP" "Code in Zwischenablage kopiert (Strg+V)" --icon=dialog-password -t 5000
+
+        # Clipboard nach 30s leeren (Sicherheit)
         (sleep 30 && echo -n "" | ${pkgs.wl-clipboard}/bin/wl-copy) &
       else
         ${pkgs.libnotify}/bin/notify-send "Posteo TOTP" "Fehler: Nitrokey nicht erreichbar oder Touch nicht bestaetigt" --icon=dialog-error -t 5000

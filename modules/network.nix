@@ -125,6 +125,11 @@
     # Nix-Store Zugriff für desktop_proxy Binary
     noblacklist /nix/store
 
+    # Wayland Clipboard Zugriff (wl-copy/wl-paste für TOTP)
+    # Erlaubt Paste von System-Clipboard (z.B. TOTP-Codes)
+    noblacklist /run/user/1000
+    whitelist /run/user/1000/wayland-*
+
     # D-Bus Zugriff für Bitwarden Desktop IPC und Portal-Integration
     ignore dbus-user none
     ignore dbus-system none
