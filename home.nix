@@ -584,6 +584,37 @@ in
     };
   };
 
+  # --- BROWSER (Mullvad Browser) ---
+  # Mullvad Browser: Maximum Anti-Fingerprinting (basiert auf Tor Browser)
+  # WICHTIG: Minimale Konfiguration! Zu viele Änderungen verschlechtern den Fingerprint.
+  # Profile: ~/.mullvad/Browser/
+  #
+  # ⚠️ EXTENSIONS NICHT EMPFOHLEN!
+  # Jede Extension macht dich uniquer und verschlechtert den Fingerprint.
+  # Mullvad Browser ist für maximale Anonymität ohne Extensions konzipiert.
+  #
+  # Falls Extensions trotzdem gewünscht (nicht empfohlen):
+  # 1. Mullvad Browser öffnen
+  # 2. about:config → xpinstall.signatures.required = false
+  # 3. Extensions manuell installieren
+  #
+  # Für alltägliche Nutzung mit Extensions: LibreWolf verwenden!
+
+  home.file.".mullvad/Browser/user.js".text = ''
+    // Mullvad Browser User Settings (MINIMAL!)
+    // Zu viele Änderungen verschlechtern den Fingerprint!
+
+    // Usability: Session beim Schließen NICHT löschen
+    user_pref("privacy.clearOnShutdown.history", false);
+    user_pref("privacy.clearOnShutdown.cookies", false);
+    user_pref("privacy.clearOnShutdown.sessions", false);
+
+    // Usability: Letzte Session wiederherstellen
+    user_pref("browser.startup.page", 3);
+
+    // KEINE weiteren Änderungen! Mullvad Browser hat perfekte Defaults.
+  '';
+
   # --- BROWSER (LibreWolf) ---
   # LibreWolf wird über Firejail in modules/network.nix installiert und gesandboxt.
   # package = null verhindert doppelte Installation, wendet nur Settings/Extensions an.

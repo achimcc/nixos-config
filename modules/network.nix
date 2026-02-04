@@ -294,6 +294,7 @@
   environment.systemPackages = with pkgs; [
     tor-browser
     librewolf
+    mullvad-browser  # Maximum Anti-Fingerprinting (Tor Browser ohne Tor)
     freetube
     logseq
     discord

@@ -455,10 +455,65 @@ nrs  → sudo nixos-rebuild switch --flake ...#nixos
 
 ## Applications
 
-### Browsers (Firejail)
+### Browsers
 
-- **LibreWolf**: Primary Browser mit uBlock Origin, Bitwarden, ClearURLs, Multi-Account Containers
-- **Tor Browser**: Für anonymes Browsen (privates Downloads-Verzeichnis)
+#### Mullvad Browser (Primary - Maximum Anti-Fingerprinting)
+
+**Eigenschaften:**
+- Basiert auf Tor Browser Technologie (ohne Tor-Netzwerk)
+- Optimiert für minimalen Fingerprint - alle Nutzer sehen identisch aus
+- Integriertes Anti-Fingerprinting (keine Konfiguration nötig)
+- **Fingerprint-Score:** ~1 in 10-100 (vs LibreWolf: ~1 in 150,000)
+
+**⚠️ Wichtig: Keine Extensions verwenden!**
+- Extensions machen dich uniquer und zerstören den Fingerprint-Schutz
+- Mullvad Browser ist für Nutzung OHNE Extensions konzipiert
+- Für Bitwarden/Extensions: LibreWolf verwenden
+
+**Konfiguration:**
+```bash
+# Profile-Verzeichnis
+~/.mullvad/Browser/
+
+# Minimale user.js (nur Usability, keine Fingerprint-Änderungen)
+# Wird automatisch via home-manager erstellt
+```
+
+**Fingerprint-Test:**
+```bash
+# Nach dem Rebuild: https://coveryourtracks.eff.org testen
+# Erwartetes Ergebnis: "Your browser does not appear to be unique"
+```
+
+#### LibreWolf (Secondary - Privacy mit Extensions)
+
+**Eigenschaften:**
+- Privacy-Browser mit Extensions-Support (Firejail-gesandboxt)
+- Guter Kompromiss zwischen Privacy und Funktionalität
+- Extensions: uBlock Origin, Bitwarden, ClearURLs, Multi-Account Containers
+- **Fingerprint-Score:** ~1 in 150,000 (mit aktueller Konfiguration)
+
+**Verwendung:**
+- Für Webapps, die Extensions benötigen (Bitwarden)
+- Alltägliches Browsen mit bekannten Websites
+- Banking, Shopping (wo Login erforderlich)
+
+**Konfiguration:**
+- Deklarativ via `programs.librewolf` in home.nix
+- Maximum Anti-Fingerprinting Settings aktiv
+- Font-Visibility API, Windows User-Agent Spoofing, etc.
+
+#### Tor Browser (Anonymity - Over Tor Network)
+
+**Eigenschaften:**
+- Für anonymes Browsen über Tor-Netzwerk (Firejail-gesandboxt)
+- Privates Downloads-Verzeichnis
+- Maximale Anonymität, aber langsamer
+
+**Verwendung:**
+- Hochsensible Recherchen
+- Anonyme Kommunikation
+- Bypass von Geo-Blocking
 
 ### Communication (Firejail / Flatpak)
 
