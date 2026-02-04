@@ -156,6 +156,10 @@ in
     tinymist
     hunspellDicts.de-de
 
+    # --- MARKDOWN TO PDF ---
+    pandoc # Universal Dokumenten-Konverter (Markdown → PDF, DOCX, HTML, etc.)
+    texliveSmall # LaTeX für Pandoc PDF-Generierung (kompakte Distribution)
+
     # --- PDF VIEWER & E-BOOKS ---
     evince # GNOME Document Viewer (via Firejail in modules/network.nix)
     foliate # E-Book-Reader (GNOME/libadwaita)
