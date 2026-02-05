@@ -51,6 +51,20 @@ let
 in
 {
   # ==========================================
+  # KERNEL MODULE CONFIGURATION
+  # ==========================================
+  # Load nftables kernel modules at boot
+  boot.kernelModules = [
+    "nf_tables"
+    "nft_counter"
+    "nft_ct"
+    "nft_limit"
+    "nft_nat"
+    "nft_reject"
+    "nft_reject_inet"
+  ];
+
+  # ==========================================
   # FIREWALL SERVICE ORDERING (KRITISCH!)
   # ==========================================
   # NixOS manages nftables.service automatically when networking.nftables.enable = true
@@ -110,11 +124,13 @@ in
           iifname "tun*" udp dport ${toString syncthingPorts.quic} accept
           iifname "wg*" udp dport ${toString syncthingPorts.quic} accept
 
-          # 8. Port-scan detection
+          # 8. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
+          meta nfproto ipv6 icmpv6 type { nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept
+
+          # 9. Port-scan detection
           update @portscan { ip saddr limit rate over 10/minute } drop
 
-          # 9. Logging dropped packets (rate limited)
-          limit rate 1/minute burst 3 packets log prefix "FW-DROP-IN: " level info
+          # 10. Dropped packets (logging temporarily disabled)
         }
 
         # OUTPUT CHAIN
@@ -177,60 +193,17 @@ in
           ip daddr 255.255.255.255 udp dport ${toString syncthingPorts.discovery} accept
           ip daddr 192.168.178.255 udp dport ${toString syncthingPorts.discovery} accept
 
-          # 14. Logging dropped packets (rate limited)
-          limit rate 1/minute burst 3 packets log prefix "FW-DROP-OUT: " level info
+          # 14. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
+          meta nfproto ipv6 icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept
+
+          # 15. Dropped packets (logging temporarily disabled)
         }
 
         # FORWARD CHAIN
         chain forward {
           type filter hook forward priority filter; policy drop;
 
-          # Log and block all forwarding (this machine is not a router)
-          limit rate 1/minute burst 3 packets log prefix "FW-FORWARD-BLOCKED: " level info
-        }
-      }
-
-      # ==========================================
-      # IPv6 FIREWALL TABLE
-      # ==========================================
-      table ip6 filter {
-        # INPUT CHAIN
-        chain input {
-          type filter hook input priority filter; policy drop;
-
-          # 1. Loopback traffic
-          iif lo accept
-
-          # 2. Established/Related connections
-          ct state established,related accept
-
-          # 3. ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
-          icmpv6 type { nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept
-
-          # 4. Logging dropped packets
-          limit rate 1/minute burst 3 packets log prefix "ip6-blocked-in: " level info
-        }
-
-        # OUTPUT CHAIN
-        chain output {
-          type filter hook output priority filter; policy drop;
-
-          # 1. Loopback traffic
-          oif lo accept
-
-          # 2. Established/Related connections
-          ct state established,related accept
-
-          # 3. ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
-          icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept
-
-          # 4. Logging dropped packets
-          limit rate 1/minute burst 3 packets log prefix "ip6-blocked-out: " level info
-        }
-
-        # FORWARD CHAIN
-        chain forward {
-          type filter hook forward priority filter; policy drop;
+          # Block all forwarding (logging temporarily disabled - this machine is not a router)
         }
       }
     '';
