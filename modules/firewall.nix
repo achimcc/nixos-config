@@ -53,16 +53,22 @@ in
   # ==========================================
   # FIREWALL SERVICE ORDERING (KRITISCH!)
   # ==========================================
-  # Firewall MUSS nach NetworkManager starten, damit DHCP/DNS funktionieren
-  # ABER vor dem VPN-Start, um den Kill Switch zu garantieren
+  # Firewall startet VOR NetworkManager (via NixOS default: before=network-pre.target)
+  # Dies ist korrekt für einen VPN Kill Switch - verhindert Netzwerk-Leaks beim Booten.
+  # DHCP/DNS funktionieren trotzdem, da die Firewall-Regeln (Zeilen 128-133) diese erlauben.
   #
-  # WICHTIG: Der korrekte Service-Name ist "firewall.service" (nicht "nixos-firewall")!
-  # Wir verwenden lib.mkAfter/lib.mkBefore um die Service-Dependencies zu erweitern,
-  # anstatt den kompletten Service zu überschreiben.
+  # WICHTIG: Nicht "after=network-online.target" setzen - das erzeugt einen systemd
+  # Ordering Cycle: firewall → network-online → network → network-pre → firewall
+  #
+  # Service-Name ist "firewall.service" (nicht "nixos-firewall")!
 
   systemd.services.firewall = {
-    after = lib.mkAfter [ "NetworkManager.service" "network-online.target" ];
-    wants = lib.mkAfter [ "network-online.target" ];
+    # NixOS default ordering (do not override):
+    # - before = [ "network-pre.target" ]
+    # - wants = [ "network-pre.target" ]
+    # This ensures firewall is active before any network configuration happens.
+
+    # Only override: VPN must start after firewall
     before = lib.mkBefore [ "wg-quick-proton0.service" ];
 
     # Unit-level restart limits
@@ -227,14 +233,32 @@ in
       ip6tables -P OUTPUT DROP
       ip6tables -P FORWARD DROP
 
-      # HINWEIS: IPv6 ist deaktiviert, daher werden folgende Regeln nicht aktiv
-      # Sie bleiben als Defense-in-Depth Maßnahme erhalten (falls IPv6 versehentlich aktiviert wird)
+      # HINWEIS: IPv6 ist systemweit deaktiviert, ABER NetworkManager benötigt trotzdem
+      # ICMPv6 Neighbor Discovery, um das Netzwerk zu konfigurieren!
+      # Ohne diese Regeln bekommt NetworkManager "Operation not permitted" beim Booten.
 
-      # 2. Nur Loopback erlaubt (falls IPv6 aktiv wäre)
+      # 2. Loopback erlauben
       ip6tables -A INPUT -i lo -j ACCEPT
       ip6tables -A OUTPUT -o lo -j ACCEPT
 
-      # 3. Alles andere blockieren (Logging für Debugging)
+      # 3. Bestehende Verbindungen erlauben
+      ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+      # 4. KRITISCH: ICMPv6 Neighbor Discovery erlauben (für NetworkManager!)
+      # Ohne diese Regeln kann NetworkManager das Netzwerk nicht konfigurieren
+      # Type 133: Router Solicitation (ausgehend)
+      # Type 134: Router Advertisement (eingehend)
+      # Type 135: Neighbor Solicitation (bidirektional)
+      # Type 136: Neighbor Advertisement (bidirektional)
+      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type router-solicitation -j ACCEPT
+      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type router-advertisement -j ACCEPT
+      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type neighbour-solicitation -j ACCEPT
+      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type neighbour-solicitation -j ACCEPT
+      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type neighbour-advertisement -j ACCEPT
+      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type neighbour-advertisement -j ACCEPT
+
+      # 5. Alles andere blockieren (Logging für Debugging)
       ip6tables -A INPUT -m limit --limit 1/min -j LOG --log-prefix "ip6-blocked-in: " --log-level 4
       ip6tables -A OUTPUT -m limit --limit 1/min -j LOG --log-prefix "ip6-blocked-out: " --log-level 4
     '';
