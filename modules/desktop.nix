@@ -21,6 +21,17 @@
     };
   };
 
+  # ==========================================
+  # SWAY - ALTERNATIVE SESSION
+  # ==========================================
+  # Aktiviert Sway als alternative Window Manager Session in GDM
+  # Konfiguration erfolgt in home-manager (modules/home/sway.nix)
+
+  programs.sway = {
+    enable = true;
+    wrapperFeatures.gtk = true; # GTK-Themes in Sway
+  };
+
   # Konsolen-Tastaturlayout
   console.keyMap = "de";
 

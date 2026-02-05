@@ -34,9 +34,9 @@
     description = "WireGuard VPN - ProtonVPN";
 
     # Starte nach Netzwerk, sops UND Firewall (Kill Switch muss zuerst aktiv sein!)
-    after = [ "network-online.target" "sops-nix.service" "nixos-firewall.service" ];
+    after = [ "network-online.target" "sops-nix.service" "firewall.service" ];
     wants = [ "network-online.target" ];
-    requires = [ "nixos-firewall.service" ]; # Firewall MUSS laufen, sonst kein VPN
+    requires = [ "firewall.service" ]; # Firewall MUSS laufen, sonst kein VPN
     wantedBy = [ "multi-user.target" ];
 
     # Vor dem Display Manager starten

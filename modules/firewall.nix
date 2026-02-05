@@ -39,11 +39,15 @@ in
   # ==========================================
   # Firewall MUSS nach NetworkManager starten, damit DHCP/DNS funktionieren
   # ABER vor dem VPN-Start, um den Kill Switch zu garantieren
+  #
+  # WICHTIG: Der korrekte Service-Name ist "firewall.service" (nicht "nixos-firewall")!
+  # Wir verwenden lib.mkAfter/lib.mkBefore um die Service-Dependencies zu erweitern,
+  # anstatt den kompletten Service zu überschreiben.
 
-  systemd.services.nixos-firewall = {
-    after = [ "NetworkManager.service" "network-online.target" ];
-    wants = [ "network-online.target" ];
-    before = [ "wg-quick-proton0.service" ];
+  systemd.services.firewall = {
+    after = lib.mkAfter [ "NetworkManager.service" ];
+    wants = lib.mkAfter [ "network-online.target" ];
+    before = lib.mkBefore [ "wg-quick-proton0.service" ];
   };
 
   networking.firewall = {

@@ -27,6 +27,7 @@ in
   imports = [
     ./modules/home/gnome-settings.nix
     ./modules/home/neovim.nix
+    ./modules/home/sway.nix
   ];
 
   home.stateVersion = "24.11";
