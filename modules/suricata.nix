@@ -28,6 +28,14 @@
         };
       };
 
+      # App-Layer Protokoll-Erkennung
+      app-layer.protocols = {
+        modbus = {
+          enabled = true;
+          detection-enabled = true;
+        };
+      };
+
       # EVE-JSON Output für strukturierte Logs
       outputs = [
         {
