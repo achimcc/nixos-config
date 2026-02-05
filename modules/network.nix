@@ -85,18 +85,16 @@
 
   services.resolved = {
     enable = true;
-    dnssec = "true";
-    domains = [ "~." ];
-    dnsovertls = "true";
-
-    # SICHERHEIT: Kein Fallback-DNS (verhindert DNS-Leaks wenn VPN down)
-    fallbackDns = [];  # Explizit leer - keine Fallback-DNS-Server
 
     # Quad9 DNS-over-TLS (Non-Profit, Schweizer Recht, Malware-Blocking)
     # https://www.quad9.net/service/service-addresses-and-features
     settings = {
       Resolve = {
+        DNSSEC = "true";
+        Domains = [ "~." ];
+        DNSOverTLS = "true";
         DNS = "9.9.9.9#dns.quad9.net";
+        # SICHERHEIT: Kein Fallback-DNS (verhindert DNS-Leaks wenn VPN down)
         FallbackDNS = "";
         DNSStubListener = "yes";
         Cache = "no-negative";

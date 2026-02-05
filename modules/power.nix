@@ -62,9 +62,9 @@
   # ==========================================
 
   # Laptop-Deckel schließen -> Suspend
-  services.logind = {
-    lidSwitch = "suspend";
-    lidSwitchExternalPower = "lock"; # Am Netzteil nur sperren
+  services.logind.settings.Login = {
+    HandleLidSwitch = "suspend";
+    HandleLidSwitchExternalPower = "lock"; # Am Netzteil nur sperren
   };
 
   # Powertop Auto-Tune (optional, zusätzliche Optimierungen)
