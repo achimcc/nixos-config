@@ -41,8 +41,8 @@
     description = "WireGuard VPN - ProtonVPN";
 
     # Starte nach Netzwerk, sops UND Firewall (Kill Switch muss zuerst aktiv sein!)
-    after = [ "network-online.target" "sops-nix.service" "firewall.service" ];
-    wants = [ "network-online.target" "firewall.service" ]; # Softer dependency - won't stop VPN if firewall restarts
+    after = [ "network-online.target" "sops-nix.service" "nftables.service" ];
+    wants = [ "network-online.target" "nftables.service" ]; # Softer dependency - won't stop VPN if firewall restarts
     # NOTE: Pre-check script still validates firewall is active before starting VPN
     wantedBy = [ "multi-user.target" ];
 
@@ -61,7 +61,7 @@
       ExecStartPre = pkgs.writeShellScript "vpn-pre-check" ''
         # Wait for firewall to be active (max 30s)
         for i in $(seq 1 30); do
-          if systemctl is-active --quiet firewall.service; then
+          if systemctl is-active --quiet nftables.service; then
             # Verify firewall rules are loaded (DROP policy active)
             if ${pkgs.nftables}/bin/nft list table inet filter 2>/dev/null | grep -q "policy drop"; then
               echo "✓ Firewall active with DROP policy - safe to start VPN"
@@ -81,18 +81,21 @@
       # Starte WireGuard mit der sops-generierten Konfiguration
       ExecStart = "${pkgs.wireguard-tools}/bin/wg-quick up ${config.sops.templates."wireguard-proton0.conf".path}";
 
-      # Policy Routing: Route ALL traffic through VPN
-      # Must be done AFTER wg-quick up (which creates table 51820 routes)
+      # Policy Routing: Route ALL user traffic through VPN
+      # WireGuard packets (to endpoint) are marked with fwmark 51820 and use main table
+      # All other traffic uses table 51820 (VPN)
       ExecStartPost = pkgs.writeShellScript "vpn-policy-routing" ''
         # Wait for interface to be fully up
         sleep 1
 
-        # Add policy routing rules to direct all traffic through VPN
-        # Priority 100: All traffic (except VPN endpoint) goes through table 51820
-        ${pkgs.iproute2}/bin/ip rule add not fwmark 51820 table 51820 priority 100 2>/dev/null || true
+        # Priority 100: WireGuard's own packets (fwmark 51820) use main table to reach endpoint
+        ${pkgs.iproute2}/bin/ip rule add fwmark 51820 table main priority 100 2>/dev/null || true
 
-        # Priority 101: Suppress default route in main table (prevents leak)
-        ${pkgs.iproute2}/bin/ip rule add table main suppress_prefixlength 0 priority 101 2>/dev/null || true
+        # Priority 101: All other traffic goes through VPN (table 51820)
+        ${pkgs.iproute2}/bin/ip rule add not fwmark 51820 table 51820 priority 101 2>/dev/null || true
+
+        # Priority 102: Suppress default route in main table for unmarked packets (prevents leak)
+        ${pkgs.iproute2}/bin/ip rule add table main suppress_prefixlength 0 priority 102 2>/dev/null || true
 
         echo "✓ VPN policy routing active"
       '';
@@ -101,8 +104,9 @@
 
       # Cleanup policy routing rules on stop
       ExecStopPost = pkgs.writeShellScript "vpn-policy-routing-cleanup" ''
-        ${pkgs.iproute2}/bin/ip rule del not fwmark 51820 table 51820 priority 100 2>/dev/null || true
-        ${pkgs.iproute2}/bin/ip rule del table main suppress_prefixlength 0 priority 101 2>/dev/null || true
+        ${pkgs.iproute2}/bin/ip rule del fwmark 51820 table main priority 100 2>/dev/null || true
+        ${pkgs.iproute2}/bin/ip rule del not fwmark 51820 table 51820 priority 101 2>/dev/null || true
+        ${pkgs.iproute2}/bin/ip rule del table main suppress_prefixlength 0 priority 102 2>/dev/null || true
         echo "✓ VPN policy routing removed"
       '';
 
@@ -166,7 +170,7 @@
         }
 
         # Check 1: Firewall active
-        if ! systemctl is-active --quiet firewall.service; then
+        if ! systemctl is-active --quiet nftables.service; then
           send_alert "Firewall not active! Aborting VPN checks."
           exit 0
         fi

@@ -53,34 +53,12 @@ in
   # ==========================================
   # FIREWALL SERVICE ORDERING (KRITISCH!)
   # ==========================================
+  # NixOS manages nftables.service automatically when networking.nftables.enable = true
   # Firewall startet VOR NetworkManager (via NixOS default: before=network-pre.target)
   # Dies ist korrekt für einen VPN Kill Switch - verhindert Netzwerk-Leaks beim Booten.
-  # DHCP/DNS funktionieren trotzdem, da die Firewall-Regeln (Zeilen 128-133) diese erlauben.
+  # DHCP/DNS funktionieren trotzdem, da die Firewall-Regeln diese erlauben.
   #
-  # WICHTIG: Nicht "after=network-online.target" setzen - das erzeugt einen systemd
-  # Ordering Cycle: firewall → network-online → network → network-pre → firewall
-  #
-  # Service-Name ist "firewall.service" (nicht "nixos-firewall")!
-
-  systemd.services.firewall = {
-    # NixOS default ordering (do not override):
-    # - before = [ "network-pre.target" ]
-    # - wants = [ "network-pre.target" ]
-    # This ensures firewall is active before any network configuration happens.
-
-    # Only override: VPN must start after firewall
-    before = lib.mkBefore [ "wg-quick-proton0.service" ];
-
-    # Unit-level restart limits
-    startLimitBurst = 3;
-    startLimitIntervalSec = 120;
-
-    serviceConfig = {
-      # Restart policy for firewall
-      Restart = "on-failure";
-      RestartSec = "5s";
-    };
-  };
+  # Service-Name ist "nftables.service" (NixOS-managed)!
 
   networking.nftables = {
     enable = true;

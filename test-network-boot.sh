@@ -16,10 +16,10 @@ echo ""
 
 # Test 1: Check if firewall is active and rules are loaded
 echo -n "Test 1: Firewall service active... "
-if systemctl is-active --quiet firewall.service; then
+if systemctl is-active --quiet nftables.service; then
     echo -e "${GREEN}✓${NC}"
 else
-    echo -e "${RED}✗${NC} Firewall is not active!"
+    echo -e "${RED}✗${NC} nftables firewall is not active!"
     FAILED=1
 fi
 
