@@ -18,6 +18,10 @@ if [[ ! $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
 fi
 
 echo ""
+echo "→ Configuring git safe directory for root..."
+sudo git config --global --add safe.directory /home/user/nixos-config 2>/dev/null || true
+
+echo ""
 echo "→ Building system configuration..."
 sudo nixos-rebuild switch --flake /home/user/nixos-config#nixos
 
