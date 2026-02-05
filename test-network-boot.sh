@@ -14,12 +14,20 @@ FAILED=0
 echo "=== Network Boot Test ==="
 echo ""
 
-# Test 1: Check if firewall is active
+# Test 1: Check if firewall is active and rules are loaded
 echo -n "Test 1: Firewall service active... "
 if systemctl is-active --quiet firewall.service; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC} Firewall is not active!"
+    FAILED=1
+fi
+
+echo -n "Test 1b: nftables rules loaded... "
+if nft list table inet filter 2>/dev/null | grep -q "policy drop"; then
+    echo -e "${GREEN}✓${NC}"
+else
+    echo -e "${RED}✗${NC} nftables rules not loaded!"
     FAILED=1
 fi
 
