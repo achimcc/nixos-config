@@ -263,7 +263,7 @@ Umfassende Sicherheitskonfiguration:
 - Audit Framework für Incident Response
 - USBGuard mit Default-Deny
 - AIDE File Integrity Monitoring
-- Rootkit-Erkennung (unhide, chkrootkit)
+- Rootkit-Erkennung (unhide)
 - FIDO2/Nitrokey PAM-Authentifizierung
 
 ### home/neovim.nix
@@ -746,16 +746,11 @@ Zwei komplementäre Tools scannen wöchentlich nach Rootkits:
 # unhide - Versteckte Prozesse und Ports finden
 sudo unhide sys procall                  # Versteckte Prozesse
 sudo unhide-tcp                          # Versteckte TCP/UDP Ports
-
-# chkrootkit - Rootkit Scanner
-sudo chkrootkit                          # Vollständiger Scan
-sudo chkrootkit -q                       # Quiet Mode (nur Warnungen)
 ```
 
 Automatisierte Scans:
 - unhide (Prozesse): Sonntag 05:00
 - unhide-tcp (Ports): Sonntag 05:15
-- chkrootkit: Sonntag 05:30
 
 ### Firewall-Logging
 
@@ -779,14 +774,13 @@ journalctl -f --grep="iptables-dropped"
 journalctl -u aide-check              # AIDE Integritätsprüfungen
 journalctl -u unhide-check            # unhide Prozess-Scans
 journalctl -u unhide-tcp-check        # unhide Port-Scans
-journalctl -u chkrootkit-check        # chkrootkit Scans
 journalctl -u clamav-daemon           # ClamAV Antivirus
 journalctl -u clamonacc               # ClamAV Echtzeit-Scanner
 journalctl -u fail2ban                # Brute-Force Schutz
 journalctl -u usbguard                # USB-Geräte-Monitoring
 
 # Echtzeit-Monitoring
-journalctl -f -u aide-check -u unhide-check -u chkrootkit-check
+journalctl -f -u aide-check -u unhide-check
 
 # Audit Logs (sudo, Passwort-Änderungen, SSH)
 journalctl _TRANSPORT=audit
@@ -802,12 +796,11 @@ journalctl --grep="blocked"
 
 ```bash
 # Alle Security-Timer auflisten
-systemctl list-timers | grep -E "aide|unhide|chkrootkit|clamav"
+systemctl list-timers | grep -E "aide|unhide|clamav"
 
 # Timer-Details
 systemctl status aide-check.timer
 systemctl status unhide-check.timer
-systemctl status chkrootkit-check.timer
 ```
 
 ### Manuelles Security Audit
@@ -817,12 +810,10 @@ systemctl status chkrootkit-check.timer
 sudo systemctl start aide-check
 sudo systemctl start unhide-check
 sudo systemctl start unhide-tcp-check
-sudo systemctl start chkrootkit-check
 
 # Ergebnisse prüfen
 journalctl -u aide-check --since "5 minutes ago"
 journalctl -u unhide-check --since "10 minutes ago"
-journalctl -u chkrootkit-check --since "10 minutes ago"
 ```
 
 ## Troubleshooting
