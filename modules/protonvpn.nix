@@ -63,7 +63,7 @@
         for i in $(seq 1 30); do
           if systemctl is-active --quiet firewall.service; then
             # Verify firewall rules are loaded (DROP policy active)
-            if ${pkgs.iptables}/bin/iptables -L OUTPUT -n | grep -q "DROP"; then
+            if ${pkgs.nftables}/bin/nft list table inet filter 2>/dev/null | grep -q "policy drop"; then
               echo "✓ Firewall active with DROP policy - safe to start VPN"
               exit 0
             fi
