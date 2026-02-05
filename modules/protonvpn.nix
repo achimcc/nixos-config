@@ -42,8 +42,8 @@
 
     # Starte nach Netzwerk, sops UND Firewall (Kill Switch muss zuerst aktiv sein!)
     after = [ "network-online.target" "sops-nix.service" "firewall.service" ];
-    wants = [ "network-online.target" ];
-    requires = [ "firewall.service" ]; # Firewall MUSS laufen, sonst kein VPN
+    wants = [ "network-online.target" "firewall.service" ]; # Softer dependency - won't stop VPN if firewall restarts
+    # NOTE: Pre-check script still validates firewall is active before starting VPN
     wantedBy = [ "multi-user.target" ];
 
     # Vor dem Display Manager starten
@@ -80,7 +80,7 @@
       ExecStop = "${pkgs.wireguard-tools}/bin/wg-quick down ${config.sops.templates."wireguard-proton0.conf".path}";
 
       # Aggressiver Neustart bei Fehlern (VPN Kill Switch erfordert aktives VPN!)
-      Restart = "on-failure";
+      Restart = "always"; # Restart even on clean stops (e.g., when firewall restarts)
       RestartSec = "5s";
     };
 
