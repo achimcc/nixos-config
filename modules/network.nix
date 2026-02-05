@@ -62,9 +62,16 @@
             };
             ipv4 = {
               method = "auto";
+              # CRITICAL: Ignore DHCP DNS servers, use systemd-resolved global config instead
+              # Without this, router DNS (192.168.178.1) overrides Quad9 DNS-over-TLS
+              # and gets blocked by firewall, breaking DNS resolution
+              ignore-auto-dns = true;
             };
             ipv6 = {
-              method = "auto";
+              # CRITICAL: Disable IPv6 completely in NetworkManager
+              # Even though kernel has disable_ipv6=1, NetworkManager's "auto" method
+              # still configures IPv6 addresses via SLAAC, causing VPN leaks
+              method = "disabled";
             };
           };
         };

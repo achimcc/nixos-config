@@ -138,13 +138,25 @@ in
       iptables -A OUTPUT -p udp --dport 53 -d ${dnsServers.stubListener} -j ACCEPT
       iptables -A OUTPUT -p tcp --dport 53 -d ${dnsServers.stubListener} -j ACCEPT
 
-      # DNS-over-TLS (Port 853) NUR über VPN zu Mullvad DNS
-      # WICHTIG: DNS-Anfragen gehen nur über verschlüsseltes VPN-Interface
+      # DNS-over-TLS (Port 853) - Dual strategy for bootstrap and VPN
+      #
+      # BOOTSTRAP PHASE (before VPN connects):
+      # - Allow DNS-over-TLS to Quad9 (9.9.9.9) on physical interface
+      # - Required for initial DNS resolution to establish VPN connection
+      # - Quad9 uses DNS-over-TLS (encrypted) so no plaintext leak
+      #
+      # VPN PHASE (after VPN connects):
+      # - VPN routing table takes precedence, all DNS goes through VPN
+      # - Physical interface DNS-over-TLS rule becomes inactive
+      #
+      iptables -A OUTPUT -p tcp --dport 853 -d 9.9.9.9 -j ACCEPT
+
+      # DNS-over-TLS over VPN to Mullvad DNS (alternative DNS for VPN phase)
       iptables -A OUTPUT -o proton0 -p tcp --dport 853 -d ${dnsServers.mullvad} -j ACCEPT
       iptables -A OUTPUT -o tun+ -p tcp --dport 853 -d ${dnsServers.mullvad} -j ACCEPT
       iptables -A OUTPUT -o wg+ -p tcp --dport 853 -d ${dnsServers.mullvad} -j ACCEPT
 
-      # Alle anderen DNS-over-TLS Verbindungen blockieren (verhindert DNS-Leaks)
+      # Alle anderen DNS-over-TLS Verbindungen blockieren (verhindert DNS-Leaks zu unbekannten DNS-Servern)
       iptables -A OUTPUT -p tcp --dport 853 -j DROP
       iptables -A OUTPUT -p udp --dport 853 -j DROP
       
