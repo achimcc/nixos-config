@@ -4,8 +4,8 @@
 { config, lib, pkgs, ... }:
 
 # HINWEIS: Netzwerk-Zonen-Konzept dokumentiert in firewall-zones.nix
-# Diese Datei implementiert die Zonen-Regeln mit iptables
-# Migration zu nftables mit nativen Zonen in Zukunft geplant
+# Diese Datei implementiert die Zonen-Regeln mit nftables
+# Migriert von iptables zu nftables am 2026-02-05
 #
 # SERVICE-REIHENFOLGE (KRITISCH!):
 # 1. network-pre.target (Kernel-Module laden)
@@ -82,213 +82,179 @@ in
     };
   };
 
-  networking.firewall = {
+  networking.nftables = {
     enable = true;
-    checkReversePath = false; # We'll set per-interface via sysctl
 
-    extraCommands = ''
-      # ==========================================
-      # IPv4 REGELN
-      # ==========================================
-      
-      # 1. Alles löschen & Standard auf DROP setzen
-      iptables -F INPUT
-      iptables -F OUTPUT
-      iptables -F FORWARD
-      iptables -P INPUT DROP
-      iptables -P OUTPUT DROP
-      iptables -P FORWARD DROP
-      
-      # 2. Loopback erlauben (Lokale Prozesse)
-      iptables -A INPUT -i lo -j ACCEPT
-      iptables -A OUTPUT -o lo -j ACCEPT
-      
-      # 3. Bestehende Verbindungen erlauben
-      iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-      iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-      
-      # 4. VPN Interfaces erlauben (Hier darf alles raus!)
-      # proton0 = Proton App Interface, tun+ = OpenVPN, wg+ = WireGuard
-      iptables -A OUTPUT -o proton0 -j ACCEPT
-      iptables -A OUTPUT -o tun+ -j ACCEPT
-      iptables -A OUTPUT -o wg+ -j ACCEPT
-      
-      # 5. WICHTIG: Erlaube den Verbindungsaufbau zum VPN (Physical Interface)
-      # TODO: ProtonVPN IP-Ranges können später aus sops-Secret geladen werden
-      #       (siehe docs/TODO-SOPS-PROTONVPN.md für Anleitung)
-
-      # VPN-Ports für Verbindungsaufbau
-      iptables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguard} -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguardAlt1} -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString vpnPorts.wireguardAlt2} -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString vpnPorts.openvpn} -j ACCEPT
-      iptables -A OUTPUT -p tcp --dport ${toString vpnPorts.https} -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString vpnPorts.https} -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString vpnPorts.ikev2} -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString vpnPorts.ikev2Nat} -j ACCEPT
-      
-      # 6. DHCP erlauben (Sonst keine Verbindung zum WLAN)
-      # CRITICAL: DHCP uses broadcast, must be very early in rules
-      # Client sends: 0.0.0.0:68 -> 255.255.255.255:67 (DHCP Discover/Request)
-      # Server responds: router:67 -> client:68 (DHCP Offer/Ack)
-      iptables -A OUTPUT -p udp --sport 68 --dport 67 -j ACCEPT  # DHCP requests
-      iptables -A INPUT -p udp --sport 67 --dport 68 -j ACCEPT   # DHCP responses
-      
-      # 7. DNS NUR über systemd-resolved (${dnsServers.stubListener}) - verhindert DNS-Leaks
-      iptables -A OUTPUT -p udp --dport 53 -d ${dnsServers.stubListener} -j ACCEPT
-      iptables -A OUTPUT -p tcp --dport 53 -d ${dnsServers.stubListener} -j ACCEPT
-
-      # DNS-over-TLS (Port 853) - Dual strategy for bootstrap and VPN
-      #
-      # BOOTSTRAP PHASE (before VPN connects):
-      # - Allow DNS-over-TLS to Quad9 (9.9.9.9) on physical interface
-      # - Required for initial DNS resolution to establish VPN connection
-      # - Quad9 uses DNS-over-TLS (encrypted) so no plaintext leak
-      #
-      # VPN PHASE (after VPN connects):
-      # - VPN routing table takes precedence, all DNS goes through VPN
-      # - Physical interface DNS-over-TLS rule becomes inactive
-      #
-      iptables -A OUTPUT -p tcp --dport 853 -d 9.9.9.9 -j ACCEPT
-
-      # DNS-over-TLS over VPN to Mullvad DNS (alternative DNS for VPN phase)
-      iptables -A OUTPUT -o proton0 -p tcp --dport 853 -d ${dnsServers.mullvad} -j ACCEPT
-      iptables -A OUTPUT -o tun+ -p tcp --dport 853 -d ${dnsServers.mullvad} -j ACCEPT
-      iptables -A OUTPUT -o wg+ -p tcp --dport 853 -d ${dnsServers.mullvad} -j ACCEPT
-
-      # Alle anderen DNS-over-TLS Verbindungen blockieren (verhindert DNS-Leaks zu unbekannten DNS-Servern)
-      iptables -A OUTPUT -p tcp --dport 853 -j DROP
-      iptables -A OUTPUT -p udp --dport 853 -j DROP
-      
-      # 8. mDNS für lokale Discovery (Avahi)
-      iptables -A OUTPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT
-      iptables -A INPUT -p udp --sport 5353 -j ACCEPT
-
-      # 9. Lokales Netzwerk - MAXIMALE RESTRIKTION (nur explizit benötigte Dienste)
-      #
-      # Router-Zugriff (Gateway) - NUR benötigte Ports
-      # NOTE: DHCP rules are already defined in section 6 (uses broadcast, not gateway-specific)
-
-      # Router Web-Interface (optional, auskommentiert für mehr Sicherheit)
-      # iptables -A OUTPUT -d ${localNetwork.gateway} -p tcp --dport 80 -j ACCEPT
-      # iptables -A OUTPUT -d ${localNetwork.gateway} -p tcp --dport 443 -j ACCEPT
-
-      # Drucker (Brother MFC-7360N) - IPP/CUPS Port 631
-      # IP-Adresse: ${localNetwork.printerIP} (via Avahi erkannt)
-      iptables -A INPUT -s ${localNetwork.printerIP} -p tcp --sport 631 -j ACCEPT
-      iptables -A OUTPUT -d ${localNetwork.printerIP} -p tcp --dport 631 -j ACCEPT
-
-      # Brother-Drucker verwendet auch Raw-Printing (Port 9100)
-      iptables -A OUTPUT -d ${localNetwork.printerIP} -p tcp --dport 9100 -j ACCEPT
-
-      # ICMP (Ping) im lokalen Netz NUR für Debugging
-      # Auskommentiert für mehr Sicherheit (verhindert Netzwerk-Scans)
-      # iptables -A INPUT -p icmp -s ${localNetwork.subnet} -j ACCEPT
-      # iptables -A OUTPUT -p icmp -d ${localNetwork.subnet} -j ACCEPT
-
-      # Syncthing wird in Abschnitt 10 separat behandelt (bereits vorhanden)
-
-      # 10. Syncthing - Lokales Netzwerk und über VPN
-      # Eingehende Verbindungen für lokale Discovery und Datenübertragung
-      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -s ${localNetwork.subnet} -j ACCEPT
-      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -s ${localNetwork.subnet} -j ACCEPT
-      iptables -A INPUT -p udp --dport ${toString syncthingPorts.discovery} -s ${localNetwork.subnet} -j ACCEPT
-      # Eingehende Verbindungen über VPN (für Relay-Verbindungen)
-      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i proton0 -j ACCEPT
-      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i tun+ -j ACCEPT
-      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i wg+ -j ACCEPT
-      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i proton0 -j ACCEPT
-      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i tun+ -j ACCEPT
-      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i wg+ -j ACCEPT
-      # Ausgehende Verbindungen nur ins Heimnetzwerk
-      iptables -A OUTPUT -p tcp --dport ${toString syncthingPorts.tcp} -d ${localNetwork.subnet} -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.quic} -d ${localNetwork.subnet} -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d ${localNetwork.subnet} -j ACCEPT
-      # Broadcast für lokale Discovery (Syncthing Announce)
-      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 255.255.255.255 -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 192.168.178.255 -j ACCEPT
-
-      # 11. Port-Scan Detection (vor Logging)
-      # Erkennt und blockiert Port-Scans aggressiv
-      iptables -N PORT_SCAN 2>/dev/null || true
-      iptables -F PORT_SCAN
-      iptables -A PORT_SCAN -m recent --set --name portscan
-      iptables -A PORT_SCAN -m recent --update --seconds 60 --hitcount 10 --name portscan -j DROP
-      iptables -A PORT_SCAN -j RETURN
-
-      # Port-Scan Detection auf INPUT anwenden
-      iptables -A INPUT -j PORT_SCAN
-
-      # 12. Logging für verworfene Pakete (Intrusion Detection, aggressives Rate-Limiting)
-      # WICHTIG: Muss nach allen ACCEPT-Regeln stehen, damit nur tatsächlich
-      # verworfene Pakete geloggt werden (direkt vor implizitem DROP)
-      iptables -A INPUT -m limit --limit 1/min --limit-burst 3 -j LOG --log-prefix "FW-DROP-IN: " --log-level 4
-      iptables -A OUTPUT -m limit --limit 1/min --limit-burst 3 -j LOG --log-prefix "FW-DROP-OUT: " --log-level 4
-
-      # 13. FORWARD Chain - Explizit blockieren (Defense-in-Depth)
-      # Diese Maschine ist kein Router und sollte nichts forwarden
-      iptables -A FORWARD -m limit --limit 1/min --limit-burst 3 -j LOG --log-prefix "FW-FORWARD-BLOCKED: " --log-level 4
-      iptables -A FORWARD -j DROP
+    ruleset = ''
+      # Flush existing ruleset
+      flush ruleset
 
       # ==========================================
-      # IPv6 REGELN - KOMPLETT BLOCKIERT (IPv6 ist deaktiviert)
+      # IPv4 FIREWALL TABLE
       # ==========================================
+      table inet filter {
+        # Port scan detection set
+        set portscan {
+          type ipv4_addr
+          flags dynamic, timeout
+          timeout 60s
+        }
 
-      # IPv6 ist systemweit deaktiviert (network.nix: enableIPv6 = false)
-      # Firewall blockiert trotzdem alles als zusätzliche Absicherung
+        # INPUT CHAIN
+        chain input {
+          type filter hook input priority filter; policy drop;
 
-      # 1. Alles löschen & Standard auf DROP setzen
-      ip6tables -F INPUT
-      ip6tables -F OUTPUT
-      ip6tables -F FORWARD
-      ip6tables -P INPUT DROP
-      ip6tables -P OUTPUT DROP
-      ip6tables -P FORWARD DROP
+          # 1. Loopback traffic
+          iif lo accept
 
-      # HINWEIS: IPv6 ist systemweit deaktiviert, ABER NetworkManager benötigt trotzdem
-      # ICMPv6 Neighbor Discovery, um das Netzwerk zu konfigurieren!
-      # Ohne diese Regeln bekommt NetworkManager "Operation not permitted" beim Booten.
+          # 2. Established/Related connections
+          ct state established,related accept
 
-      # 2. Loopback erlauben
-      ip6tables -A INPUT -i lo -j ACCEPT
-      ip6tables -A OUTPUT -o lo -j ACCEPT
+          # 3. DHCP responses (server:67 -> client:68)
+          udp sport 67 udp dport 68 accept
 
-      # 3. Bestehende Verbindungen erlauben
-      ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-      ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+          # 4. mDNS for local discovery (Avahi)
+          udp dport 5353 ip saddr 224.0.0.251 accept
 
-      # 4. KRITISCH: ICMPv6 Neighbor Discovery erlauben (für NetworkManager!)
-      # Ohne diese Regeln kann NetworkManager das Netzwerk nicht konfigurieren
-      # Type 133: Router Solicitation (ausgehend)
-      # Type 134: Router Advertisement (eingehend)
-      # Type 135: Neighbor Solicitation (bidirektional)
-      # Type 136: Neighbor Advertisement (bidirektional)
-      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type router-solicitation -j ACCEPT
-      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type router-advertisement -j ACCEPT
-      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type neighbour-solicitation -j ACCEPT
-      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type neighbour-solicitation -j ACCEPT
-      ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type neighbour-advertisement -j ACCEPT
-      ip6tables -A INPUT -p ipv6-icmp --icmpv6-type neighbour-advertisement -j ACCEPT
+          # 5. Printer (Brother MFC-7360N) - IPP/CUPS and Raw Printing
+          ip saddr ${localNetwork.printerIP} tcp sport 631 accept
 
-      # 5. Alles andere blockieren (Logging für Debugging)
-      ip6tables -A INPUT -m limit --limit 1/min -j LOG --log-prefix "ip6-blocked-in: " --log-level 4
-      ip6tables -A OUTPUT -m limit --limit 1/min -j LOG --log-prefix "ip6-blocked-out: " --log-level 4
-    '';
+          # 6. Syncthing - Local network
+          ip saddr ${localNetwork.subnet} tcp dport ${toString syncthingPorts.tcp} accept
+          ip saddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.quic} accept
+          ip saddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.discovery} accept
 
-    extraStopCommands = ''
-      # IPv4 aufräumen
-      iptables -P INPUT ACCEPT
-      iptables -P OUTPUT ACCEPT
-      iptables -F INPUT
-      iptables -F OUTPUT
-      
-      # IPv6 aufräumen
-      ip6tables -P INPUT ACCEPT
-      ip6tables -P OUTPUT ACCEPT
-      ip6tables -P FORWARD ACCEPT
-      ip6tables -F INPUT
-      ip6tables -F OUTPUT
-      ip6tables -F FORWARD
+          # 7. Syncthing - Over VPN interfaces
+          iifname "proton0" tcp dport ${toString syncthingPorts.tcp} accept
+          iifname "tun*" tcp dport ${toString syncthingPorts.tcp} accept
+          iifname "wg*" tcp dport ${toString syncthingPorts.tcp} accept
+          iifname "proton0" udp dport ${toString syncthingPorts.quic} accept
+          iifname "tun*" udp dport ${toString syncthingPorts.quic} accept
+          iifname "wg*" udp dport ${toString syncthingPorts.quic} accept
+
+          # 8. Port-scan detection
+          update @portscan { ip saddr limit rate over 10/minute } drop
+
+          # 9. Logging dropped packets (rate limited)
+          limit rate 1/minute burst 3 packets log prefix "FW-DROP-IN: " level info
+        }
+
+        # OUTPUT CHAIN
+        chain output {
+          type filter hook output priority filter; policy drop;
+
+          # 1. Loopback traffic
+          oif lo accept
+
+          # 2. Established/Related connections
+          ct state established,related accept
+
+          # 3. VPN interfaces - allow ALL traffic
+          oifname "proton0" accept
+          oifname "tun*" accept
+          oifname "wg*" accept
+
+          # 4. VPN connection establishment (physical interface)
+          udp dport ${toString vpnPorts.wireguard} accept
+          udp dport ${toString vpnPorts.wireguardAlt1} accept
+          udp dport ${toString vpnPorts.wireguardAlt2} accept
+          udp dport ${toString vpnPorts.openvpn} accept
+          tcp dport ${toString vpnPorts.https} accept
+          udp dport ${toString vpnPorts.https} accept
+          udp dport ${toString vpnPorts.ikev2} accept
+          udp dport ${toString vpnPorts.ikev2Nat} accept
+
+          # 5. DHCP requests (client:68 -> broadcast:67)
+          udp sport 68 udp dport 67 accept
+
+          # 6. DNS to systemd-resolved stub only
+          ip daddr ${dnsServers.stubListener} udp dport 53 accept
+          ip daddr ${dnsServers.stubListener} tcp dport 53 accept
+
+          # 7. DNS-over-TLS - Bootstrap phase (Quad9)
+          ip daddr 9.9.9.9 tcp dport 853 accept
+
+          # 8. DNS-over-TLS - VPN phase (Mullvad)
+          oifname "proton0" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
+          oifname "tun*" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
+          oifname "wg*" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
+
+          # 9. Block all other DNS-over-TLS (prevent leaks)
+          tcp dport 853 drop
+          udp dport 853 drop
+
+          # 10. mDNS for local discovery
+          ip daddr 224.0.0.251 udp dport 5353 accept
+
+          # 11. Printer access
+          ip daddr ${localNetwork.printerIP} tcp dport 631 accept
+          ip daddr ${localNetwork.printerIP} tcp dport 9100 accept
+
+          # 12. Syncthing - Local network only
+          ip daddr ${localNetwork.subnet} tcp dport ${toString syncthingPorts.tcp} accept
+          ip daddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.quic} accept
+          ip daddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.discovery} accept
+
+          # 13. Syncthing broadcast discovery
+          ip daddr 255.255.255.255 udp dport ${toString syncthingPorts.discovery} accept
+          ip daddr 192.168.178.255 udp dport ${toString syncthingPorts.discovery} accept
+
+          # 14. Logging dropped packets (rate limited)
+          limit rate 1/minute burst 3 packets log prefix "FW-DROP-OUT: " level info
+        }
+
+        # FORWARD CHAIN
+        chain forward {
+          type filter hook forward priority filter; policy drop;
+
+          # Log and block all forwarding (this machine is not a router)
+          limit rate 1/minute burst 3 packets log prefix "FW-FORWARD-BLOCKED: " level info
+        }
+      }
+
+      # ==========================================
+      # IPv6 FIREWALL TABLE
+      # ==========================================
+      table ip6 filter {
+        # INPUT CHAIN
+        chain input {
+          type filter hook input priority filter; policy drop;
+
+          # 1. Loopback traffic
+          iif lo accept
+
+          # 2. Established/Related connections
+          ct state established,related accept
+
+          # 3. ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
+          icmpv6 type { nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept
+
+          # 4. Logging dropped packets
+          limit rate 1/minute burst 3 packets log prefix "ip6-blocked-in: " level info
+        }
+
+        # OUTPUT CHAIN
+        chain output {
+          type filter hook output priority filter; policy drop;
+
+          # 1. Loopback traffic
+          oif lo accept
+
+          # 2. Established/Related connections
+          ct state established,related accept
+
+          # 3. ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
+          icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept
+
+          # 4. Logging dropped packets
+          limit rate 1/minute burst 3 packets log prefix "ip6-blocked-out: " level info
+        }
+
+        # FORWARD CHAIN
+        chain forward {
+          type filter hook forward priority filter; policy drop;
+        }
+      }
     '';
   };
 
