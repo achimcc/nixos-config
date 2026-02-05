@@ -70,20 +70,6 @@ in
     startLimitIntervalSec = 120;
 
     serviceConfig = {
-      # Validate network interface is ready before starting firewall
-      ExecStartPre = pkgs.writeShellScript "firewall-pre-check" ''
-        # Wait for network interface with IP (max 30s)
-        for i in $(seq 1 30); do
-          if ${pkgs.iproute2}/bin/ip addr show | grep -q "inet.*192.168"; then
-            echo "✓ Network interface ready"
-            exit 0
-          fi
-          sleep 1
-        done
-        echo "⚠ Network interface not ready after 30s, proceeding anyway"
-        exit 0
-      '';
-
       # Restart policy for firewall
       Restart = "on-failure";
       RestartSec = "5s";
@@ -136,7 +122,11 @@ in
       iptables -A OUTPUT -p udp --dport ${toString vpnPorts.ikev2Nat} -j ACCEPT
       
       # 6. DHCP erlauben (Sonst keine Verbindung zum WLAN)
-      iptables -A OUTPUT -p udp --dport 67:68 -j ACCEPT
+      # CRITICAL: DHCP uses broadcast, must be very early in rules
+      # Client sends: 0.0.0.0:68 -> 255.255.255.255:67 (DHCP Discover/Request)
+      # Server responds: router:67 -> client:68 (DHCP Offer/Ack)
+      iptables -A OUTPUT -p udp --sport 68 --dport 67 -j ACCEPT  # DHCP requests
+      iptables -A INPUT -p udp --sport 67 --dport 68 -j ACCEPT   # DHCP responses
       
       # 7. DNS NUR über systemd-resolved (${dnsServers.stubListener}) - verhindert DNS-Leaks
       iptables -A OUTPUT -p udp --dport 53 -d ${dnsServers.stubListener} -j ACCEPT
@@ -159,9 +149,7 @@ in
       # 9. Lokales Netzwerk - MAXIMALE RESTRIKTION (nur explizit benötigte Dienste)
       #
       # Router-Zugriff (Gateway) - NUR benötigte Ports
-      # DHCP (UDP 67-68) für IP-Lease
-      iptables -A INPUT -s ${localNetwork.gateway} -p udp --sport 67:68 -j ACCEPT
-      iptables -A OUTPUT -d ${localNetwork.gateway} -p udp --dport 67:68 -j ACCEPT
+      # NOTE: DHCP rules are already defined in section 6 (uses broadcast, not gateway-specific)
 
       # Router Web-Interface (optional, auskommentiert für mehr Sicherheit)
       # iptables -A OUTPUT -d ${localNetwork.gateway} -p tcp --dport 80 -j ACCEPT
