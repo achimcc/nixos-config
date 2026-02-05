@@ -80,7 +80,31 @@
 
       # Starte WireGuard mit der sops-generierten Konfiguration
       ExecStart = "${pkgs.wireguard-tools}/bin/wg-quick up ${config.sops.templates."wireguard-proton0.conf".path}";
+
+      # Policy Routing: Route ALL traffic through VPN
+      # Must be done AFTER wg-quick up (which creates table 51820 routes)
+      ExecStartPost = pkgs.writeShellScript "vpn-policy-routing" ''
+        # Wait for interface to be fully up
+        sleep 1
+
+        # Add policy routing rules to direct all traffic through VPN
+        # Priority 100: All traffic (except VPN endpoint) goes through table 51820
+        ${pkgs.iproute2}/bin/ip rule add not fwmark 51820 table 51820 priority 100 2>/dev/null || true
+
+        # Priority 101: Suppress default route in main table (prevents leak)
+        ${pkgs.iproute2}/bin/ip rule add table main suppress_prefixlength 0 priority 101 2>/dev/null || true
+
+        echo "✓ VPN policy routing active"
+      '';
+
       ExecStop = "${pkgs.wireguard-tools}/bin/wg-quick down ${config.sops.templates."wireguard-proton0.conf".path}";
+
+      # Cleanup policy routing rules on stop
+      ExecStopPost = pkgs.writeShellScript "vpn-policy-routing-cleanup" ''
+        ${pkgs.iproute2}/bin/ip rule del not fwmark 51820 table 51820 priority 100 2>/dev/null || true
+        ${pkgs.iproute2}/bin/ip rule del table main suppress_prefixlength 0 priority 101 2>/dev/null || true
+        echo "✓ VPN policy routing removed"
+      '';
 
       # Aggressiver Neustart bei Fehlern (VPN Kill Switch erfordert aktives VPN!)
       Restart = "on-failure";
@@ -161,7 +185,9 @@
         fi
 
         # Check 3: Interface UP
-        if ! ${pkgs.iproute2}/bin/ip link show "$INTERFACE" | grep -q "state UP"; then
+        # Note: WireGuard point-to-point interfaces show "state UNKNOWN" not "state UP"
+        # Check for UP flag in interface flags instead of state field
+        if ! ${pkgs.iproute2}/bin/ip link show "$INTERFACE" | grep -q "<.*UP.*>"; then
           failures=$(increment_failures)
           send_alert "Interface DOWN! (Failure $failures/$MAX_FAILURES)"
 
