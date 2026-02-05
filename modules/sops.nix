@@ -113,6 +113,9 @@
         Address = 10.2.0.2/32
         # Table = 51820 statt "auto" vermeidet iptables-restore (nftables-Konflikt)
         Table = 51820
+        # Policy routing: Leite allen Traffic durch VPN-Tabelle
+        PostUp = ip rule add not fwmark 51820 table 51820 priority 100
+        PreDown = ip rule del not fwmark 51820 table 51820 priority 100
 
         [Peer]
         PublicKey = ${config.sops.placeholder."protonvpn/publickey"}
