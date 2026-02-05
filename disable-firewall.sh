@@ -96,8 +96,13 @@ done
 # ============================================================================
 log_section "3️⃣  Setze Firewall-Regeln zurück..."
 
-# IPv4 iptables
-log_info "Resette IPv4 iptables..."
+# nftables - flush all rulesets and tables
+log_info "Resette nftables..."
+nft flush ruleset 2>/dev/null || true
+log_success "nftables Firewall deaktiviert"
+
+# Legacy iptables cleanup (in case old rules exist)
+log_info "Bereinige eventuelle legacy iptables-Regeln..."
 iptables -F INPUT 2>/dev/null || true
 iptables -F OUTPUT 2>/dev/null || true
 iptables -F FORWARD 2>/dev/null || true
@@ -108,13 +113,10 @@ iptables -t mangle -F 2>/dev/null || true
 iptables -t mangle -X 2>/dev/null || true
 iptables -t raw -F 2>/dev/null || true
 iptables -t raw -X 2>/dev/null || true
-iptables -P INPUT ACCEPT
-iptables -P OUTPUT ACCEPT
-iptables -P FORWARD ACCEPT
-log_success "IPv4 Firewall deaktiviert"
+iptables -P INPUT ACCEPT 2>/dev/null || true
+iptables -P OUTPUT ACCEPT 2>/dev/null || true
+iptables -P FORWARD ACCEPT 2>/dev/null || true
 
-# IPv6 ip6tables
-log_info "Resette IPv6 ip6tables..."
 ip6tables -F INPUT 2>/dev/null || true
 ip6tables -F OUTPUT 2>/dev/null || true
 ip6tables -F FORWARD 2>/dev/null || true
@@ -123,10 +125,10 @@ ip6tables -t nat -F 2>/dev/null || true
 ip6tables -t nat -X 2>/dev/null || true
 ip6tables -t mangle -F 2>/dev/null || true
 ip6tables -t mangle -X 2>/dev/null || true
-ip6tables -P INPUT ACCEPT
-ip6tables -P OUTPUT ACCEPT
-ip6tables -P FORWARD ACCEPT
-log_success "IPv6 Firewall deaktiviert"
+ip6tables -P INPUT ACCEPT 2>/dev/null || true
+ip6tables -P OUTPUT ACCEPT 2>/dev/null || true
+ip6tables -P FORWARD ACCEPT 2>/dev/null || true
+log_success "Legacy iptables bereinigt"
 
 # ============================================================================
 # 4. Policy-Routing-Regeln bereinigen
