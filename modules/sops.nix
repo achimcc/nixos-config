@@ -112,6 +112,7 @@
         PrivateKey = ${config.sops.placeholder."wireguard-private-key"}
         Address = 10.2.0.2/32
         # Table = 51820 statt "auto" vermeidet iptables-restore (nftables-Konflikt)
+        # Policy routing rules are handled in systemd service ExecStartPost
         Table = 51820
 
         [Peer]
