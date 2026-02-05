@@ -31,8 +31,7 @@
       # App-Layer Protokoll-Erkennung
       app-layer.protocols = {
         modbus = {
-          enabled = true;
-          detection-enabled = true;
+          enabled = "detection-only";
         };
       };
 
