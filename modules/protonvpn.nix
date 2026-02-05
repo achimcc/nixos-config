@@ -49,6 +49,10 @@
     # Vor dem Display Manager starten
     before = [ "display-manager.service" ];
 
+    # Unit-level restart limits
+    startLimitBurst = 5;
+    startLimitIntervalSec = 300;
+
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -78,8 +82,6 @@
       # Aggressiver Neustart bei Fehlern (VPN Kill Switch erfordert aktives VPN!)
       Restart = "on-failure";
       RestartSec = "5s";
-      StartLimitBurst = 5;         # Reduziert von 10 auf 5
-      StartLimitIntervalSec = 300; # In 5 Minuten
     };
 
     # Post-Up Logging

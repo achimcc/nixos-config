@@ -65,6 +65,10 @@ in
     wants = lib.mkAfter [ "network-online.target" ];
     before = lib.mkBefore [ "wg-quick-proton0.service" ];
 
+    # Unit-level restart limits
+    startLimitBurst = 3;
+    startLimitIntervalSec = 120;
+
     serviceConfig = {
       # Validate network interface is ready before starting firewall
       ExecStartPre = pkgs.writeShellScript "firewall-pre-check" ''
@@ -83,8 +87,6 @@ in
       # Restart policy for firewall
       Restart = "on-failure";
       RestartSec = "5s";
-      StartLimitBurst = 3;
-      StartLimitIntervalSec = 120;
     };
   };
 
@@ -273,15 +275,14 @@ in
   # VPN interfaces: loose filtering (WireGuard requirement)
 
   boot.kernel.sysctl = {
-    # Default: loose for new interfaces
-    "net.ipv4.conf.default.rp_filter" = 2;
-    # Use per-interface settings
-    "net.ipv4.conf.all.rp_filter" = 0;
+    # WICHTIG: all.rp_filter muss gesetzt werden, aber nicht auf 0!
+    # all.rp_filter = max(conf.all, conf.interface) - wir setzen auf loose (2)
+    # Dann können einzelne Interfaces auf strict (1) gesetzt werden
+    "net.ipv4.conf.all.rp_filter" = 2;       # loose (für VPN)
+    "net.ipv4.conf.default.rp_filter" = 2;   # loose für neue interfaces
 
-    # Physical interface: strict (if name is stable)
-    "net.ipv4.conf.wlp0s20f3.rp_filter" = 1;  # WiFi
-
-    # VPN interface: loose (required for WireGuard)
-    "net.ipv4.conf.proton0.rp_filter" = 2;
+    # Physical interface: strict (bessere Security)
+    # PROBLEM: Interface-Name könnte sich ändern, daher auskommentiert
+    # "net.ipv4.conf.wlp0s20f3.rp_filter" = 1;
   };
 }
