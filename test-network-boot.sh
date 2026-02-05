@@ -24,7 +24,7 @@ else
 fi
 
 echo -n "Test 1b: nftables rules loaded... "
-if nft list table inet filter 2>/dev/null | grep -q "policy drop"; then
+if sudo nft list table inet filter 2>/dev/null | grep -q "policy drop"; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC} nftables rules not loaded!"
