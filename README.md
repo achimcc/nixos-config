@@ -108,7 +108,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - **ClamAV**: Echtzeit-Antivirus mit aktiver Prävention (`OnAccessPrevention = yes`)
 - **Fail2Ban**: Schutz gegen Brute-Force (exponentieller Backoff, max 48h)
 - **AIDE**: File Integrity Monitoring für kritische Systemdateien
-- **unhide/chkrootkit**: Rootkit-Erkennung (wöchentliche Scans)
+- **unhide**: Rootkit-Erkennung (wöchentliche Scans für versteckte Prozesse)
 - **Audit Framework**: Überwachung von sudo, su, Passwort-Änderungen, SSH-Config
 
 ### Intrusion Detection & Monitoring

@@ -203,7 +203,6 @@
   environment.systemPackages = with pkgs; [
     usbguard
     aide
-    chkrootkit
     unhide      # Findet versteckte Prozesse/Ports (Rootkit-Erkennung)
 
     # Bitwarden Desktop Polkit-Action (NixOS-Paketierung installiert diese nicht)
@@ -347,7 +346,7 @@
   };
 
   # ==========================================
-  # ROOTKIT-ERKENNUNG (unhide & chkrootkit)
+  # ROOTKIT-ERKENNUNG (unhide)
   # ==========================================
 
   # unhide - Findet versteckte Prozesse und Ports (Rootkit-Indikator)
@@ -395,29 +394,6 @@
       OnCalendar = "Sun *-*-* 05:15:00";
       Persistent = true;
       RandomizedDelaySec = "30min";
-    };
-  };
-
-  # chkrootkit Scan-Service
-  systemd.services.chkrootkit-check = {
-    description = "chkrootkit Rootkit Scanner";
-    path = [ pkgs.chkrootkit ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${pkgs.chkrootkit}/bin/chkrootkit";
-      StandardOutput = "journal";
-      StandardError = "journal";
-    };
-  };
-
-  # Wöchentlicher chkrootkit Scan (Sonntag 05:30)
-  systemd.timers.chkrootkit-check = {
-    description = "Weekly chkrootkit Rootkit Scan";
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "Sun *-*-* 05:30:00";
-      Persistent = true;
-      RandomizedDelaySec = "1h";
     };
   };
 
