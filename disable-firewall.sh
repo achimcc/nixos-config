@@ -129,9 +129,63 @@ ip6tables -P FORWARD ACCEPT
 log_success "IPv6 Firewall deaktiviert"
 
 # ============================================================================
-# 4. Netzwerk-Routing prüfen
+# 4. Policy-Routing-Regeln bereinigen
 # ============================================================================
-log_section "4️⃣  Prüfe Netzwerk-Routing..."
+log_section "4️⃣  Bereinige Policy-Routing-Regeln..."
+
+# Liste alle Policy-Routing-Regeln auf
+log_info "Aktuelle Policy-Routing-Regeln:"
+ip rule show | grep -v "^0:" | grep -v "^32766:" | grep -v "^32767:" || log_info "Keine benutzerdefinierten Regeln gefunden"
+
+# Entferne alle Regeln, die auf VPN-Tabellen (z.B. 51820) verweisen
+log_info "Entferne VPN-Policy-Routing-Regeln..."
+removed_count=0
+while ip rule show | grep -q "lookup 51820"; do
+    ip rule del table 51820 2>/dev/null && ((removed_count++)) || break
+done
+
+if [ $removed_count -gt 0 ]; then
+    log_success "$removed_count VPN-Policy-Routing-Regel(n) entfernt"
+else
+    log_info "Keine VPN-Policy-Routing-Regeln gefunden"
+fi
+
+# Entferne alle fwmark-basierten Regeln
+log_info "Entferne fwmark-basierte Routing-Regeln..."
+removed_fwmark=0
+while ip rule show | grep -q "fwmark"; do
+    # Extrahiere die Priority der Regel und lösche sie
+    PRIORITY=$(ip rule show | grep "fwmark" | head -1 | grep -oP 'lookup \d+' | awk '{print $2}')
+    if [ -n "$PRIORITY" ]; then
+        ip rule del table "$PRIORITY" 2>/dev/null && ((removed_fwmark++)) || break
+    else
+        break
+    fi
+done
+
+if [ $removed_fwmark -gt 0 ]; then
+    log_success "$removed_fwmark fwmark-Regel(n) entfernt"
+else
+    log_info "Keine fwmark-basierten Regeln gefunden"
+fi
+
+# Stelle sicher, dass Standard-Routing-Regeln vorhanden sind
+log_info "Prüfe Standard-Routing-Regeln..."
+if ! ip rule show | grep -q "^0:"; then
+    ip rule add priority 0 from all lookup local 2>/dev/null || true
+fi
+if ! ip rule show | grep -q "^32766:"; then
+    ip rule add priority 32766 from all lookup main 2>/dev/null || true
+fi
+if ! ip rule show | grep -q "^32767:"; then
+    ip rule add priority 32767 from all lookup default 2>/dev/null || true
+fi
+log_success "Standard-Routing-Regeln überprüft"
+
+# ============================================================================
+# 5. Netzwerk-Routing prüfen
+# ============================================================================
+log_section "5️⃣  Prüfe Netzwerk-Routing..."
 
 # Dynamisch WiFi-Interface erkennen
 WIFI_IFACE=$(ip link show | grep -E "^\s*[0-9]+:\s*(wlp|wlan)" | head -1 | cut -d: -f2 | tr -d ' ')
@@ -164,9 +218,9 @@ else
 fi
 
 # ============================================================================
-# 5. NetworkManager neu starten (optional)
+# 6. NetworkManager neu starten (optional)
 # ============================================================================
-log_section "5️⃣  NetworkManager neu starten?"
+log_section "6️⃣  NetworkManager neu starten?"
 
 read -p "NetworkManager neu starten? (j/N): " -n 1 -r
 echo
@@ -180,9 +234,9 @@ else
 fi
 
 # ============================================================================
-# 6. DNS-Konfiguration prüfen
+# 7. DNS-Konfiguration prüfen
 # ============================================================================
-log_section "6️⃣  Prüfe DNS-Konfiguration..."
+log_section "7️⃣  Prüfe DNS-Konfiguration..."
 
 if systemctl is-active --quiet systemd-resolved; then
     log_success "systemd-resolved läuft"
@@ -192,9 +246,9 @@ else
 fi
 
 # ============================================================================
-# 7. Verbindungstest
+# 8. Verbindungstest
 # ============================================================================
-log_section "7️⃣  Teste Internetverbindung..."
+log_section "8️⃣  Teste Internetverbindung..."
 
 # Test 1: Ping
 if ping -c 2 -W 3 1.1.1.1 &>/dev/null; then
