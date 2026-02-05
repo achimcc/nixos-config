@@ -57,10 +57,10 @@
       Type = "oneshot";
       RemainAfterExit = true;
 
-      # CRITICAL: Validate firewall is active before starting VPN
+      # Validate firewall is active before starting VPN (non-blocking check)
       ExecStartPre = pkgs.writeShellScript "vpn-pre-check" ''
-        # Wait for firewall to be active (max 60s)
-        for i in $(seq 1 60); do
+        # Wait for firewall to be active (max 30s)
+        for i in $(seq 1 30); do
           if systemctl is-active --quiet firewall.service; then
             # Verify firewall rules are loaded (DROP policy active)
             if ${pkgs.iptables}/bin/iptables -L OUTPUT -n | grep -q "DROP"; then
@@ -71,8 +71,11 @@
           sleep 1
         done
 
-        echo "✗ ERROR: Firewall not active after 60s"
-        exit 1  # FAIL - do not start VPN without kill switch
+        # WARNING: Proceed anyway to avoid boot lockup
+        # The VPN watchdog will monitor and alert if firewall fails later
+        echo "⚠ WARNING: Firewall not active after 30s - proceeding anyway"
+        echo "⚠ VPN Watchdog will monitor firewall status"
+        exit 0  # Do not block system boot
       '';
 
       # Starte WireGuard mit der sops-generierten Konfiguration
@@ -80,7 +83,7 @@
       ExecStop = "${pkgs.wireguard-tools}/bin/wg-quick down ${config.sops.templates."wireguard-proton0.conf".path}";
 
       # Aggressiver Neustart bei Fehlern (VPN Kill Switch erfordert aktives VPN!)
-      Restart = "always"; # Restart even on clean stops (e.g., when firewall restarts)
+      Restart = "on-failure";
       RestartSec = "5s";
     };
 
