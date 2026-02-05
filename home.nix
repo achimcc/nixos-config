@@ -137,11 +137,20 @@ in
     ripgrep # rg - schnelle Suche, ersetzt grep
     bat # Syntax-Highlighting cat
     eza # Modernes ls mit Icons und Git-Status
+    lsd # LSDeluxe - Alternative zu eza/ls mit Icons
     fd # Schnelles find mit intuitiver Syntax
     bottom # btm - grafischer Prozess-Monitor
-    xh # HTTP-Client mit JSON-Formatting
+    duf # Disk Usage/Free - Schöneres df
     dust # Visualisierte Festplattenbelegung
+    xh # HTTP-Client mit JSON-Formatting
     yazi # Terminal-Dateimanager mit Vorschau
+    tealdeer # tldr - Vereinfachte Man-Pages
+    tokei # Code-Statistiken (Lines of Code)
+    doggo # Moderner DNS-Client (dig-Ersatz)
+    fx # JSON Viewer/Explorer (interaktiv)
+    gum # Fancy Shell Script UI Components
+    viddy # Moderner watch-Befehl mit Diffs
+    # resterm # REST client - nicht in nixpkgs verfügbar
 
     # --- ENTWICKLER TOOLS ---
     wildcard # Regex-Tester (GNOME/libadwaita)

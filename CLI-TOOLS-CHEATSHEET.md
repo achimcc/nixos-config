@@ -190,6 +190,32 @@ eza -l --sort=size                    # Nach Größe
 eza --icons --group-directories-first # Ordner zuerst
 ```
 
+### lsd (LSDeluxe)
+
+Alternative zu `eza` und `ls` mit Icons und Farbcodierung.
+
+```bash
+# Basis-Nutzung
+lsd                                   # Einfache Auflistung
+lsd -l                                # Lange Liste
+lsd -la                               # Alle Dateien inkl. versteckte
+lsd -lA                               # Alle außer . und ..
+
+# Tree-Ansicht
+lsd --tree                            # Baum-Ansicht
+lsd --tree --depth 2                  # Baum bis Tiefe 2
+
+# Sortierung
+lsd -lt                               # Nach Zeit sortiert
+lsd -lS                               # Nach Größe sortiert
+lsd -lX                               # Nach Extension sortiert
+
+# Spezielle Ansichten
+lsd --group-directories-first         # Ordner zuerst
+lsd -l --total-size                   # Gesamtgröße anzeigen
+lsd --classic                         # Klassische ls-Ansicht
+```
+
 ### fd
 
 Schnelles und benutzerfreundliches `find`.
@@ -402,6 +428,60 @@ cargo nextest list                    # Tests auflisten
 
 **Rust Analyzer:** Automatisch in Neovim und VSCodium integriert.
 
+### tokei
+
+Code-Statistiken - zählt Lines of Code nach Sprachen.
+
+```bash
+# Basis-Nutzung
+tokei                                 # Aktuelles Verzeichnis
+tokei /pfad/zum/projekt               # Bestimmtes Verzeichnis
+tokei .                               # Current dir (explizit)
+
+# Ausgabeformate
+tokei --output json                   # JSON-Format
+tokei --output yaml                   # YAML-Format
+tokei --files                         # Einzelne Dateien anzeigen
+tokei --sort lines                    # Nach Zeilen sortieren
+tokei --sort code                     # Nach Code-Zeilen sortieren
+
+# Filter
+tokei -t Rust                         # Nur Rust-Dateien
+tokei -t Rust,Python,JavaScript       # Mehrere Sprachen
+tokei -e tests/                       # Verzeichnis ausschließen
+tokei --exclude "*.min.js"            # Pattern ausschließen
+
+# Detaillierte Statistiken
+tokei --verbose                       # Verbose-Ausgabe
+tokei --compact                       # Kompakte Ansicht
+```
+
+### fx
+
+Interaktiver JSON Viewer und Explorer.
+
+```bash
+# JSON anzeigen
+fx data.json                          # JSON-Datei öffnen
+echo '{"key":"value"}' | fx           # Von Stdin
+
+# Filtering mit JavaScript
+fx data.json 'this.users'             # Pfad extrahieren
+fx data.json 'this.users[0].name'     # Verschachtelter Zugriff
+fx data.json 'this.filter(x => x.age > 18)' # Filtern
+
+# Interaktive Nutzung
+# Nach dem Öffnen:
+# .         - Navigation durch JSON
+# /         - Suchen
+# q         - Beenden
+# y         - Pfad kopieren
+
+# Mit anderen Tools
+curl api.example.com/data | fx        # API-Response inspizieren
+cat large.json | fx '.data[] | .name' # Daten extrahieren
+```
+
 ### Node.js & npm
 
 ```bash
@@ -532,6 +612,37 @@ sudo systemctl status protonvpn       # Service-Status
 sudo systemctl restart protonvpn      # Neu verbinden
 ```
 
+### doggo
+
+Moderner DNS-Client (Alternative zu `dig`).
+
+```bash
+# Einfache Abfragen
+doggo example.com                     # A-Record (Standard)
+doggo example.com A                   # A-Record (explizit)
+doggo example.com AAAA                # IPv6-Adresse
+doggo example.com MX                  # Mail-Server
+doggo example.com TXT                 # TXT-Records
+doggo example.com NS                  # Nameserver
+
+# DNS-Server wählen
+doggo example.com @1.1.1.1            # Cloudflare DNS
+doggo example.com @8.8.8.8            # Google DNS
+doggo example.com @9.9.9.9            # Quad9 DNS
+
+# Ausgabeformat
+doggo example.com --json              # JSON-Output
+doggo example.com --short             # Nur Ergebnis
+doggo example.com --color=false       # Ohne Farbe
+doggo example.com --time              # Mit Antwortzeit
+
+# Erweiterte Optionen
+doggo example.com --reverse           # Reverse DNS
+doggo example.com --tcp               # TCP statt UDP
+doggo example.com --ndots=2           # Search domain
+doggo example.com ANY                 # Alle Records
+```
+
 ### Curl & Wget
 
 ```bash
@@ -655,11 +766,62 @@ htop                                  # Starten
 
 Siehe [Modern Unix Tools](#bottom-btm).
 
+### duf
+
+Modernes `df` mit schönerer Ausgabe.
+
+```bash
+# Basis-Nutzung
+duf                                   # Alle Dateisysteme
+duf /home                             # Bestimmtes Verzeichnis
+duf -only local                       # Nur lokale Dateisysteme
+
+# Sortierung
+duf --sort size                       # Nach Größe sortiert
+duf --sort used                       # Nach Belegung sortiert
+duf --sort filesystem                 # Nach Dateisystem sortiert
+
+# Filter
+duf --hide-special                    # Spezielle FS ausblenden
+duf --hide squashfs,tmpfs             # Bestimmte FS-Typen ausblenden
+duf --only ext4,btrfs                 # Nur bestimmte FS-Typen
+
+# Ausgabeformat
+duf --json                            # JSON-Format
+duf --theme light                     # Helles Theme
+duf --inodes                          # Inode-Nutzung anzeigen
+```
+
+### viddy
+
+Moderner `watch`-Befehl mit Diff-Anzeige.
+
+```bash
+# Basis-Nutzung
+viddy ls -la                          # Befehl überwachen
+viddy -n 1 date                       # Jede Sekunde aktualisieren
+viddy -d df -h                        # Mit Diff-Hervorhebung
+
+# Während viddy läuft
+# Space     - Pause
+# b         - Rückwärts durch History
+# f         - Vorwärts durch History
+# /         - Suchen
+# Ctrl+C    - Beenden
+
+# Erweiterte Optionen
+viddy -t "System Status" htop         # Titel setzen
+viddy --differences                   # Unterschiede hervorheben
+viddy --no-title                      # Ohne Titelzeile
+viddy -p                              # Präzise Zeitstempel
+```
+
 ### System Tools
 
 ```bash
 # Festplattenbelegung
 df -h                                 # Partitionen
+duf                                   # Modern (schönere Ausgabe)
 dust                                  # Visualisiert (Alias: du)
 baobab                                # GNOME GUI (Disk Usage Analyzer)
 
@@ -908,6 +1070,65 @@ crush "erkläre mir diesen Code"
 crush "schreibe einen Test für diese Funktion"
 ```
 
+### Dokumentation & Hilfe
+
+#### tealdeer (`tldr`)
+
+Vereinfachte Man-Pages mit praktischen Beispielen.
+
+```bash
+# Befehle nachschlagen
+tldr tar                              # Beispiele für tar
+tldr git-commit                       # Git-Befehle
+tldr rsync                            # rsync Beispiele
+
+# Cache verwalten
+tldr --update                         # Cache aktualisieren
+tldr --clear-cache                    # Cache löschen
+tldr --list                           # Alle verfügbaren Seiten
+
+# Plattform-spezifisch
+tldr -p linux tar                     # Linux-Version
+tldr -p osx tar                       # macOS-Version
+tldr -p windows cmd                   # Windows-Version
+
+# Ausgabe
+tldr --raw tar                        # Markdown-Format
+tldr --quiet tar                      # Keine Farben
+```
+
+### Shell-Scripting
+
+#### gum
+
+Fancy UI-Komponenten für Shell-Scripts.
+
+```bash
+# Input-Prompts
+gum input --placeholder "Name"        # Texteingabe
+gum input --password                  # Passwort-Eingabe
+gum write                             # Mehrzeilige Eingabe
+
+# Auswahl
+gum choose "Option 1" "Option 2" "Option 3"     # Single-Select
+gum choose --no-limit "A" "B" "C"     # Multi-Select
+gum filter < file.txt                 # Fuzzy-Filter
+
+# Bestätigung
+gum confirm "Fortfahren?" && echo "OK"          # Yes/No
+gum confirm --default=false "Sicher?"           # Default: No
+
+# Styling
+gum style "Text" --foreground 212     # Farbiger Text
+gum style "Header" --bold --border double       # Mit Border
+gum spin --spinner dot --title "Loading..." -- sleep 3  # Spinner
+
+# Komplexes Beispiel
+NAME=$(gum input --placeholder "Name")
+EMAIL=$(gum input --placeholder "E-Mail")
+gum confirm "Daten korrekt?" && echo "Gespeichert: $NAME, $EMAIL"
+```
+
 ### Systemd Services
 
 ```bash
@@ -1038,9 +1259,10 @@ rg -t rust "fn main"                  # In Rust-Dateien
 
 **...Festplattenbelegung sehen:**
 ```bash
+duf                                   # Modern (schön formatiert)
 dust                                  # Visualisiert
 dust -d 3                             # Max Tiefe 3
-df -h                                 # Partitionen
+df -h                                 # Partitionen (klassisch)
 ```
 
 **...Prozesse überwachen:**
@@ -1077,6 +1299,32 @@ nrs                                   # nixos-rebuild switch
 **...einen TOTP-Code holen:**
 ```bash
 totp-posteo                           # Nitrokey → Clipboard
+```
+
+**...DNS abfragen:**
+```bash
+doggo example.com                     # Modern (schön formatiert)
+doggo example.com MX                  # Mail-Server
+doggo example.com @1.1.1.1            # Mit bestimmtem DNS-Server
+```
+
+**...Code-Statistiken sehen:**
+```bash
+tokei                                 # Lines of Code
+tokei --files                         # Pro Datei
+tokei -t Rust                         # Nur Rust
+```
+
+**...JSON inspizieren:**
+```bash
+cat data.json | fx                    # Interaktiver Viewer
+fx data.json 'this.users'             # Filtern
+```
+
+**...einen Befehl überwachen:**
+```bash
+viddy ls -la                          # Mit Diff-Anzeige
+viddy -n 1 date                       # Jede Sekunde
 ```
 
 ---
