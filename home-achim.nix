@@ -472,6 +472,10 @@ in
         identityFile = "~/.ssh/id_ed25519_sk";
         identitiesOnly = true;
       };
+      "rusty-vault.de" = {
+        identityFile = "~/.ssh/hetzner-vps";
+        identitiesOnly = true;
+      };
     };
   };
 
