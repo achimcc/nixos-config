@@ -166,7 +166,8 @@
   };
 
   # Lade uhid-Modul für Bluetooth HID-Geräte (Mäuse, Tastaturen)
-  boot.kernelModules = [ "uhid" ];
+  # Lade exfat-Modul für externe SSDs/USB-Sticks
+  boot.kernelModules = [ "uhid" "exfat" ];
 
   # ==========================================
   # DRUCKER (Brother MFC-7360N im Netzwerk)
