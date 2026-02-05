@@ -94,15 +94,14 @@
 
     # Quad9 DNS-over-TLS (Non-Profit, Schweizer Recht, Malware-Blocking)
     # https://www.quad9.net/service/service-addresses-and-features
-    extraConfig = ''
-      DNS=9.9.9.9#dns.quad9.net
-      # Fallback explizit deaktivieren
-      FallbackDNS=
-      # DNS-Anfragen nur über spezifizierten Server
-      DNSStubListener=yes
-      # DNS-Cache auf Minimum (verhindert Stale Entries)
-      Cache=no-negative
-    '';
+    settings = {
+      Resolve = {
+        DNS = "9.9.9.9#dns.quad9.net";
+        FallbackDNS = "";
+        DNSStubListener = "yes";
+        Cache = "no-negative";
+      };
+    };
   };
 
 
