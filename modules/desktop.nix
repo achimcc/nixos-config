@@ -9,10 +9,7 @@
   # ==========================================
 
   services.xserver = {
-    enable = true; # Nötig für GDM/GNOME-Infrastruktur + XWayland-Kompatibilität
-    displayManager.gdm.enable = true;
-    displayManager.gdm.wayland = true;
-    desktopManager.gnome.enable = true;
+    enable = true; # Nötig für XWayland-Kompatibilität
 
     # Tastaturlayout
     xkb = {
@@ -20,6 +17,15 @@
       variant = "";
     };
   };
+
+  # Display Manager
+  services.displayManager.gdm = {
+    enable = true;
+    wayland = true;
+  };
+
+  # Desktop Manager
+  services.desktopManager.gnome.enable = true;
 
   # ==========================================
   # SWAY - ALTERNATIVE SESSION

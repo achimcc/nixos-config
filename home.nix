@@ -458,9 +458,11 @@ in
   # --- SSH ---
   programs.ssh = {
     enable = true;
-    # SSH-Keys automatisch zum Agent hinzufügen beim ersten Nutzen
-    addKeysToAgent = "yes";
     matchBlocks = {
+      # SSH-Keys automatisch zum Agent hinzufügen beim ersten Nutzen
+      "*" = {
+        addKeysToAgent = "yes";
+      };
       "github.com" = {
         identityFile = "~/.ssh/id_ed25519_sk";
         identitiesOnly = true;
@@ -481,13 +483,13 @@ in
   # --- GIT ---
   programs.git = {
     enable = true;
-    userName = "NixOS User";
-    userEmail = "user@posteo.de";
     signing = {
       key = "~/.ssh/id_ed25519_sk.pub";
       signByDefault = true;
     };
-    extraConfig = {
+    settings = {
+      user.name = "NixOS User";
+      user.email = "user@posteo.de";
       init.defaultBranch = "main";
       pull.rebase = true;
       # SSH-Signierung statt GPG
