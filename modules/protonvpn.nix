@@ -53,6 +53,24 @@
       Type = "oneshot";
       RemainAfterExit = true;
 
+      # CRITICAL: Validate firewall is active before starting VPN
+      ExecStartPre = pkgs.writeShellScript "vpn-pre-check" ''
+        # Wait for firewall to be active (max 60s)
+        for i in $(seq 1 60); do
+          if systemctl is-active --quiet firewall.service; then
+            # Verify firewall rules are loaded (DROP policy active)
+            if ${pkgs.iptables}/bin/iptables -L OUTPUT -n | grep -q "DROP"; then
+              echo "✓ Firewall active with DROP policy - safe to start VPN"
+              exit 0
+            fi
+          fi
+          sleep 1
+        done
+
+        echo "✗ ERROR: Firewall not active after 60s"
+        exit 1  # FAIL - do not start VPN without kill switch
+      '';
+
       # Starte WireGuard mit der sops-generierten Konfiguration
       ExecStart = "${pkgs.wireguard-tools}/bin/wg-quick up ${config.sops.templates."wireguard-proton0.conf".path}";
       ExecStop = "${pkgs.wireguard-tools}/bin/wg-quick down ${config.sops.templates."wireguard-proton0.conf".path}";
@@ -60,7 +78,7 @@
       # Aggressiver Neustart bei Fehlern (VPN Kill Switch erfordert aktives VPN!)
       Restart = "on-failure";
       RestartSec = "5s";
-      StartLimitBurst = 10;      # Erlaube 10 Neustarts
+      StartLimitBurst = 5;         # Reduziert von 10 auf 5
       StartLimitIntervalSec = 300; # In 5 Minuten
     };
 
@@ -72,49 +90,140 @@
   };
 
   # ==========================================
-  # VPN WATCHDOG (Auto-Restart bei Interface-Verlust)
+  # VPN WATCHDOG (Comprehensive Health Check)
   # ==========================================
 
-  # Watchdog Service: Prüft ob proton0 existiert und startet VPN neu wenn nicht
+  # Watchdog Service: Comprehensive 6-check VPN health monitoring
   systemd.services."vpn-watchdog" = {
-    description = "VPN Watchdog - Auto-restart if proton0 interface missing";
+    description = "VPN Watchdog - Comprehensive health check";
 
     serviceConfig = {
       Type = "oneshot";
       ExecStart = pkgs.writeShellScript "vpn-watchdog" ''
-        # Prüfe ob Firewall aktiv ist
+        set -euo pipefail
+
+        INTERFACE="proton0"
+        EXPECTED_IP_PREFIX="10.2.0"
+        CONNECTIVITY_HOST="1.1.1.1"
+        MAX_FAILURES=3
+        FAILURE_FILE="/var/run/vpn-watchdog-failures"
+
+        send_alert() {
+          local msg="$1"
+          echo "⚠ VPN WATCHDOG: $msg"
+
+          # Desktop notification
+          ${pkgs.sudo}/bin/sudo -u user DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+            ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=network-error \
+            "VPN Kill Switch Active" "$msg" 2>/dev/null || true
+
+          echo "$msg" | ${pkgs.systemd}/bin/systemd-cat -t vpn-watchdog -p warning
+        }
+
+        increment_failures() {
+          local count=0
+          [[ -f "$FAILURE_FILE" ]] && count=$(cat "$FAILURE_FILE")
+          count=$((count + 1))
+          echo "$count" > "$FAILURE_FILE"
+          echo "$count"
+        }
+
+        reset_failures() {
+          rm -f "$FAILURE_FILE"
+        }
+
+        get_failures() {
+          [[ -f "$FAILURE_FILE" ]] && cat "$FAILURE_FILE" || echo "0"
+        }
+
+        # Check 1: Firewall active
         if ! systemctl is-active --quiet firewall.service; then
-          echo "Firewall nicht aktiv, kein Watchdog nötig"
+          send_alert "Firewall not active! Aborting VPN checks."
           exit 0
         fi
 
-        # Prüfe ob proton0 Interface existiert
-        if ! ${pkgs.iproute2}/bin/ip link show proton0 &>/dev/null; then
-          echo "⚠ proton0 Interface fehlt! VPN Kill Switch aktiv aber kein VPN!"
+        # Check 2: Interface exists
+        if ! ${pkgs.iproute2}/bin/ip link show "$INTERFACE" &>/dev/null; then
+          failures=$(increment_failures)
+          send_alert "Interface missing! (Failure $failures/$MAX_FAILURES)"
 
-          # Prüfe ob wg-quick-proton0 Service läuft
-          if ! systemctl is-active --quiet wg-quick-proton0.service; then
-            echo "→ Starte wg-quick-proton0.service neu..."
-            systemctl start wg-quick-proton0.service
-          else
-            echo "→ Service läuft, aber Interface fehlt - Neustart..."
+          if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
+            echo "→ Restarting VPN..."
             systemctl restart wg-quick-proton0.service
+            reset_failures
           fi
-        else
-          echo "✓ proton0 Interface vorhanden"
+          exit 1
         fi
+
+        # Check 3: Interface UP
+        if ! ${pkgs.iproute2}/bin/ip link show "$INTERFACE" | grep -q "state UP"; then
+          failures=$(increment_failures)
+          send_alert "Interface DOWN! (Failure $failures/$MAX_FAILURES)"
+
+          if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
+            systemctl restart wg-quick-proton0.service
+            reset_failures
+          fi
+          exit 1
+        fi
+
+        # Check 4: IP address assigned
+        if ! ${pkgs.iproute2}/bin/ip addr show "$INTERFACE" | grep -q "inet $EXPECTED_IP_PREFIX"; then
+          failures=$(increment_failures)
+          send_alert "No valid IP address! (Failure $failures/$MAX_FAILURES)"
+
+          if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
+            systemctl restart wg-quick-proton0.service
+            reset_failures
+          fi
+          exit 1
+        fi
+
+        # Check 5: VPN routing table
+        if ! ${pkgs.iproute2}/bin/ip route show table 51820 | grep -q "default.*$INTERFACE"; then
+          failures=$(increment_failures)
+          send_alert "VPN routing table broken! (Failure $failures/$MAX_FAILURES)"
+
+          if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
+            systemctl restart wg-quick-proton0.service
+            reset_failures
+          fi
+          exit 1
+        fi
+
+        # Check 6: VPN connectivity
+        if ! ${pkgs.iputils}/bin/ping -c 1 -W 3 -I "$INTERFACE" "$CONNECTIVITY_HOST" &>/dev/null; then
+          failures=$(increment_failures)
+          send_alert "VPN connectivity failed! (Failure $failures/$MAX_FAILURES)"
+
+          if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
+            systemctl restart wg-quick-proton0.service
+            reset_failures
+          fi
+          exit 1
+        fi
+
+        # All checks passed
+        current_failures=$(get_failures)
+        if [[ "$current_failures" -gt 0 ]]; then
+          echo "✓ VPN recovered (was failing, now healthy)"
+          send_alert "VPN connection restored"
+        fi
+
+        reset_failures
+        echo "✓ VPN fully operational"
       '';
     };
   };
 
-  # Timer: Führt Watchdog alle 60 Sekunden aus
+  # Timer: Check VPN health every 30 seconds
   systemd.timers."vpn-watchdog" = {
-    description = "VPN Watchdog Timer - Check VPN every 60s";
+    description = "VPN Watchdog Timer";
     wantedBy = [ "timers.target" ];
 
     timerConfig = {
-      OnBootSec = "30s";        # Erste Prüfung 30s nach Boot
-      OnUnitActiveSec = "60s";  # Dann alle 60 Sekunden
+      OnBootSec = "15s";        # Start earlier (was 30s)
+      OnUnitActiveSec = "30s";  # Check every 30s (was 60s)
       Unit = "vpn-watchdog.service";
     };
   };

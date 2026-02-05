@@ -10,6 +10,7 @@
     ./modules/firewall.nix
     ./modules/firewall-zones.nix
     ./modules/protonvpn.nix
+    ./modules/dns-watchdog.nix
     ./modules/desktop.nix
     ./modules/audio.nix
     ./modules/power.nix

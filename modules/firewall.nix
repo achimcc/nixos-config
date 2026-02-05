@@ -15,6 +15,9 @@
 # 5. wg-quick-proton0.service (VPN verbinden)
 
 let
+  # VPN configuration
+  vpnRoutingTable = 51820;  # WireGuard routing table
+
   # VPN-Ports zentral definiert für einfache Wartung
   vpnPorts = {
     wireguard = 51820;
@@ -32,6 +35,19 @@ let
     quic = 22000;     # QUIC (UDP)
     discovery = 21027; # Lokale Discovery (UDP)
   };
+
+  # Local network configuration
+  localNetwork = {
+    subnet = "192.168.178.0/24";
+    gateway = "192.168.178.1";
+    printerIP = "192.168.178.28";
+  };
+
+  # DNS configuration
+  dnsServers = {
+    mullvad = "194.242.2.2";  # DNS-over-TLS
+    stubListener = "127.0.0.53";
+  };
 in
 {
   # ==========================================
@@ -45,14 +61,36 @@ in
   # anstatt den kompletten Service zu überschreiben.
 
   systemd.services.firewall = {
-    after = lib.mkAfter [ "NetworkManager.service" ];
+    after = lib.mkAfter [ "NetworkManager.service" "network-online.target" ];
     wants = lib.mkAfter [ "network-online.target" ];
     before = lib.mkBefore [ "wg-quick-proton0.service" ];
+
+    serviceConfig = {
+      # Validate network interface is ready before starting firewall
+      ExecStartPre = pkgs.writeShellScript "firewall-pre-check" ''
+        # Wait for network interface with IP (max 30s)
+        for i in $(seq 1 30); do
+          if ${pkgs.iproute2}/bin/ip addr show | grep -q "inet.*192.168"; then
+            echo "✓ Network interface ready"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "⚠ Network interface not ready after 30s, proceeding anyway"
+        exit 0
+      '';
+
+      # Restart policy for firewall
+      Restart = "on-failure";
+      RestartSec = "5s";
+      StartLimitBurst = 3;
+      StartLimitIntervalSec = 120;
+    };
   };
 
   networking.firewall = {
     enable = true;
-    checkReversePath = "loose"; # Wichtig für WireGuard/ProtonVPN
+    checkReversePath = false; # We'll set per-interface via sysctl
 
     extraCommands = ''
       # ==========================================
@@ -62,8 +100,10 @@ in
       # 1. Alles löschen & Standard auf DROP setzen
       iptables -F INPUT
       iptables -F OUTPUT
+      iptables -F FORWARD
       iptables -P INPUT DROP
       iptables -P OUTPUT DROP
+      iptables -P FORWARD DROP
       
       # 2. Loopback erlauben (Lokale Prozesse)
       iptables -A INPUT -i lo -j ACCEPT
@@ -96,15 +136,15 @@ in
       # 6. DHCP erlauben (Sonst keine Verbindung zum WLAN)
       iptables -A OUTPUT -p udp --dport 67:68 -j ACCEPT
       
-      # 7. DNS NUR über systemd-resolved (127.0.0.53) - verhindert DNS-Leaks
-      iptables -A OUTPUT -p udp --dport 53 -d 127.0.0.53 -j ACCEPT
-      iptables -A OUTPUT -p tcp --dport 53 -d 127.0.0.53 -j ACCEPT
+      # 7. DNS NUR über systemd-resolved (${dnsServers.stubListener}) - verhindert DNS-Leaks
+      iptables -A OUTPUT -p udp --dport 53 -d ${dnsServers.stubListener} -j ACCEPT
+      iptables -A OUTPUT -p tcp --dport 53 -d ${dnsServers.stubListener} -j ACCEPT
 
       # DNS-over-TLS (Port 853) NUR über VPN zu Mullvad DNS
       # WICHTIG: DNS-Anfragen gehen nur über verschlüsseltes VPN-Interface
-      iptables -A OUTPUT -o proton0 -p tcp --dport 853 -d 194.242.2.2 -j ACCEPT
-      iptables -A OUTPUT -o tun+ -p tcp --dport 853 -d 194.242.2.2 -j ACCEPT
-      iptables -A OUTPUT -o wg+ -p tcp --dport 853 -d 194.242.2.2 -j ACCEPT
+      iptables -A OUTPUT -o proton0 -p tcp --dport 853 -d ${dnsServers.mullvad} -j ACCEPT
+      iptables -A OUTPUT -o tun+ -p tcp --dport 853 -d ${dnsServers.mullvad} -j ACCEPT
+      iptables -A OUTPUT -o wg+ -p tcp --dport 853 -d ${dnsServers.mullvad} -j ACCEPT
 
       # Alle anderen DNS-over-TLS Verbindungen blockieren (verhindert DNS-Leaks)
       iptables -A OUTPUT -p tcp --dport 853 -j DROP
@@ -118,33 +158,33 @@ in
       #
       # Router-Zugriff (Gateway) - NUR benötigte Ports
       # DHCP (UDP 67-68) für IP-Lease
-      iptables -A INPUT -s 192.168.178.1 -p udp --sport 67:68 -j ACCEPT
-      iptables -A OUTPUT -d 192.168.178.1 -p udp --dport 67:68 -j ACCEPT
+      iptables -A INPUT -s ${localNetwork.gateway} -p udp --sport 67:68 -j ACCEPT
+      iptables -A OUTPUT -d ${localNetwork.gateway} -p udp --dport 67:68 -j ACCEPT
 
       # Router Web-Interface (optional, auskommentiert für mehr Sicherheit)
-      # iptables -A OUTPUT -d 192.168.178.1 -p tcp --dport 80 -j ACCEPT
-      # iptables -A OUTPUT -d 192.168.178.1 -p tcp --dport 443 -j ACCEPT
+      # iptables -A OUTPUT -d ${localNetwork.gateway} -p tcp --dport 80 -j ACCEPT
+      # iptables -A OUTPUT -d ${localNetwork.gateway} -p tcp --dport 443 -j ACCEPT
 
       # Drucker (Brother MFC-7360N) - IPP/CUPS Port 631
-      # IP-Adresse: 192.168.178.28 (via Avahi erkannt)
-      iptables -A INPUT -s 192.168.178.28 -p tcp --sport 631 -j ACCEPT
-      iptables -A OUTPUT -d 192.168.178.28 -p tcp --dport 631 -j ACCEPT
+      # IP-Adresse: ${localNetwork.printerIP} (via Avahi erkannt)
+      iptables -A INPUT -s ${localNetwork.printerIP} -p tcp --sport 631 -j ACCEPT
+      iptables -A OUTPUT -d ${localNetwork.printerIP} -p tcp --dport 631 -j ACCEPT
 
       # Brother-Drucker verwendet auch Raw-Printing (Port 9100)
-      iptables -A OUTPUT -d 192.168.178.28 -p tcp --dport 9100 -j ACCEPT
+      iptables -A OUTPUT -d ${localNetwork.printerIP} -p tcp --dport 9100 -j ACCEPT
 
       # ICMP (Ping) im lokalen Netz NUR für Debugging
       # Auskommentiert für mehr Sicherheit (verhindert Netzwerk-Scans)
-      # iptables -A INPUT -p icmp -s 192.168.178.0/24 -j ACCEPT
-      # iptables -A OUTPUT -p icmp -d 192.168.178.0/24 -j ACCEPT
+      # iptables -A INPUT -p icmp -s ${localNetwork.subnet} -j ACCEPT
+      # iptables -A OUTPUT -p icmp -d ${localNetwork.subnet} -j ACCEPT
 
       # Syncthing wird in Abschnitt 10 separat behandelt (bereits vorhanden)
 
       # 10. Syncthing - Lokales Netzwerk und über VPN
       # Eingehende Verbindungen für lokale Discovery und Datenübertragung
-      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -s 192.168.178.0/24 -j ACCEPT
-      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -s 192.168.178.0/24 -j ACCEPT
-      iptables -A INPUT -p udp --dport ${toString syncthingPorts.discovery} -s 192.168.178.0/24 -j ACCEPT
+      iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -s ${localNetwork.subnet} -j ACCEPT
+      iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -s ${localNetwork.subnet} -j ACCEPT
+      iptables -A INPUT -p udp --dport ${toString syncthingPorts.discovery} -s ${localNetwork.subnet} -j ACCEPT
       # Eingehende Verbindungen über VPN (für Relay-Verbindungen)
       iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i proton0 -j ACCEPT
       iptables -A INPUT -p tcp --dport ${toString syncthingPorts.tcp} -i tun+ -j ACCEPT
@@ -153,9 +193,9 @@ in
       iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i tun+ -j ACCEPT
       iptables -A INPUT -p udp --dport ${toString syncthingPorts.quic} -i wg+ -j ACCEPT
       # Ausgehende Verbindungen nur ins Heimnetzwerk
-      iptables -A OUTPUT -p tcp --dport ${toString syncthingPorts.tcp} -d 192.168.178.0/24 -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.quic} -d 192.168.178.0/24 -j ACCEPT
-      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 192.168.178.0/24 -j ACCEPT
+      iptables -A OUTPUT -p tcp --dport ${toString syncthingPorts.tcp} -d ${localNetwork.subnet} -j ACCEPT
+      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.quic} -d ${localNetwork.subnet} -j ACCEPT
+      iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d ${localNetwork.subnet} -j ACCEPT
       # Broadcast für lokale Discovery (Syncthing Announce)
       iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 255.255.255.255 -j ACCEPT
       iptables -A OUTPUT -p udp --dport ${toString syncthingPorts.discovery} -d 192.168.178.255 -j ACCEPT
@@ -176,6 +216,11 @@ in
       # verworfene Pakete geloggt werden (direkt vor implizitem DROP)
       iptables -A INPUT -m limit --limit 1/min --limit-burst 3 -j LOG --log-prefix "FW-DROP-IN: " --log-level 4
       iptables -A OUTPUT -m limit --limit 1/min --limit-burst 3 -j LOG --log-prefix "FW-DROP-OUT: " --log-level 4
+
+      # 13. FORWARD Chain - Explizit blockieren (Defense-in-Depth)
+      # Diese Maschine ist kein Router und sollte nichts forwarden
+      iptables -A FORWARD -m limit --limit 1/min --limit-burst 3 -j LOG --log-prefix "FW-FORWARD-BLOCKED: " --log-level 4
+      iptables -A FORWARD -j DROP
 
       # ==========================================
       # IPv6 REGELN - KOMPLETT BLOCKIERT (IPv6 ist deaktiviert)
@@ -219,5 +264,24 @@ in
       ip6tables -F OUTPUT
       ip6tables -F FORWARD
     '';
+  };
+
+  # ==========================================
+  # PER-INTERFACE REVERSE PATH FILTERING
+  # ==========================================
+  # Physical interfaces: strict filtering (security)
+  # VPN interfaces: loose filtering (WireGuard requirement)
+
+  boot.kernel.sysctl = {
+    # Default: loose for new interfaces
+    "net.ipv4.conf.default.rp_filter" = 2;
+    # Use per-interface settings
+    "net.ipv4.conf.all.rp_filter" = 0;
+
+    # Physical interface: strict (if name is stable)
+    "net.ipv4.conf.wlp0s20f3.rp_filter" = 1;  # WiFi
+
+    # VPN interface: loose (required for WireGuard)
+    "net.ipv4.conf.proton0.rp_filter" = 2;
   };
 }
