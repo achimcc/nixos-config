@@ -186,7 +186,6 @@ in
     rnote # Handschriftliche Notizen und Skizzen (GTK/libadwaita)
 
     # --- EDITOREN ---
-    zed-editor
     apostrophe # Markdown-Editor für GNOME
     # logseq - via Firejail in modules/network.nix
 

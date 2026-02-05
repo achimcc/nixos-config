@@ -24,7 +24,7 @@ A **security-hardened**, declarative NixOS configuration focused on privacy, ano
 | **NixOS Version** | 25.05 |
 | **Desktop** | GNOME (Wayland, GDM) |
 | **Shell** | Nushell + Starship + Modern Unix Tools |
-| **Editor** | Neovim (Rust IDE), VSCodium, Zed |
+| **Editor** | Neovim (Rust IDE), VSCodium |
 | **VPN** | ProtonVPN (WireGuard, Auto-Connect, Kill-Switch) |
 | **Encryption** | LUKS2 Full-Disk + FIDO2 + TPM 2.0 + Secure Boot |
 | **Secrets** | sops-nix (Age-encrypted) |
@@ -571,7 +571,6 @@ nrs  → sudo nixos-rebuild switch --flake ...#nixos
 
 - **Neovim**: Primary Editor (Rust IDE)
 - **VSCodium**: VS Code ohne Telemetrie (Firejail, 14 Extensions)
-- **Zed**: Modern Editor
 - **Wildcard**: Regex-Tester
 - **Elastic**: Spring-Animationen designen
 
