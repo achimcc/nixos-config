@@ -21,17 +21,32 @@
         #include <abstractions/p11-kit>
         #include <abstractions/ssl_certs>
 
-        # Nix store executables (read-only)
-        /nix/store/** r,
+        # Firejail wrapper (LibreWolf is launched via Firejail)
+        # Ux = Unconfined execution (Firejail provides its own sandboxing)
+        /run/wrappers/bin/firejail Ux,
+        /run/wrappers/wrappers.*/firejail Ux,
+        /dev/tty rw,
+        /run/current-system/sw/bin/bash ix,
+
+        # Nix store executables and libraries
+        # rix = read, inherit execute (allows running binaries like the actual librewolf binary)
+        # m = memory map (for shared libraries)
+        /nix/store/** rix,
+        /nix/store/** m,
 
         # Home directory (restricted)
         owner @{HOME}/.librewolf/** rw,
         owner @{HOME}/.cache/librewolf/** rw,
         owner @{HOME}/Downloads/** rw,
+        owner @{HOME}/.config/dconf/user rw,
 
         # Temporary files
         owner /tmp/** rw,
         owner /run/user/*/librewolf/** rw,
+        owner /run/user/*/dconf/user rwc,
+        owner /run/user/*/pulse/ rw,
+        /dev/shm/ r,
+        /dev/shm/** rw,
 
         # System files (read-only)
         /etc/hosts r,
@@ -40,13 +55,25 @@
         /etc/localtime r,
         /etc/mailcap r,
         /etc/mime.types r,
+        /etc/os-release r,
+        /etc/alsa/conf.d/ r,
+        /etc/alsa/** r,
         /usr/share/** r,
 
         # Proc/sys (minimal)
         @{PROC}/@{pid}/fd/ r,
         @{PROC}/@{pid}/mountinfo r,
         @{PROC}/@{pid}/stat r,
+        @{PROC}/@{pid}/task/*/stat r,
+        @{PROC}/@{pid}/cgroup r,
+        @{PROC}/@{pid}/oom_score_adj w,
         @{PROC}/sys/kernel/osrelease r,
+        /sys/devices/system/cpu/present r,
+        /sys/bus/pci/devices/ r,
+        /sys/bus/pci/devices/** r,
+
+        # Audio devices
+        /dev/snd/** rw,
 
         # Deny dangerous paths
         deny @{HOME}/.ssh/** rw,
@@ -89,8 +116,8 @@
         #include <abstractions/p11-kit>
         #include <abstractions/ssl_certs>
 
-        # Nix store
-        /nix/store/** r,
+        # Nix store executables and libraries (read + mmap)
+        /nix/store/** rm,
 
         # Thunderbird profile data
         owner @{HOME}/.thunderbird/** rw,
@@ -149,8 +176,15 @@
         #include <abstractions/dbus-session-strict>
         #include <abstractions/nameservice>
 
-        # Nix store
-        /nix/store/** r,
+        # Firejail wrapper (if VSCodium is launched via Firejail)
+        # Ux = Unconfined execution (Firejail provides its own sandboxing)
+        /run/wrappers/bin/firejail Ux,
+        /run/wrappers/wrappers.*/firejail Ux,
+        /dev/tty rw,
+        /run/current-system/sw/bin/bash ix,
+
+        # Nix store executables and libraries (read + mmap)
+        /nix/store/** rm,
 
         # VSCodium config and extensions
         owner @{HOME}/.config/VSCodium/** rw,
@@ -205,8 +239,8 @@
         #include <abstractions/nameservice>
         #include <abstractions/openssl>
 
-        # Nix store
-        /nix/store/** r,
+        # Nix store executables and libraries (read + mmap)
+        /nix/store/** rm,
 
         # Spotify config and cache
         owner @{HOME}/.config/spotify/** rw,
@@ -260,8 +294,8 @@
         #include <abstractions/nameservice>
         #include <abstractions/openssl>
 
-        # Nix store
-        /nix/store/** r,
+        # Nix store executables and libraries (read + mmap)
+        /nix/store/** rm,
 
         # Discord config
         owner @{HOME}/.config/discord/** rw,
