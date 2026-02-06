@@ -105,8 +105,8 @@ in
           # 3. DHCP responses (server:67 -> client:68) - only from gateway
           ip saddr ${localNetwork.gateway} udp sport 67 udp dport 68 accept
 
-          # 4. mDNS for local discovery (Avahi)
-          udp dport 5353 ip saddr 224.0.0.251 accept
+          # 4. mDNS for local discovery (Avahi) - rate limited
+          udp dport 5353 ip saddr 224.0.0.251 limit rate 100/minute accept
 
           # 5. Printer (Brother MFC-7360N) - IPP/CUPS and Raw Printing
           ip saddr ${localNetwork.printerIP} tcp sport 631 accept
@@ -177,8 +177,8 @@ in
           tcp dport 853 drop
           udp dport 853 drop
 
-          # 10. mDNS for local discovery
-          ip daddr 224.0.0.251 udp dport 5353 accept
+          # 10. mDNS for local discovery - rate limited
+          ip daddr 224.0.0.251 udp dport 5353 limit rate 100/minute accept
 
           # 11. Printer access
           ip daddr ${localNetwork.printerIP} tcp dport 631 accept
