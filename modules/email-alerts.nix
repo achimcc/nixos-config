@@ -48,7 +48,7 @@ in {
         port = 587;
         from = "user@posteo.de";
         user = "user@posteo.de";
-        passwordeval = "${pkgs.coreutils}/bin/cat ${config.sops.secrets."email/posteo/password".path}";
+        passwordeval = "${pkgs.coreutils}/bin/cat ${config.sops.secrets."email/posteo".path}";
       };
     };
   };
