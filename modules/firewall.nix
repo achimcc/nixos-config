@@ -222,8 +222,61 @@ in
     "net.ipv4.conf.all.rp_filter" = 2;       # loose (für VPN)
     "net.ipv4.conf.default.rp_filter" = 2;   # loose für neue interfaces
 
-    # Physical interface: strict (bessere Security)
-    # PROBLEM: Interface-Name könnte sich ändern, daher auskommentiert
-    # "net.ipv4.conf.wlp0s20f3.rp_filter" = 1;
+    # Per-Interface strict filtering wird dynamisch gesetzt (siehe rp-filter-setup.service)
+  };
+
+  # Dynamisches Per-Interface Reverse Path Filtering
+  systemd.services.rp-filter-setup = {
+    description = "Configure Per-Interface Reverse Path Filtering";
+    after = [ "network-pre.target" ];
+    before = [ "network.target" ];
+    wantedBy = [ "multi-user.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+
+    script = ''
+      # Funktion: Setze rp_filter für Interface
+      set_rp_filter() {
+        local iface=$1
+        local mode=$2
+        local sysctl_path="/proc/sys/net/ipv4/conf/$iface/rp_filter"
+
+        if [ -f "$sysctl_path" ]; then
+          echo "$mode" > "$sysctl_path"
+          echo "✓ Set rp_filter=$mode for $iface"
+        fi
+      }
+
+      # Warte bis Interfaces verfügbar
+      sleep 2
+
+      # Erkenne physische Interfaces (nicht lo, nicht VPN, nicht virtuelle)
+      PHYSICAL_IFACES=$(${pkgs.iproute2}/bin/ip -o link show | \
+        ${pkgs.gnugrep}/bin/grep -E "^[0-9]+: (eth|enp|wlp|wlan)" | \
+        ${pkgs.gawk}/bin/awk -F': ' '{print $2}' | \
+        ${pkgs.gnugrep}/bin/grep -v "@")
+
+      # Setze strict rp_filter (1) für physische Interfaces
+      for iface in $PHYSICAL_IFACES; do
+        set_rp_filter "$iface" 1  # strict
+      done
+
+      # Setze loose rp_filter (2) für VPN interfaces (falls vorhanden)
+      VPN_IFACES=$(${pkgs.iproute2}/bin/ip -o link show | \
+        ${pkgs.gnugrep}/bin/grep -E "^[0-9]+: (tun|wg|proton)" | \
+        ${pkgs.gawk}/bin/awk -F': ' '{print $2}' | \
+        ${pkgs.gnugrep}/bin/grep -v "@")
+
+      for iface in $VPN_IFACES; do
+        set_rp_filter "$iface" 2  # loose (für WireGuard)
+      done
+
+      echo "✓ Reverse path filtering configured"
+      echo "  Physical interfaces (strict): $PHYSICAL_IFACES"
+      echo "  VPN interfaces (loose): $VPN_IFACES"
+    '';
   };
 }
