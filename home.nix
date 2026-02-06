@@ -598,6 +598,8 @@ in
         "terminal.integrated.fontFamily" = "'Hack Nerd Font Mono'";
 
         # Externer Terminal: Black Box
+        # WICHTIG: Integriertes Terminal funktioniert nicht (hardened Kernel + Electron PTY Issue)
+        # Nutze externes Terminal stattdessen
         "terminal.external.linuxExec" = "${pkgs.blackbox-terminal}/bin/blackbox";
 
         # -- PRIVACY --
