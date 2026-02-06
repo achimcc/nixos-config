@@ -130,6 +130,12 @@
     noblacklist ''${HOME}/.cache/com.bitwarden.desktop
     whitelist ''${HOME}/.cache/com.bitwarden.desktop
 
+    # Make /run/user writable (needed for dconf and pulse)
+    writable-run-user
+
+    # PulseAudio
+    ignore nosound
+
     # Nix-Store Zugriff für desktop_proxy Binary
     noblacklist /nix/store
 
@@ -237,11 +243,12 @@
 
       # Signal Desktop - via Flatpak (siehe home-achim.nix)
 
-      # LibreWolf - Privacy Browser mit Sandbox
-      librewolf = {
-        executable = "${pkgs.librewolf}/bin/librewolf";
-        profile = "${pkgs.firejail}/etc/firejail/librewolf.profile";
-      };
+      # LibreWolf - Privacy Browser mit AppArmor (Firejail deaktiviert wegen Konflikt)
+      # AppArmor-Profil siehe modules/apparmor-profiles.nix
+      # librewolf = {
+      #   executable = "${pkgs.librewolf}/bin/librewolf";
+      #   profile = "${pkgs.firejail}/etc/firejail/librewolf.profile";
+      # };
 
       # FreeTube - YouTube-Client mit Sandbox
       freetube = {
