@@ -432,7 +432,21 @@
         MaxFileSize = "100M";
         MaxScanSize = "100M";
         # Echtzeit-Scanning Konfiguration (für clamonacc)
-        OnAccessIncludePath = [ "/home" ];
+        # Scan entire filesystem except high-churn directories
+        OnAccessIncludePath = [ "/" ];
+        OnAccessExcludePath = [
+          "/proc"
+          "/sys"
+          "/dev"
+          "/run"
+          "/tmp"
+          "/var/tmp"
+          "/var/cache"
+          "/var/log"
+          "/var/lib/systemd"
+          "/var/lib/aide"  # AIDE database changes frequently
+          "/nix/var"       # Nix build artifacts
+        ];
         OnAccessExcludeUname = "clamav";
         OnAccessPrevention = "yes"; # Erkannte Bedrohungen blockieren
       };
