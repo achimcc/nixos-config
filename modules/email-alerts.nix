@@ -2,7 +2,35 @@
 # Verwendet msmtp als leichtgewichtigen SMTP-Relay
 { config, pkgs, lib, ... }:
 
-{
+let
+  # Helper-Script für Email-Versand
+  sendSecurityAlert = pkgs.writeShellScript "send-security-alert" ''
+    #!/usr/bin/env bash
+    # Usage: send-security-alert "Subject" "Body"
+
+    SUBJECT="$1"
+    BODY="$2"
+    TO="achim.schneider@posteo.de"  # Hardcoded, da sops placeholder in script nicht funktioniert
+    FROM="achim.schneider@posteo.de"
+    HOSTNAME="$(${pkgs.hostname}/bin/hostname)"
+
+    ${pkgs.msmtp}/bin/msmtp "$TO" <<EOF
+From: $FROM
+To: $TO
+Subject: [NixOS Security Alert] $SUBJECT
+Date: $(${pkgs.coreutils}/bin/date -R)
+
+Security Alert from $HOSTNAME
+
+$BODY
+
+---
+Generated: $(${pkgs.coreutils}/bin/date)
+System: NixOS $(${pkgs.nix}/bin/nixos-version)
+EOF
+  '';
+
+in {
   # msmtp für Email-Versand konfigurieren
   programs.msmtp = {
     enable = true;
@@ -30,32 +58,11 @@
     "f /var/log/msmtp.log 0600 root root -"
   ];
 
-  # Helper-Script für Email-Versand
+  # Helper-Script in systemPackages verfügbar machen
   environment.systemPackages = [
     (pkgs.writeShellScriptBin "send-security-alert" ''
       #!/usr/bin/env bash
-      # Usage: send-security-alert "Subject" "Body"
-
-      SUBJECT="$1"
-      BODY="$2"
-      TO="${config.sops.placeholder."system/admin-email"}"
-      FROM="achim.schneider@posteo.de"
-      HOSTNAME="$(${pkgs.hostname}/bin/hostname)"
-
-      ${pkgs.msmtp}/bin/msmtp "$TO" <<EOF
-      From: $FROM
-      To: $TO
-      Subject: [NixOS Security Alert] $SUBJECT
-      Date: $(${pkgs.coreutils}/bin/date -R)
-
-      Security Alert from $HOSTNAME
-
-      $BODY
-
-      ---
-      Generated: $(${pkgs.coreutils}/bin/date)
-      System: NixOS $(${pkgs.nix}/bin/nixos-version)
-      EOF
+      exec ${sendSecurityAlert} "$@"
     '')
   ];
 
@@ -64,7 +71,7 @@
     serviceConfig = {
       ExecStartPost = pkgs.writeShellScript "aide-alert" ''
         if [ $EXIT_CODE -ne 0 ]; then
-          ${pkgs.send-security-alert}/bin/send-security-alert \
+          ${sendSecurityAlert} \
             "AIDE Integrity Violation Detected" \
             "AIDE file integrity check FAILED.
 
@@ -87,7 +94,7 @@
     serviceConfig = {
       ExecStartPost = pkgs.writeShellScript "unhide-alert" ''
         if journalctl -u unhide-check --since "1 hour ago" | grep -qi "found"; then
-          ${pkgs.send-security-alert}/bin/send-security-alert \
+          ${sendSecurityAlert} \
             "Rootkit Detection: Hidden Processes Found" \
             "unhide scan detected hidden processes.
 
@@ -100,20 +107,13 @@
     };
   };
 
-  # ClamAV: Email bei Viruserkennung
-  systemd.services.clamonacc = {
-    serviceConfig = {
-      # ClamAV hat keine ExecStartPost, nutze separate Monitoring-Service
-    };
-  };
-
   # ClamAV Virus Detection Monitor
   systemd.services.clamav-alert-monitor = {
     description = "ClamAV Virus Detection Alert";
     script = ''
       if journalctl -u clamonacc --since "5 minutes ago" | grep -qi "FOUND"; then
         INFECTED=$(journalctl -u clamonacc --since "5 minutes ago" | grep "FOUND" | tail -5)
-        ${pkgs.send-security-alert}/bin/send-security-alert \
+        ${sendSecurityAlert} \
           "Virus Detected by ClamAV" \
           "ClamAV detected infected files:
 
@@ -147,7 +147,7 @@
           /var/log/suricata/eve.json 2>/dev/null | tail -5)
 
         if [ -n "$CRITICAL" ]; then
-          ${pkgs.send-security-alert}/bin/send-security-alert \
+          ${sendSecurityAlert} \
             "Critical IDS Alert from Suricata" \
             "Suricata detected critical network threats:
 
@@ -176,7 +176,7 @@
     description = "VPN Failure Alert";
     script = ''
       if ! systemctl is-active --quiet wg-quick-proton0; then
-        ${pkgs.send-security-alert}/bin/send-security-alert \
+        ${sendSecurityAlert} \
           "VPN Connection Failure" \
           "ProtonVPN WireGuard connection is DOWN.
 
