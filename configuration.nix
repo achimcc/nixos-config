@@ -16,6 +16,7 @@
     ./modules/power.nix
     ./modules/sops.nix
     ./modules/security.nix
+    ./modules/apparmor-profiles.nix
     ./modules/secureboot.nix
     ./modules/suricata.nix
     ./modules/logwatch.nix
