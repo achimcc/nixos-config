@@ -22,6 +22,7 @@
     ./modules/logwatch.nix
     ./modules/email-alerts.nix
     ./modules/ssh-hardening.nix
+    ./modules/cve-monitoring.nix
   ];
 
   # ==========================================
