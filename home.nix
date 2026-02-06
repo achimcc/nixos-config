@@ -66,8 +66,11 @@ in
     };
   };
 
-  # WICHTIG FÜR RUST:
-  home.sessionPath = [ "$HOME/.cargo/bin" ];
+  # PATH-Erweiterungen (haben Priorität vor system/user defaults)
+  home.sessionPath = [
+    "$HOME/.local/bin"  # Für Wrapper-Scripts (z.B. Firejail-Wrapper für codium)
+    "$HOME/.cargo/bin"  # Rust/Cargo binaries
+  ];
 
   # SSH Agent Socket für FIDO2-Schlüssel
   home.sessionVariables = {
@@ -524,6 +527,8 @@ in
   };
 
   # --- VS CODIUM (Open Source VSCode ohne Microsoft Telemetrie) ---
+  # WICHTIG: VSCodium läuft via Firejail-Wrapper (siehe modules/network.nix)
+  # Der Firejail-Wrapper in /run/wrappers/bin/codium hat PATH-Priorität
   programs.vscode = {
     enable = true;
     package = pkgs-unstable.vscodium;
@@ -581,10 +586,13 @@ in
         "tinymist.exportPdf" = "onSave";
 
         # VSCodium Terminal
-        "terminal.integrated.defaultProfile.linux" = "nushell";
+        "terminal.integrated.defaultProfile.linux" = "bash";
         "terminal.integrated.profiles.linux" = {
+          "bash" = {
+            "path" = "bash";
+          };
           "nushell" = {
-            "path" = "${pkgs.nushell}/bin/nu";
+            "path" = "nu";
           };
         };
         "terminal.integrated.fontFamily" = "'Hack Nerd Font Mono'";
@@ -595,6 +603,42 @@ in
         # -- PRIVACY --
         "telemetry.telemetryLevel" = "off";
         "update.mode" = "none"; # Updates via Nix
+
+        # -- ELECTRON SANDBOX --
+        # Deaktiviert für hardened Kernel Kompatibilität
+        "window.titleBarStyle" = "custom";
+      };
+
+      # Electron-Sandbox deaktivieren (für PTY/Terminal auf hardened Kernel)
+      userSettings = {
+        "terminal.integrated.inheritEnv" = true;
+      };
+    };
+
+    # Electron-Flags für VSCodium
+    enableExtensionUpdateCheck = false;
+    enableUpdateCheck = false;
+  };
+
+  # VSCodium Desktop-Datei überschreiben, um Bubblewrap-Wrapper zu verwenden
+  xdg.desktopEntries.codium = {
+    name = "VSCodium";
+    genericName = "Text Editor";
+    comment = "Code Editing. Redefined. (Sandboxed with Bubblewrap)";
+    exec = "/home/user/.local/bin/codium %F";
+    icon = "vscodium";
+    terminal = false;
+    type = "Application";
+    startupNotify = true;
+    categories = [ "Utility" "TextEditor" "Development" "IDE" ];
+    mimeType = [
+      "text/plain"
+      "inode/directory"
+    ];
+    actions = {
+      new-empty-window = {
+        name = "New Empty Window";
+        exec = "/home/user/.local/bin/codium --new-window %F";
       };
     };
   };
@@ -819,6 +863,26 @@ in
     };
   };
 
+  # --- VSCODIUM BUBBLEWRAP WRAPPER ---
+  # Bubblewrap-Sandbox für VSCodium (Firejail ist inkompatibel mit Electron)
+  # Minimale Sandbox OHNE PID-Namespace (notwendig für Terminal/PTY)
+  home.file.".local/bin/codium" = {
+    executable = true;
+    text = ''
+      #!/bin/sh
+      # Bubblewrap-Sandbox für VSCodium - Minimale Isolation für PTY-Kompatibilität
+      # Electron-Sandbox deaktiviert für hardened Kernel Kompatibilität
+      exec ${pkgs.bubblewrap}/bin/bwrap \
+        --dev-bind / / \
+        --die-with-parent \
+        ${pkgs-unstable.vscodium}/bin/codium \
+          --no-sandbox \
+          --disable-gpu-sandbox \
+          --disable-seccomp-filter-sandbox \
+          "$@"
+    '';
+  };
+
   # --- TOTP SCRIPT (Nitrokey → Clipboard) ---
   home.file.".local/bin/totp-posteo" = {
     executable = true;
@@ -933,6 +997,8 @@ in
       gs = "git status";
       gc = "git commit";
       gp = "git push";
+      # VSCodium über Bubblewrap-Wrapper (wird von ~/.local/bin/codium bereitgestellt)
+      # Alias nicht nötig, da ~/.local/bin bereits im PATH ist
       # Sonstiges
       obb = "openbb"; # FHS-wrapped, installiert automatisch beim ersten Start
       nrs = "sudo nixos-rebuild switch --flake /home/user/nixos-config#nixos";

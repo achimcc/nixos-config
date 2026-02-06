@@ -1,8 +1,53 @@
 # Netzwerk & DNS Konfiguration
 # NetworkManager für WLAN/Ethernet/VPN mit deklarativem Home-Netzwerk via sops
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, pkgs-unstable, ... }:
 
+let
+  # Minimales Firejail-Profil für VSCodium (Electron-kompatibel)
+  vscodiumProfile = pkgs.writeText "vscodium-minimal.profile" ''
+    # Minimales Firejail-Profil für VSCodium
+    # Fokus auf minimale Einschränkungen für Electron-Kompatibilität
+
+    # Home-Verzeichnis Zugriff
+    noblacklist ''${HOME}
+    noblacklist ''${HOME}/.config
+    noblacklist ''${HOME}/.cache
+    noblacklist ''${HOME}/.local
+    noblacklist ''${HOME}/.vscode-oss
+    noblacklist ''${HOME}/.VSCodium
+
+    # Temporäre Dateien
+    noblacklist /tmp
+    noblacklist /var/tmp
+
+    # System-Ressourcen
+    noblacklist /dev
+    noblacklist /sys
+    noblacklist /proc
+    noblacklist /run/user
+
+    # Wayland/X11
+    noblacklist /tmp/.X11-unix
+
+    # DBus
+    noblacklist /run/dbus
+
+    # GPU/DRI
+    noblacklist /dev/dri
+
+    # Keine private Namespaces (Electron braucht Zugriff)
+    ignore noroot
+    ignore private-dev
+    ignore private-tmp
+
+    # Kein Seccomp (Electron-Kompatibilität)
+    ignore seccomp
+
+    # Shell-Zugriff erlauben (für integriertes Terminal)
+    ignore shell none
+  '';
+in
 {
   # ==========================================
   # NETZWERK GRUNDKONFIGURATION
@@ -315,12 +360,11 @@
       };
 
       # VSCodium - Code Editor (Electron-App)
+      # Firejail mit deaktiviertem Electron-Sandbox (Kollision vermeiden)
       vscodium = {
-        executable = "${pkgs.vscodium}/bin/codium";
-        profile = "${pkgs.firejail}/etc/firejail/vscodium.profile";
+        executable = "${pkgs-unstable.vscodium}/bin/codium --no-sandbox";
         extraArgs = [
-          "--whitelist=/home/user/Projects"
-          "--whitelist=/home/user/nixos-config"
+          "--noprofile"             # Kein Profil verwenden (zu restriktiv für Electron)
         ];
       };
 
@@ -349,7 +393,8 @@
   # Pakete die von Firejail gewrappt werden
   # Thunderbird: System-Paket (für Desktop-Datei) + Firejail-Wrapper (siehe wrappedBinaries oben)
   # NICHT über home.nix installieren, sonst wird Wrapper überschrieben!
-  # (KeePassXC, Newsflash, VSCodium sind in home.nix)
+  # VSCodium jetzt system-level mit Firejail (Home Manager nur für Extensions/Settings)
+  # (KeePassXC, Newsflash sind in home.nix)
   # Signal via Flatpak (home.nix), nicht mehr hier
   environment.systemPackages = with pkgs; [
     tor-browser
@@ -360,5 +405,6 @@
     discord
     spotify
     thunderbird
+    pkgs-unstable.vscodium  # VSCodium aus unstable (für aktuelle Version)
   ];
 }
