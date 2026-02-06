@@ -35,12 +35,14 @@
         /nix/store/** m,
 
         # Home directory (restricted)
-        owner @{HOME}/.librewolf/** rw,
-        owner @{HOME}/.cache/librewolf/** rw,
+        owner @{HOME}/.librewolf/** rwk,
+        owner @{HOME}/.cache/librewolf/** rwk,
+        owner @{HOME}/.cache/mesa_shader_cache/** rwk,
         owner @{HOME}/Downloads/** rw,
         owner @{HOME}/.config/dconf/user rw,
         owner @{HOME}/.config/pulse/ rw,
         owner @{HOME}/.config/pulse/** rwk,
+        owner @{HOME}/.config/ibus/** r,
 
         # Temporary files
         owner /tmp/** rw,
