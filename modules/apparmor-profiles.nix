@@ -126,12 +126,24 @@
         #include <abstractions/p11-kit>
         #include <abstractions/ssl_certs>
 
-        # Nix store executables and libraries (read + mmap)
-        /nix/store/** rm,
+        # Firejail wrapper (Thunderbird is launched via Firejail)
+        # Ux = Unconfined execution (Firejail provides its own sandboxing)
+        /run/wrappers/bin/firejail Ux,
+        /run/wrappers/wrappers.*/firejail Ux,
+        /dev/tty rw,
+        /run/current-system/sw/bin/bash ix,
+
+        # Nix store executables and libraries
+        /nix/store/** rix,
+        /nix/store/** m,
 
         # Thunderbird profile data
-        owner @{HOME}/.thunderbird/** rw,
-        owner @{HOME}/.cache/thunderbird/** rw,
+        owner @{HOME}/.thunderbird/** rwk,
+        owner @{HOME}/.cache/ rw,
+        owner @{HOME}/.cache/** rwk,
+        owner @{HOME}/ rw,
+        owner @{HOME}/Thunderbird/ rw,
+        owner @{HOME}/Thunderbird/** rwk,
 
         # Email attachments
         owner @{HOME}/Downloads/** rw,
@@ -140,6 +152,21 @@
         owner /tmp/** rw,
         owner /run/user/*/thunderbird/** rw,
 
+        # Full access to user runtime directory
+        owner /run/user/*/ r,
+        owner /run/user/*/** rwk,
+
+        /dev/shm/ r,
+        /dev/shm/** rw,
+
+        # Config files
+        owner @{HOME}/.config/ rw,
+        owner @{HOME}/.config/** rwk,
+        owner @{HOME}/.config/dconf/user rw,
+        owner @{HOME}/.config/pulse/ rw,
+        owner @{HOME}/.config/pulse/** rwk,
+        owner @{HOME}/.config/ibus/** r,
+
         # System files
         /etc/hosts r,
         /etc/nsswitch.conf r,
@@ -147,12 +174,34 @@
         /etc/localtime r,
         /etc/mailcap r,
         /etc/mime.types r,
+        /etc/os-release r,
+        /etc/alsa/ r,
+        /etc/alsa/conf.d/ r,
+        /etc/alsa/** r,
         /usr/share/** r,
 
-        # Proc
+        # Proc/sys
         @{PROC}/@{pid}/fd/ r,
         @{PROC}/@{pid}/mountinfo r,
         @{PROC}/@{pid}/stat r,
+        @{PROC}/@{pid}/task/*/stat r,
+        @{PROC}/@{pid}/cgroup r,
+        @{PROC}/@{pid}/oom_score_adj w,
+        @{PROC}/sys/kernel/osrelease r,
+        /sys/devices/system/cpu/present r,
+        /sys/bus/pci/devices/ r,
+        /sys/bus/pci/devices/** r,
+        /sys/devices/** r,
+
+        # Audio devices
+        /dev/snd/ r,
+        /dev/snd/** rw,
+
+        # Pseudo-terminal devices
+        /dev/pts/* rw,
+
+        # Capabilities for namespaces
+        capability sys_admin,
 
         # Deny sensitive paths
         deny @{HOME}/.ssh/** rw,
@@ -193,13 +242,15 @@
         /dev/tty rw,
         /run/current-system/sw/bin/bash ix,
 
-        # Nix store executables and libraries (read + mmap)
-        /nix/store/** rm,
+        # Nix store executables and libraries
+        /nix/store/** rix,
+        /nix/store/** m,
 
         # VSCodium config and extensions
-        owner @{HOME}/.config/VSCodium/** rw,
-        owner @{HOME}/.vscode-oss/** rw,
-        owner @{HOME}/.cache/vscode-oss/** rw,
+        owner @{HOME}/.config/VSCodium/** rwk,
+        owner @{HOME}/.vscode-oss/** rwk,
+        owner @{HOME}/.cache/vscode-oss/** rwk,
+        owner @{HOME}/.cache/mesa_shader_cache/** rwk,
 
         # Workspace (full access to home for development)
         owner @{HOME}/** rw,
@@ -209,13 +260,40 @@
         # Temporary files
         owner /tmp/** rw,
 
+        # Full access to user runtime directory
+        owner /run/user/*/ r,
+        owner /run/user/*/** rwk,
+
+        /dev/shm/ r,
+        /dev/shm/** rw,
+
+        # Config files
+        owner @{HOME}/.config/dconf/user rw,
+        owner @{HOME}/.config/pulse/ rw,
+        owner @{HOME}/.config/pulse/** rwk,
+        owner @{HOME}/.config/ibus/** r,
+
         # System files
         /etc/** r,
+        /etc/alsa/ r,
+        /etc/alsa/conf.d/ r,
+        /etc/alsa/** r,
         /usr/share/** r,
 
-        # Proc
+        # Proc/sys
         @{PROC}/** r,
+        @{PROC}/@{pid}/setgroups w,
+        @{PROC}/@{pid}/uid_map w,
+        @{PROC}/@{pid}/gid_map w,
+        /proc/ r,
         /sys/** r,
+
+        # Audio devices
+        /dev/snd/ r,
+        /dev/snd/** rw,
+
+        # Pseudo-terminal devices (for integrated terminal)
+        /dev/pts/* rw,
 
         # Deny secrets even with broad home access
         deny /var/lib/sops-nix/** r,
@@ -225,7 +303,9 @@
         network inet stream,
         network inet6 stream,
 
-        # PTY for terminals
+        # Capabilities for terminals and namespaces
+        capability sys_admin,
+        capability sys_chroot,
         capability sys_ptrace,
         ptrace read,
 
@@ -249,8 +329,15 @@
         #include <abstractions/nameservice>
         #include <abstractions/openssl>
 
-        # Nix store executables and libraries (read + mmap)
-        /nix/store/** rm,
+        # Firejail wrapper
+        /run/wrappers/bin/firejail Ux,
+        /run/wrappers/wrappers.*/firejail Ux,
+        /dev/tty rw,
+        /run/current-system/sw/bin/bash ix,
+
+        # Nix store executables and libraries
+        /nix/store/** rix,
+        /nix/store/** m,
 
         # Spotify config and cache
         owner @{HOME}/.config/spotify/** rw,
@@ -304,8 +391,15 @@
         #include <abstractions/nameservice>
         #include <abstractions/openssl>
 
-        # Nix store executables and libraries (read + mmap)
-        /nix/store/** rm,
+        # Firejail wrapper
+        /run/wrappers/bin/firejail Ux,
+        /run/wrappers/wrappers.*/firejail Ux,
+        /dev/tty rw,
+        /run/current-system/sw/bin/bash ix,
+
+        # Nix store executables and libraries
+        /nix/store/** rix,
+        /nix/store/** m,
 
         # Discord config
         owner @{HOME}/.config/discord/** rw,

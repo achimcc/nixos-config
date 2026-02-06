@@ -176,6 +176,25 @@
     dbus-user.talk org.freedesktop.portal.*
   '';
 
+  # Newsflash - Minimales aber sicheres Firejail-Profil
+  environment.etc."firejail/newsflash-custom.profile".text = ''
+    # Grundlegende Sicherheit
+    caps.drop all
+    nonewprivs
+    noroot
+    seccomp
+
+    # Sensitive Verzeichnisse blockieren
+    blacklist ''${HOME}/.ssh
+    blacklist ''${HOME}/.gnupg
+    blacklist /var/lib/sops-nix
+
+    # D-Bus für Benachrichtigungen
+    dbus-user filter
+    dbus-user.talk org.freedesktop.Notifications
+    dbus-user.talk org.freedesktop.secrets
+  '';
+
   # Thunderbird-spezifische Firejail-Konfiguration
   environment.etc."firejail/thunderbird.local".text = ''
     # D-Bus Zugriff (erforderlich für pinentry-gnome3 und GNOME Keyring)
@@ -188,6 +207,12 @@
     dbus-user filter
     dbus-user.talk org.freedesktop.secrets
     dbus-user.talk org.gnome.keyring.*
+
+    # Make /run/user writable (needed for dconf and pulse)
+    writable-run-user
+
+    # PulseAudio
+    ignore nosound
     dbus-user.talk org.freedesktop.portal.*
     dbus-user.talk org.gtk.vfs.*
     dbus-user.own org.gnome.gcr.*
@@ -213,6 +238,11 @@
     # GPG Public Key Import (dedizierter Ordner für Key-Austausch)
     noblacklist ''${HOME}/.config/thunderbird-gpg
     whitelist ''${HOME}/.config/thunderbird-gpg
+
+    # Thunderbird profile directory (needed for profile loading)
+    noblacklist ''${HOME}/.thunderbird
+    noblacklist ''${HOME}/.cache/thunderbird
+    noblacklist ''${HOME}/.cache/mesa_shader_cache
 
     # Wayland Display Zugriff (GNOME/Wayland Session)
     # Thunderbird-Default-Profil hat "ignore include whitelist-runuser-common.inc"
@@ -243,12 +273,12 @@
 
       # Signal Desktop - via Flatpak (siehe home.nix)
 
-      # LibreWolf - Privacy Browser mit AppArmor (Firejail deaktiviert wegen Konflikt)
+      # LibreWolf - Privacy Browser mit AppArmor + Firejail
       # AppArmor-Profil siehe modules/apparmor-profiles.nix
-      # librewolf = {
-      #   executable = "${pkgs.librewolf}/bin/librewolf";
-      #   profile = "${pkgs.firejail}/etc/firejail/librewolf.profile";
-      # };
+      librewolf = {
+        executable = "${pkgs.librewolf}/bin/librewolf";
+        profile = "${pkgs.firejail}/etc/firejail/librewolf.profile";
+      };
 
       # FreeTube - YouTube-Client mit Sandbox
       freetube = {
@@ -270,8 +300,8 @@
 
       # Newsflash - RSS-Reader mit Sandbox
       newsflash = {
-        executable = "${pkgs.newsflash}/bin/newsflash";
-        profile = "${pkgs.firejail}/etc/firejail/newsflash.profile";
+        executable = "${pkgs.newsflash}/bin/io.gitlab.news_flash.NewsFlash";
+        profile = "/etc/firejail/newsflash-custom.profile";
       };
 
       # Logseq - Wissensmanagement (Electron-App)
