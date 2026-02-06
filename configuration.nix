@@ -20,6 +20,7 @@
     ./modules/secureboot.nix
     ./modules/suricata.nix
     ./modules/logwatch.nix
+    ./modules/email-alerts.nix
     ./modules/ssh-hardening.nix
   ];
 
