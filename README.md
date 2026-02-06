@@ -2,7 +2,28 @@
 
 A **security-hardened**, declarative NixOS configuration focused on privacy, anonymity, and full reproducibility.
 
-**🔒 Sicherheitsscore: 9.5/10** | [Security Hardening Details](docs/SECURITY-HARDENING.md)
+**🔒 Sicherheitsscore: 9.0/10** | [Security Hardening Details](docs/SECURITY-HARDENING.md)
+
+## 🆕 Recent Security Improvements (2026-02-05)
+
+**Critical vulnerabilities addressed:**
+- ✅ **Suricata VPN Monitoring**: IDS now monitors VPN interface (proton0) - closes monitoring blind spot
+- ✅ **AppArmor Custom Profiles**: Added MAC for LibreWolf, Thunderbird, VSCodium, Spotify, Discord
+- ✅ **DHCP Snooping**: Restricted DHCP responses to gateway IP only (prevents spoofing)
+- ✅ **Enhanced Sudo Logging**: Dedicated audit log with PTY enforcement and password limits
+- ✅ **AIDE /nix/store**: Package binary integrity verification added
+- ✅ **ClamAV Full Filesystem**: Expanded from /home to entire system (with smart exclusions)
+- ✅ **Daily Rootkit Scans**: Changed from weekly to daily (unhide + unhide-tcp)
+- ✅ **Secret Rotation Policy**: Documented rotation schedule and audit trail
+
+**Security Impact:**
+- Closed 8 critical/high vulnerabilities from security audit
+- Reduced attack surface for application escapes
+- Improved visibility into VPN-tunneled traffic
+- Enhanced audit trail for privilege escalation
+- Package tampering detection capability
+
+See [SECRET-ROTATION-POLICY.md](docs/SECRET-ROTATION-POLICY.md) for rotation schedule.
 
 ## Table of Contents
 
@@ -45,16 +66,17 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 │   └── default.nix       # Custom packages overlay
 └── modules/
     ├── network.nix       # NetworkManager, DNS-over-TLS, Anonymity, Firejail
-    ├── firewall.nix      # VPN Kill Switch + Port-Scan Detection
+    ├── firewall.nix      # VPN Kill Switch + Port-Scan Detection + DHCP Snooping
     ├── firewall-zones.nix # Network Segmentation Zones
     ├── protonvpn.nix     # WireGuard Auto-Connect
     ├── desktop.nix       # GNOME Desktop (Wayland)
     ├── audio.nix         # PipeWire
     ├── power.nix         # TLP, Thermald
     ├── sops.nix          # Secret Management (Age)
-    ├── security.nix      # Kernel Hardening, AppArmor, ClamAV, USBGuard, Swappiness
+    ├── security.nix      # Kernel Hardening, Base AppArmor, ClamAV, USBGuard, AIDE
+    ├── apparmor-profiles.nix # 🆕 Custom AppArmor MAC for LibreWolf, Thunderbird, etc.
     ├── secureboot.nix    # Lanzaboote + TPM2 + Secure Boot Monitoring
-    ├── suricata.nix      # Intrusion Detection System (IDS)
+    ├── suricata.nix      # Intrusion Detection System (WiFi + VPN)
     ├── logwatch.nix      # Automated Security Monitoring & Daily Reports
     ├── ssh-hardening.nix # SSH Server Hardening (prepared, disabled)
     └── home/
@@ -77,11 +99,12 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 
 ### Network & VPN
 
-- **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel
+- **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel (nftables)
 - **🆕 Port-Scan Detection**: Blockiert nach 10 Verbindungen in 60 Sekunden
+- **🆕 DHCP Snooping**: Nur Antworten vom Gateway (192.168.178.1) akzeptiert - verhindert DHCP spoofing
 - **DNS-over-TLS NUR über VPN**: Port 853 nur über VPN-Interfaces (verhindert DNS-Leaks)
 - **🆕 Kein Fallback-DNS**: Explizit leer (verhindert DNS-Leaks bei VPN-Ausfall)
-- **🆕 Lokales Netzwerk restriktiv**: Nur DHCP zum Router, kein Ping, kein Web-Interface
+- **🆕 Lokales Netzwerk restriktiv**: DHCP nur vom Gateway, kein Ping, kein Web-Interface
 - **DoT Port-Einschränkung**: Port 853 nur zu Mullvad DNS (verhindert Daten-Exfiltration)
 - **Firewall-Logging optimiert**: 1/min Rate-Limit (DoS-Schutz)
 - **WireGuard Auto-Connect**: VPN verbindet sich vor dem Login
@@ -100,20 +123,25 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 
 ### Sandboxing & Hardening
 
-- **Firejail**: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, VSCodium, Evince, Newsflash isoliert
-- **AppArmor**: Mandatory Access Control mit Enforcement (`killUnconfinedConfinables = true`)
+- **Firejail + AppArmor**: Double-layer sandboxing für kritische Apps
+  - Firejail: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, VSCodium, Evince, Newsflash
+  - **🆕 AppArmor Custom Profiles**: LibreWolf, Thunderbird, VSCodium, Spotify, Discord (kernel-level MAC)
+  - AppArmor Enforcement: `killUnconfinedConfinables = true`
 - **Hardened Kernel**: `linuxPackages_hardened` mit zusätzlichen sysctl-Parametern
 - **Kernel Module Locking**: Verhindert Runtime-Laden von Kernel-Modulen (Rootkit-Schutz)
 - **USBGuard**: USB-Geräte-Autorisierung (blockiert unbekannte Geräte)
-- **ClamAV**: Echtzeit-Antivirus mit aktiver Prävention (`OnAccessPrevention = yes`)
+- **🆕 ClamAV Full Filesystem**: Echtzeit-Scanning von / (mit Ausnahmen), aktive Prävention
 - **Fail2Ban**: Schutz gegen Brute-Force (exponentieller Backoff, max 48h)
-- **AIDE**: File Integrity Monitoring für kritische Systemdateien
-- **unhide**: Rootkit-Erkennung (wöchentliche Scans für versteckte Prozesse)
-- **Audit Framework**: Überwachung von sudo, su, Passwort-Änderungen, SSH-Config
+- **🆕 AIDE Enhanced**: File Integrity Monitoring inkl. /nix/store (Package-Binaries)
+- **🆕 unhide Daily**: Rootkit-Erkennung täglich (Prozesse + TCP/UDP Ports)
+- **🆕 Sudo Audit Log**: Dedicated /var/log/sudo.log mit PTY enforcement
 
 ### Intrusion Detection & Monitoring
 
-- **Suricata IDS**: Network Intrusion Detection System mit automatischen Regel-Updates
+- **🆕 Suricata IDS Enhanced**: Network IDS auf WiFi (wlp0s20f3) + VPN (proton0)
+  - Emerging Threats Open ruleset mit automatischen Updates
+  - Configuration validation vor Reload
+  - Automatische Regel-Updates täglich mit Integritätsprüfung
 - **Logwatch**: Automatisierte Sicherheitsberichte und kritische Alarmierung
 - **Daily Security Reports**: Tägliche Berichte um 06:00 gespeichert in `/var/log/security-reports/`
 - **Critical Alert Monitoring**: Prüft alle 5 Minuten auf kritische Sicherheitsereignisse
@@ -740,7 +768,7 @@ Automatisierter Scan: Täglich um 04:30
 
 ### Rootkit Detection
 
-Zwei komplementäre Tools scannen wöchentlich nach Rootkits:
+Zwei komplementäre Tools scannen **täglich** nach Rootkits:
 
 ```bash
 # unhide - Versteckte Prozesse und Ports finden
@@ -749,8 +777,8 @@ sudo unhide-tcp                          # Versteckte TCP/UDP Ports
 ```
 
 Automatisierte Scans:
-- unhide (Prozesse): Sonntag 05:00
-- unhide-tcp (Ports): Sonntag 05:15
+- **🆕 unhide (Prozesse): Täglich** (vorher: nur Sonntag)
+- **🆕 unhide-tcp (Ports): Täglich** (vorher: nur Sonntag)
 
 ### Firewall-Logging
 
