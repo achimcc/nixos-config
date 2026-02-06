@@ -40,7 +40,8 @@
         fi
 
         # Check 3: DNS-over-TLS active
-        if ! ${pkgs.systemd}/bin/resolvectl status | grep -q "+DNSOverTLS"; then
+        status_output=$(${pkgs.systemd}/bin/resolvectl status 2>&1)
+        if ! echo "$status_output" | grep -q "+DNSOverTLS"; then
           send_alert "DNS-over-TLS not active!"
           systemctl restart systemd-resolved.service
           exit 1
