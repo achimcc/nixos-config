@@ -119,7 +119,29 @@
     };
 
     script = ''
-      ${pkgs.suricata}/bin/suricata-update
+      # Enable Emerging Threats Open ruleset (free, community-maintained)
+      ${pkgs.suricata}/bin/suricata-update \
+        --suricata ${pkgs.suricata}/bin/suricata \
+        --suricata-conf /etc/suricata/suricata.yaml \
+        -o /var/lib/suricata/rules \
+        list-sources | grep -q "et/open" || \
+        ${pkgs.suricata}/bin/suricata-update add-source et/open
+
+      # Update rules from configured sources
+      ${pkgs.suricata}/bin/suricata-update \
+        --suricata ${pkgs.suricata}/bin/suricata \
+        --suricata-conf /etc/suricata/suricata.yaml \
+        -o /var/lib/suricata/rules
+
+      # Validate configuration before reload
+      if systemctl is-active --quiet suricata.service; then
+        if ${pkgs.suricata}/bin/suricata -c /etc/suricata/suricata.yaml -T; then
+          echo "✓ Suricata configuration valid, rules updated successfully"
+        else
+          echo "ERROR: Suricata configuration validation failed after rule update" >&2
+          exit 1
+        fi
+      fi
     '';
 
     # Reload Suricata nach erfolgreichem Rule-Update
