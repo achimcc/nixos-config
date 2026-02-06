@@ -39,12 +39,17 @@
         owner @{HOME}/.cache/librewolf/** rw,
         owner @{HOME}/Downloads/** rw,
         owner @{HOME}/.config/dconf/user rw,
+        owner @{HOME}/.config/pulse/ rw,
+        owner @{HOME}/.config/pulse/** rwk,
 
         # Temporary files
         owner /tmp/** rw,
         owner /run/user/*/librewolf/** rw,
-        owner /run/user/*/dconf/user rwc,
-        owner /run/user/*/pulse/ rw,
+
+        # Full access to user runtime directory (needed for dconf, pulse, wayland)
+        owner /run/user/*/ r,
+        owner /run/user/*/** rwk,
+
         /dev/shm/ r,
         /dev/shm/** rw,
 
@@ -56,6 +61,7 @@
         /etc/mailcap r,
         /etc/mime.types r,
         /etc/os-release r,
+        /etc/alsa/ r,
         /etc/alsa/conf.d/ r,
         /etc/alsa/** r,
         /usr/share/** r,
@@ -71,8 +77,10 @@
         /sys/devices/system/cpu/present r,
         /sys/bus/pci/devices/ r,
         /sys/bus/pci/devices/** r,
+        /sys/devices/** r,
 
         # Audio devices
+        /dev/snd/ r,
         /dev/snd/** rw,
 
         # Deny dangerous paths
