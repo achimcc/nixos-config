@@ -127,10 +127,13 @@ in
           # 8. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
           meta nfproto ipv6 icmpv6 type { nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept
 
-          # 9. Port-scan detection
+          # 9. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
+          meta nfproto ipv6 ip6 saddr != fe80::/10 drop
+
+          # 10. Port-scan detection
           update @portscan { ip saddr limit rate over 10/minute } drop
 
-          # 10. Dropped packets (logging temporarily disabled)
+          # 11. Dropped packets (logging temporarily disabled)
         }
 
         # OUTPUT CHAIN
@@ -196,7 +199,11 @@ in
           # 14. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
           meta nfproto ipv6 icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept
 
-          # 15. Dropped packets (logging temporarily disabled)
+          # 15. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
+          # Even though IPv6 is disabled at kernel level, this prevents leaks if accidentally enabled
+          meta nfproto ipv6 ip6 daddr != fe80::/10 drop
+
+          # 16. Dropped packets (logging temporarily disabled)
         }
 
         # FORWARD CHAIN
