@@ -102,8 +102,8 @@ in
           # 2. Established/Related connections
           ct state established,related accept
 
-          # 3. DHCP responses (server:67 -> client:68)
-          udp sport 67 udp dport 68 accept
+          # 3. DHCP responses (server:67 -> client:68) - only from gateway
+          ip saddr ${localNetwork.gateway} udp sport 67 udp dport 68 accept
 
           # 4. mDNS for local discovery (Avahi)
           udp dport 5353 ip saddr 224.0.0.251 accept
