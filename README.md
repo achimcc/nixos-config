@@ -2,11 +2,11 @@
 
 A **security-hardened**, declarative NixOS configuration focused on privacy, anonymity, and full reproducibility.
 
-**🔒 Sicherheitsscore: 9.0/10** | [Security Hardening Details](docs/SECURITY-HARDENING.md)
+**🔒 Sicherheitsscore: 9.5/10** | [Security Hardening Details](docs/SECURITY-HARDENING.md)
 
 ## 🆕 Recent Security Improvements (2026-02-05)
 
-**Critical vulnerabilities addressed:**
+**Phase 1 - Critical Gaps (8/8 ✅):**
 - ✅ **Suricata VPN Monitoring**: IDS now monitors VPN interface (proton0) - closes monitoring blind spot
 - ✅ **AppArmor Custom Profiles**: Added MAC for LibreWolf, Thunderbird, VSCodium, Spotify, Discord
 - ✅ **DHCP Snooping**: Restricted DHCP responses to gateway IP only (prevents spoofing)
@@ -16,12 +16,25 @@ A **security-hardened**, declarative NixOS configuration focused on privacy, ano
 - ✅ **Daily Rootkit Scans**: Changed from weekly to daily (unhide + unhide-tcp)
 - ✅ **Secret Rotation Policy**: Documented rotation schedule and audit trail
 
+**Phase 2 - Remaining Gaps (5/5 ✅):**
+- ✅ **DNSSEC Enforcement**: Strict validation enabled (fails on validation failure)
+- ✅ **mDNS Rate Limiting**: 100/minute limit prevents flooding attacks
+- ✅ **Core Dumps Disabled**: All core dumps blocked (prevents memory leaks)
+- ✅ **Email Alerts**: Critical security events sent to admin email (msmtp)
+- ✅ **Per-Interface rp_filter**: Dynamic strict filtering for physical interfaces
+
 **Security Impact:**
-- Closed 8 critical/high vulnerabilities from security audit
-- Reduced attack surface for application escapes
-- Improved visibility into VPN-tunneled traffic
-- Enhanced audit trail for privilege escalation
-- Package tampering detection capability
+- Closed 13 critical/high/medium vulnerabilities from security audit
+- Reduced attack surface for application escapes (AppArmor MAC)
+- Improved visibility into VPN-tunneled traffic (Suricata)
+- Enhanced audit trail for privilege escalation (sudo logging)
+- Package tampering detection capability (AIDE /nix/store)
+- Immediate notification of security incidents (email alerts)
+- Anti-spoofing protection per interface (rp_filter)
+
+**New Modules:**
+- `email-alerts.nix` - Automated security event notifications
+- `apparmor-profiles.nix` - Custom MAC policies
 
 See [SECRET-ROTATION-POLICY.md](docs/SECRET-ROTATION-POLICY.md) for rotation schedule.
 
@@ -65,8 +78,8 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 ├── pkgs/
 │   └── default.nix       # Custom packages overlay
 └── modules/
-    ├── network.nix       # NetworkManager, DNS-over-TLS, Anonymity, Firejail
-    ├── firewall.nix      # VPN Kill Switch + Port-Scan Detection + DHCP Snooping
+    ├── network.nix       # NetworkManager, DNS-over-TLS, DNSSEC, Anonymity, Firejail
+    ├── firewall.nix      # VPN Kill Switch + Port-Scan + DHCP Snooping + mDNS Limits + rp_filter
     ├── firewall-zones.nix # Network Segmentation Zones
     ├── protonvpn.nix     # WireGuard Auto-Connect
     ├── desktop.nix       # GNOME Desktop (Wayland)
@@ -75,6 +88,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
     ├── sops.nix          # Secret Management (Age)
     ├── security.nix      # Kernel Hardening, Base AppArmor, ClamAV, USBGuard, AIDE
     ├── apparmor-profiles.nix # 🆕 Custom AppArmor MAC for LibreWolf, Thunderbird, etc.
+    ├── email-alerts.nix  # 🆕 Critical Security Event Notifications (msmtp)
     ├── secureboot.nix    # Lanzaboote + TPM2 + Secure Boot Monitoring
     ├── suricata.nix      # Intrusion Detection System (WiFi + VPN)
     ├── logwatch.nix      # Automated Security Monitoring & Daily Reports
@@ -102,7 +116,9 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel (nftables)
 - **🆕 Port-Scan Detection**: Blockiert nach 10 Verbindungen in 60 Sekunden
 - **🆕 DHCP Snooping**: Nur Antworten vom Gateway (192.168.178.1) akzeptiert - verhindert DHCP spoofing
+- **🆕 mDNS Rate Limiting**: 100/minute limit verhindert Flooding-Attacken
 - **DNS-over-TLS NUR über VPN**: Port 853 nur über VPN-Interfaces (verhindert DNS-Leaks)
+- **🆕 DNSSEC Strict Validation**: Scheitert bei Validierungsfehlern (keine insecure fallback)
 - **🆕 Kein Fallback-DNS**: Explizit leer (verhindert DNS-Leaks bei VPN-Ausfall)
 - **🆕 Lokales Netzwerk restriktiv**: DHCP nur vom Gateway, kein Ping, kein Web-Interface
 - **DoT Port-Einschränkung**: Port 853 nur zu Mullvad DNS (verhindert Daten-Exfiltration)
@@ -142,6 +158,13 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
   - Emerging Threats Open ruleset mit automatischen Updates
   - Configuration validation vor Reload
   - Automatische Regel-Updates täglich mit Integritätsprüfung
+  - **🆕 Email-Alerts**: Critical alerts (Priority 1) per Email
+- **🆕 Email Alert System**: Automatische Benachrichtigung bei kritischen Events
+  - AIDE Integritätsverletzungen
+  - Rootkit-Erkennung (hidden processes)
+  - Virus-Detection (ClamAV)
+  - Kritische IDS-Alerts (Suricata)
+  - VPN-Ausfälle (>30min)
 - **Logwatch**: Automatisierte Sicherheitsberichte und kritische Alarmierung
 - **Daily Security Reports**: Tägliche Berichte um 06:00 gespeichert in `/var/log/security-reports/`
 - **Critical Alert Monitoring**: Prüft alle 5 Minuten auf kritische Sicherheitsereignisse
@@ -181,12 +204,13 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - Kexec deaktiviert
 - BPF JIT gehärtet
 - Ptrace eingeschränkt (yama.ptrace_scope=1)
-- Core Dumps deaktiviert (suid_dumpable=0)
+- 🆕 Core Dumps komplett deaktiviert (kernel.core_pattern = /bin/false)
 - Unprivilegierte BPF deaktiviert
 - TCP Timestamps deaktiviert (OS-Fingerprinting-Schutz)
 - SYN Cookies aktiviert
 - Source Routing deaktiviert
 - ICMP Redirects ignoriert
+- 🆕 Per-Interface Reverse Path Filtering (strict für physical, loose für VPN)
 - Kernel Module Locking aktiviert (lockKernelModules = true)
 - 🆕 Swappiness minimiert (vm.swappiness=1)
 ```
