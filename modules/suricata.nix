@@ -8,11 +8,19 @@
     enable = true;
 
     settings = {
-      # Netzwerkinterface für Paket-Capture (WiFi)
+      # Netzwerkinterfaces für Paket-Capture (WiFi + VPN)
       af-packet = [
         {
-          interface = "wlp0s20f3";
+          interface = "wlp0s20f3";  # WiFi
           cluster-id = 99;
+          cluster-type = "cluster_flow";
+          defrag = true;
+          use-mmap = true;
+          tpacket-v3 = true;
+        }
+        {
+          interface = "proton0";  # VPN (ProtonVPN WireGuard)
+          cluster-id = 100;
           cluster-type = "cluster_flow";
           defrag = true;
           use-mmap = true;
