@@ -50,8 +50,9 @@
     "fs.protected_fifos" = 2;
     "fs.protected_regular" = 2;
 
-    # Core Dumps einschränken
-    "fs.suid_dumpable" = 0;
+    # Core Dumps komplett deaktivieren
+    "fs.suid_dumpable" = 0;                # SUID/SGID Programme
+    "kernel.core_pattern" = "|/bin/false";  # Alle Core Dumps deaktivieren
 
     # ==========================================
     # MEMORY MANAGEMENT
