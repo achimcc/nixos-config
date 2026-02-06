@@ -148,9 +148,28 @@
   # Lockdown Mode (integrity = Module müssen signiert sein)
   security.lockKernelModules = true; # Verhindert Rootkit-Installation zur Laufzeit
 
-  # Sudo Timeout verkürzen (Default: 15min)
+  # Sudo Security Hardening
   security.sudo.extraConfig = ''
+    # Timeout: Re-authenticate after 5 minutes
     Defaults timestamp_timeout=5
+
+    # Security: Force PTY allocation (prevents injection attacks)
+    Defaults use_pty
+
+    # Logging: Log all sudo commands to dedicated file
+    Defaults logfile="/var/log/sudo.log"
+    Defaults log_year, log_host, loglinelen=0
+
+    # Password: Limit password attempts and timeout
+    Defaults passwd_tries=3
+    Defaults passwd_timeout=1
+
+    # Environment: Clear potentially dangerous env vars
+    Defaults env_reset
+    Defaults secure_path="/run/wrappers/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin"
+
+    # Disable lecture message (already configured system)
+    Defaults lecture=never
   '';
 
   # Chromium/Electron Apps benötigen Sandbox-Zugriff
@@ -427,9 +446,10 @@
     };
   };
 
-  # Log-Verzeichnis für ClamAV erstellen
+  # Log-Verzeichnisse erstellen
   systemd.tmpfiles.rules = [
     "d /var/log/clamav 0750 clamav clamav -"
+    "f /var/log/sudo.log 0600 root root -"  # Sudo audit log
   ];
 
   # clamonacc Service für Echtzeit-Scanning
