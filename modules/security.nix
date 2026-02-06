@@ -326,6 +326,10 @@
     # NixOS Konfiguration (Flake-basiert)
     /home/user/nixos-config CONTENT
 
+    # Nix Store (Package binaries - hash verification only)
+    # Note: Nix manages permissions, only verify content integrity
+    /nix/store CONTENT
+
     # Ausnahmen (häufig ändernde Verzeichnisse)
     !/var/log
     !/var/cache
