@@ -97,7 +97,11 @@
     # https://www.quad9.net/service/service-addresses-and-features
     settings = {
       Resolve = {
-        DNSSEC = "true";
+        # DNSSEC Validation (strict enforcement)
+        # "yes" = validate and FAIL resolution if validation fails
+        DNSSEC = "yes";
+        # Negative trust anchors for known DNSSEC-broken domains (if needed)
+        # DNSSECNegativeTrustAnchors = [ ];
         Domains = [ "~." ];
         DNSOverTLS = "true";
         DNS = "9.9.9.9#dns.quad9.net";
