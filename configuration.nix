@@ -73,18 +73,23 @@
     "fido2-device=auto"
   ];
 
-  # Swap: FIDO2 mit Passwort-Fallback
+  # Swap: Keyfile-basierte Entsperrung (für Hibernate/Resume ohne FIDO2-Interaktion)
   # Swap-Verschlüsselung explizit verifiziert (LUKS2)
-  # Swap ist in LUKS-Container, wird über FIDO2 entsperrt
+  # Keyfile in /root/crypto_keyfile.bin, wird in initrd eingebettet
   # Keine separaten swapDevices nötig - bereits in hardware-configuration.nix definiert
-  boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".device =
-    "/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b";
-  boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".crypttabExtraOpts = [
-    "fido2-device=auto"
-  ];
-  # SICHERHEIT: allowDiscards deaktiviert (verhindert Metadata-Leaks)
-  # Trade-off: Minimal schlechtere SSD-Performance, deutlich bessere Sicherheit
-  boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b".allowDiscards = false;
+  boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b" = {
+    device = "/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b";
+    keyFile = "/crypto_keyfile.bin";
+    # SICHERHEIT: allowDiscards deaktiviert (verhindert Metadata-Leaks)
+    # Trade-off: Minimal schlechtere SSD-Performance, deutlich bessere Sicherheit
+    allowDiscards = false;
+    # FIDO2 wurde durch Keyfile ersetzt - Root bleibt auf FIDO2!
+  };
+
+  # Keyfile in initrd einbetten (wird beim Boot verfügbar)
+  boot.initrd.secrets = {
+    "/crypto_keyfile.bin" = "/root/crypto_keyfile.bin";
+  };
 
   # ==========================================
   # LOKALISIERUNG
