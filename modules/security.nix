@@ -400,21 +400,21 @@
 
   # Wöchentlicher unhide Scan (Sonntag 05:00)
   systemd.timers.unhide-check = {
-    description = "Weekly Unhide Process Scan";
+    description = "Daily Unhide Process Scan";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "Sun *-*-* 05:00:00";
+      OnCalendar = "daily";
       Persistent = true;
       RandomizedDelaySec = "1h";
     };
   };
 
-  # Wöchentlicher unhide-tcp Scan (Sonntag 05:15)
+  # Täglicher unhide-tcp Scan (05:15)
   systemd.timers.unhide-tcp-check = {
-    description = "Weekly Unhide TCP/UDP Scan";
+    description = "Daily Unhide TCP/UDP Scan";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "Sun *-*-* 05:15:00";
+      OnCalendar = "daily";
       Persistent = true;
       RandomizedDelaySec = "30min";
     };
