@@ -168,7 +168,57 @@ in
   # FIREJAIL SANDBOX
   # ==========================================
 
-  # Librewolf-spezifische Firejail-Konfiguration
+  # Librewolf CUSTOM minimalistisches Firejail-Profil
+  # Erstellt wegen Problemen mit dem Standard-Profil und Downloads-Ordner
+  environment.etc."firejail/librewolf-custom.profile".text = ''
+    # Minimalistisches Firejail-Profil für LibreWolf
+    # Fokus: Sicherheit ohne übermäßige Einschränkungen
+
+    # Netzwerk
+    netfilter
+    protocol unix,inet,inet6,netlink
+
+    # Capabilities einschränken
+    caps.drop all
+
+    # WICHTIG: Kein Seccomp Filter!
+    # Chromium-basierte Browser (inkl. LibreWolf) brauchen bestimmte Syscalls
+    # für ihren internen Sandbox. Firejail's seccomp blockiert diese und
+    # zwingt den Browser, die interne Sandbox zu deaktivieren.
+    # Firejail bietet bereits starke Isolation via Namespaces + AppArmor.
+
+    # Namespaces
+    nogroups
+    nonewprivs
+    noroot
+
+    # Private /dev (aber mit Audio/Video)
+    private-dev
+    keep-dev-shm
+
+    # /tmp Isolation
+    private-tmp
+
+    # Vollzugriff auf Home (KEIN private-home!)
+    # Downloads, Bitwarden, etc. funktionieren ohne Whitelist-Probleme
+
+    # D-Bus Filter
+    dbus-user filter
+    dbus-user.talk org.freedesktop.portal.*
+    dbus-user.talk org.freedesktop.Notifications
+    dbus-user.talk org.freedesktop.FileManager1
+    dbus-user.talk org.gtk.vfs.*
+    dbus-user.own org.mozilla.librewolf.*
+
+    # Systemd
+    dbus-system filter
+    dbus-system.talk org.freedesktop.PolicyKit1
+
+    # Shell erlauben (für Dateimanager-Start)
+    # Kein "shell none"
+  '';
+
+  # Librewolf-spezifische Firejail-Konfiguration (DEPRECATED - wird nicht mehr benutzt)
   environment.etc."firejail/librewolf.local".text = ''
     # Bitwarden Desktop Native Messaging (Browser-Biometrics)
     # desktop_proxy läuft als Subprocess im Sandbox und kommuniziert
@@ -179,6 +229,18 @@ in
     # Bitwarden Desktop IPC-Socket (desktop_proxy → Desktop-App)
     noblacklist ''${HOME}/.cache/com.bitwarden.desktop
     whitelist ''${HOME}/.cache/com.bitwarden.desktop
+
+    # Mesa Shader Cache (für GPU-Performance)
+    noblacklist ''${HOME}/.cache/mesa_shader_cache
+    whitelist ''${HOME}/.cache/mesa_shader_cache
+
+    # Downloads-Ordner Zugriff (für "Im Ordner anzeigen" Funktion)
+    # CRITICAL: Firejail whitelist-common.inc blockiert alles außer explizit erlaubten Ordnern
+    # Wir deaktivieren die restriktiven Whitelists und erlauben Vollzugriff auf Home
+    ignore include whitelist-common.inc
+    ignore include whitelist-runuser-common.inc
+    noblacklist ''${HOME}/Downloads
+    whitelist ''${HOME}/Downloads
 
     # Make /run/user writable (needed for dconf and pulse)
     writable-run-user
@@ -201,6 +263,9 @@ in
     dbus-user filter
     dbus-user.talk org.freedesktop.portal.*
     dbus-user.talk org.freedesktop.Notifications
+    dbus-user.talk org.freedesktop.FileManager1
+    dbus-user.talk org.gtk.vfs.*
+    dbus-user.own org.mozilla.librewolf.*
 
     # System D-Bus für Polkit (Fingerprint-Authentifizierung)
     dbus-system filter
@@ -209,6 +274,10 @@ in
     # FIDO2/WebAuthn Zugriff für Nitrokey (braucht /dev/hidraw*)
     ignore private-dev
     ignore nou2f
+
+    # Dateimanager-Zugriff für "Downloads-Ordner öffnen" Funktion
+    # Erlaubt das Starten von GNOME Files (Nautilus) aus der Sandbox
+    ignore shell none
   '';
 
   # Spotify-spezifische Firejail-Konfiguration
@@ -325,9 +394,10 @@ in
 
       # LibreWolf - Privacy Browser mit AppArmor + Firejail
       # AppArmor-Profil siehe modules/apparmor-profiles.nix
+      # CUSTOM: Eigenes minimalistisches Profil wegen Download-Ordner Problemen
       librewolf = {
         executable = "${pkgs.librewolf}/bin/librewolf";
-        profile = "${pkgs.firejail}/etc/firejail/librewolf.profile";
+        profile = "/etc/firejail/librewolf-custom.profile";
       };
 
       # FreeTube - YouTube-Client mit Sandbox

@@ -610,7 +610,8 @@ in
 
         # -- ELECTRON SANDBOX --
         # Deaktiviert für hardened Kernel Kompatibilität
-        "window.titleBarStyle" = "custom";
+        # "native" = GNOME zeichnet Fensterbuttons (verhindert Duplikate)
+        "window.titleBarStyle" = "native";
       };
 
       # Electron-Sandbox deaktivieren (für PTY/Terminal auf hardened Kernel)

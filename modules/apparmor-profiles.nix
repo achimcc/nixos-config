@@ -38,6 +38,7 @@
         owner @{HOME}/.librewolf/** rwk,
         owner @{HOME}/.cache/librewolf/** rwk,
         owner @{HOME}/.cache/mesa_shader_cache/** rwk,
+        owner @{HOME}/Downloads/ r,
         owner @{HOME}/Downloads/** rw,
         owner @{HOME}/.config/dconf/user rw,
         owner @{HOME}/.config/pulse/ rw,
