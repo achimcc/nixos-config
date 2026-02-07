@@ -1063,35 +1063,36 @@ in
   };
 
   # ==========================================
-  # PROTONVPN GUI - Autostart nach Login
+  # PROTONVPN GUI - Manuelle Serverauswahl
   # ==========================================
-  # ProtonVPN GUI startet automatisch nach dem Login und verbindet das VPN
-  # WICHTIG: VPN wird nicht beim Boot gestartet, sondern erst nach dem Login!
+  # HYBRID MODE: CLI (systemd) verbindet beim Boot, GUI für manuellen Serverwechsel
   #
-  # Manuelle Konfiguration in der GUI:
+  # WICHTIG: In der GUI DEAKTIVIEREN:
   # 1. ProtonVPN GUI öffnen → Settings → Advanced
-  # 2. "Start app on boot" aktivieren
-  # 3. "Auto-connect" aktivieren
-  # 4. "Kill Switch" aktivieren (für zusätzlichen Schutz)
-  # 5. Preferred server: Deutschland, Fastest
+  # 2. "Auto-connect" DEAKTIVIEREN (verhindert Konflikte mit CLI)
+  # 3. "Kill Switch" DEAKTIVIEREN (wird von Firewall gehandhabt)
   #
-  # Systemd User Service als Alternative (falls Autostart in GUI nicht funktioniert):
-  systemd.user.services.protonvpn-gui = {
-    Unit = {
-      Description = "ProtonVPN GUI";
-      After = [ "graphical-session.target" "network-online.target" ];
-      PartOf = [ "graphical-session.target" ];
-    };
-    Service = {
-      Type = "simple";
-      ExecStart = "${pkgs.protonvpn-gui}/bin/protonvpn-app";
-      Restart = "on-failure";
-      RestartSec = "5s";
-    };
-    Install = {
-      WantedBy = [ "graphical-session.target" ];
-    };
-  };
+  # GUI Verwendung:
+  # - Zum Serverwechsel: Disconnect vom CLI-VPN, dann in GUI anderen Server wählen
+  # - Nach GUI-Disconnect: Systemd startet CLI-VPN automatisch neu
+  #
+  # AUTOSTART DEAKTIVIERT - GUI nur bei Bedarf manuell starten
+  # systemd.user.services.protonvpn-gui = {
+  #   Unit = {
+  #     Description = "ProtonVPN GUI";
+  #     After = [ "graphical-session.target" "network-online.target" ];
+  #     PartOf = [ "graphical-session.target" ];
+  #   };
+  #   Service = {
+  #     Type = "simple";
+  #     ExecStart = "${pkgs.protonvpn-gui}/bin/protonvpn-app";
+  #     Restart = "on-failure";
+  #     RestartSec = "5s";
+  #   };
+  #   Install = {
+  #     WantedBy = [ "graphical-session.target" ];
+  #   };
+  # };
 
   # ==========================================
   # SYNCTHING - Sichere Dateisynchronisation

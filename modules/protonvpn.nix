@@ -46,8 +46,8 @@
     after = [ "network-online.target" "sops-nix.service" "nftables.service" ];
     wants = [ "network-online.target" "nftables.service" ]; # Softer dependency - won't stop VPN if firewall restarts
     # NOTE: Pre-check script still validates firewall is active before starting VPN
-    # DISABLED: wantedBy = [ "multi-user.target" ];
-    wantedBy = [ ]; # Service disabled - using ProtonVPN GUI
+    # HYBRID MODE: CLI autoconnect beim Boot + GUI für manuellen Serverwechsel
+    wantedBy = [ "multi-user.target" ];
 
     # Vor dem Display Manager starten
     before = [ "display-manager.service" ];
@@ -216,7 +216,8 @@
         fi
 
         # Check 5: VPN routing table
-        if ! ${pkgs.iproute2}/bin/ip route show table 51820 | grep -q "default.*$INTERFACE"; then
+        # Support both systemd (table 51820) and ProtonVPN GUI (dynamic table)
+        if ! ${pkgs.iproute2}/bin/ip route show table all | grep -q "default.*$INTERFACE"; then
           failures=$(increment_failures)
           send_alert "VPN routing table broken! (Failure $failures/$MAX_FAILURES)"
 
