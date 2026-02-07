@@ -14,6 +14,7 @@
     ./modules/desktop.nix
     ./modules/audio.nix
     ./modules/power.nix
+    ./modules/suspend-monitor.nix
     ./modules/sops.nix
     ./modules/security.nix
     ./modules/apparmor-profiles.nix
@@ -51,6 +52,11 @@
 
     # CPU Mitigations (Spectre/Meltdown)
     "mitigations=auto,nosmt"       # Alle CPU-Mitigations, SMT deaktivieren (Performance-Hit)
+
+    # Suspend/Resume-Stabilität (ThinkPad T14 Gen 5 / Intel Lunar Lake)
+    # Fix für spontane Reboots nach Resume (siehe Debugging 2026-02-07)
+    "mem_sleep_default=deep"       # S3 Suspend statt S0ix (zuverlässiger auf neuer HW)
+    "intel_idle.max_cstate=1"      # Limitiere CPU C-States (verhindert Resume-Freeze)
   ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;
@@ -154,6 +160,10 @@
   # ==========================================
 
   hardware.enableRedistributableFirmware = true;
+
+  # fwupd: BIOS/Firmware-Updates über LVFS (Linux Vendor Firmware Service)
+  # Ermöglicht BIOS-Updates direkt aus Linux ohne Windows/DOS-Boot
+  services.fwupd.enable = true;
 
   # ==========================================
   # BLUETOOTH

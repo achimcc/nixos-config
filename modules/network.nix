@@ -62,6 +62,7 @@ in
     # NetworkManager für alles (WLAN, Ethernet, VPN)
     networkmanager = {
       enable = true;
+
       # Zufällige MAC-Adresse beim Scannen (erschwert Tracking)
       wifi.scanRandMacAddress = true;
       # Zufällige MAC-Adresse bei jeder Verbindung
@@ -145,11 +146,15 @@ in
         # DNSSEC Validation (strict enforcement)
         # "yes" = validate and FAIL resolution if validation fails
         DNSSEC = "yes";
-        # Negative trust anchors for known DNSSEC-broken domains (if needed)
-        # DNSSECNegativeTrustAnchors = [ ];
+        # Negative trust anchors: Domains mit bekannten DNSSEC-Problemen
+        # fwupd.org + fastly.net: cdn.fwupd.org → Fastly CDN CNAME-Chain
+        # WICHTIG: Muss als String mit Leerzeichen sein, nicht als Array!
+        DNSSECNegativeTrustAnchors = "fwupd.org fastly.net";
         Domains = [ "~." ];
         DNSOverTLS = "true";
-        DNS = "9.9.9.9#dns.quad9.net";
+        # Primary DNS: Quad9 (Bootstrap) + Mullvad (über VPN, für Domains die Quad9 blockiert)
+        # Mullvad hat keine Malware-Filterung wie Quad9, daher Quad9 first
+        DNS = "9.9.9.9#dns.quad9.net 194.242.2.2#dns.mullvad.net";
         # SICHERHEIT: Kein Fallback-DNS (verhindert DNS-Leaks wenn VPN down)
         FallbackDNS = "";
         DNSStubListener = "yes";

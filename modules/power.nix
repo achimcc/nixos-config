@@ -55,7 +55,10 @@
   # THERMALD - Temperaturmanagement
   # ==========================================
 
-  services.thermald.enable = true;
+  # DEAKTIVIERT: ThinkPad T14 Gen 5 (Intel Lunar Lake) wird von thermald nicht unterstützt
+  # Fehler: "dytc_lapmode present: Thermald can't run on this platform"
+  # Temperatur-Management läuft über TLP + Kernel-Treiber
+  services.thermald.enable = false;
 
   # ==========================================
   # WEITERE OPTIMIERUNGEN
