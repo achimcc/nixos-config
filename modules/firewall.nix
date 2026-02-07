@@ -60,9 +60,9 @@ in
   # KERNEL MODULE CONFIGURATION
   # ==========================================
   # Load nftables kernel modules at boot
+  # Note: counter functionality is built into nf_tables, not a separate module
   boot.kernelModules = [
     "nf_tables"
-    "nft_counter"
     "nft_ct"
     "nft_limit"
     "nft_nat"
@@ -303,10 +303,11 @@ in
       done
 
       # Setze loose rp_filter (2) für VPN interfaces (falls vorhanden)
+      # Note: grep exits with 1 if no matches, so use || true to prevent script failure at boot
       VPN_IFACES=$(${pkgs.iproute2}/bin/ip -o link show | \
         ${pkgs.gnugrep}/bin/grep -E "^[0-9]+: (tun|wg|proton)" | \
         ${pkgs.gawk}/bin/awk -F': ' '{print $2}' | \
-        ${pkgs.gnugrep}/bin/grep -v "@")
+        ${pkgs.gnugrep}/bin/grep -v "@" || true)
 
       for iface in $VPN_IFACES; do
         set_rp_filter "$iface" 2  # loose (für WireGuard)
