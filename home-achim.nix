@@ -262,7 +262,7 @@ in
 
     # --- AI CODING ASSISTANT ---
     aider-chat # AI pair programming
-    llm-agents.packages.${pkgs.system}.crush
+    llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.crush
     # claude-code via npm installieren: npm install -g @anthropic-ai/claude-code
 
     # --- RESUME / CV ---
@@ -272,7 +272,7 @@ in
     shadow-simulator # Discrete-event network simulator für verteilte Systeme
 
     # --- REMARKABLE TABLET ---
-    rcu.packages.${pkgs.system}.default # RCU - reMarkable Connection Utility
+    rcu.packages.${pkgs.stdenv.hostPlatform.system}.default # RCU - reMarkable Connection Utility
   ];
 
   # --- PGP KONFIGURATION ---
@@ -462,6 +462,7 @@ in
   # --- SSH ---
   programs.ssh = {
     enable = true;
+    enableDefaultConfig = false;
     matchBlocks = {
       # SSH-Keys automatisch zum Agent hinzufügen beim ersten Nutzen
       "*" = {
@@ -616,11 +617,11 @@ in
       userSettings = {
         "terminal.integrated.inheritEnv" = true;
       };
-    };
 
-    # Electron-Flags für VSCodium
-    enableExtensionUpdateCheck = false;
-    enableUpdateCheck = false;
+      # Electron-Flags für VSCodium
+      enableExtensionUpdateCheck = false;
+      enableUpdateCheck = false;
+    };
   };
 
   # VSCodium Desktop-Datei überschreiben, um Bubblewrap-Wrapper zu verwenden
