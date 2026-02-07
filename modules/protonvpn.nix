@@ -9,7 +9,8 @@
   # ==========================================
 
   # WireGuard-Kernel-Modul beim Boot laden (benötigt für wg-quick)
-  boot.kernelModules = [ "wireguard" ];
+  # dummy-Modul für ProtonVPN GUI Kill Switch (benötigt für pvpnksintrf0 Interface)
+  boot.kernelModules = [ "wireguard" "dummy" ];
 
   # ==========================================
   # SOPS SECRETS FÜR WIREGUARD
@@ -37,6 +38,7 @@
   # ==========================================
 
   # Eigener Service, der die sops-generierte Konfigurationsdatei verwendet
+  # DISABLED: Using ProtonVPN GUI instead for easier server switching
   systemd.services."wg-quick-proton0" = {
     description = "WireGuard VPN - ProtonVPN";
 
@@ -44,7 +46,8 @@
     after = [ "network-online.target" "sops-nix.service" "nftables.service" ];
     wants = [ "network-online.target" "nftables.service" ]; # Softer dependency - won't stop VPN if firewall restarts
     # NOTE: Pre-check script still validates firewall is active before starting VPN
-    wantedBy = [ "multi-user.target" ];
+    # DISABLED: wantedBy = [ "multi-user.target" ];
+    wantedBy = [ ]; # Service disabled - using ProtonVPN GUI
 
     # Vor dem Display Manager starten
     before = [ "display-manager.service" ];
@@ -177,15 +180,11 @@
 
         # Check 2: Interface exists
         if ! ${pkgs.iproute2}/bin/ip link show "$INTERFACE" &>/dev/null; then
-          failures=$(increment_failures)
-          send_alert "Interface missing! (Failure $failures/$MAX_FAILURES)"
-
-          if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
-            echo "→ Restarting VPN..."
-            systemctl restart wg-quick-proton0.service
-            reset_failures
-          fi
-          exit 1
+          # Gracefully wait for VPN to connect (ProtonVPN GUI starts after login)
+          # Don't spam alerts during boot phase
+          echo "ℹ VPN interface not yet up (waiting for ProtonVPN GUI to connect)"
+          reset_failures
+          exit 0
         fi
 
         # Check 3: Interface UP
@@ -196,7 +195,8 @@
           send_alert "Interface DOWN! (Failure $failures/$MAX_FAILURES)"
 
           if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
-            systemctl restart wg-quick-proton0.service
+            # Don't restart automatically - ProtonVPN GUI manages the connection
+            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI."
             reset_failures
           fi
           exit 1
@@ -208,7 +208,8 @@
           send_alert "No valid IP address! (Failure $failures/$MAX_FAILURES)"
 
           if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
-            systemctl restart wg-quick-proton0.service
+            # Don't restart automatically - ProtonVPN GUI manages the connection
+            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI."
             reset_failures
           fi
           exit 1
@@ -220,7 +221,8 @@
           send_alert "VPN routing table broken! (Failure $failures/$MAX_FAILURES)"
 
           if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
-            systemctl restart wg-quick-proton0.service
+            # Don't restart automatically - ProtonVPN GUI manages the connection
+            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI."
             reset_failures
           fi
           exit 1
@@ -232,7 +234,8 @@
           send_alert "VPN connectivity failed! (Failure $failures/$MAX_FAILURES)"
 
           if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
-            systemctl restart wg-quick-proton0.service
+            # Don't restart automatically - ProtonVPN GUI manages the connection
+            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI."
             reset_failures
           fi
           exit 1

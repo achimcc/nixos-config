@@ -1062,8 +1062,36 @@ in
     '';
   };
 
-  # ProtonVPN wird via systemd beim Boot gestartet (siehe modules/protonvpn.nix)
-  # GUI läuft zusätzlich und zeigt die bestehende Verbindung an
+  # ==========================================
+  # PROTONVPN GUI - Autostart nach Login
+  # ==========================================
+  # ProtonVPN GUI startet automatisch nach dem Login und verbindet das VPN
+  # WICHTIG: VPN wird nicht beim Boot gestartet, sondern erst nach dem Login!
+  #
+  # Manuelle Konfiguration in der GUI:
+  # 1. ProtonVPN GUI öffnen → Settings → Advanced
+  # 2. "Start app on boot" aktivieren
+  # 3. "Auto-connect" aktivieren
+  # 4. "Kill Switch" aktivieren (für zusätzlichen Schutz)
+  # 5. Preferred server: Deutschland, Fastest
+  #
+  # Systemd User Service als Alternative (falls Autostart in GUI nicht funktioniert):
+  systemd.user.services.protonvpn-gui = {
+    Unit = {
+      Description = "ProtonVPN GUI";
+      After = [ "graphical-session.target" "network-online.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "simple";
+      ExecStart = "${pkgs.protonvpn-gui}/bin/protonvpn-app";
+      Restart = "on-failure";
+      RestartSec = "5s";
+    };
+    Install = {
+      WantedBy = [ "graphical-session.target" ];
+    };
+  };
 
   # ==========================================
   # SYNCTHING - Sichere Dateisynchronisation

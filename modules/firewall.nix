@@ -92,9 +92,7 @@ in
   systemd.services.nftables = {
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
-    # KRITISCH: mkForce überschreibt den NixOS-Standard (before=network-pre.target)
-    # um systemd ordering cycle zu vermeiden
-    before = lib.mkForce [ "wg-quick-proton0.service" ];
+    # Keine before-Dependency mehr - ProtonVPN GUI startet nach Login, nicht beim Boot
   };
 
   networking.nftables = {
