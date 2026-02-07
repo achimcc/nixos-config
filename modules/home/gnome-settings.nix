@@ -54,7 +54,7 @@
 
     "org/gnome/shell" = {
       favorite-apps = [
-        "mullvad-browser.desktop"  # Maximum Anti-Fingerprinting Browser
+        "org.wezfurlong.wezterm.desktop"
         "librewolf.desktop"
         "thunderbird.desktop"
         "org.gnome.Nautilus.desktop"

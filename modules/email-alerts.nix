@@ -141,10 +141,17 @@ in {
   systemd.services.suricata-alert-monitor = {
     description = "Suricata IDS Alert Monitor";
     script = ''
-      # Prüfe auf kritische Suricata-Alerts (Priority 1)
+      # Prüfe auf kritische Suricata-Alerts (Priority 1), filtere bekannte False Positives
       if [ -f /var/log/suricata/eve.json ]; then
-        CRITICAL=$(${pkgs.jq}/bin/jq -r 'select(.event_type=="alert" and .alert.severity==1) | .alert.signature' \
-          /var/log/suricata/eve.json 2>/dev/null | tail -5)
+        # Filtere bekannte False Positives:
+        # - Google Cast/mDNS (harmlose Chromecast-Discovery)
+        # - NBT-NS (harmlose Windows NetBIOS-Broadcasts)
+        # - SSL/TLS auf ungewöhnlichen Ports (oft legitim)
+        CRITICAL=$(${pkgs.jq}/bin/jq -r '
+          select(.event_type=="alert" and .alert.severity==1) |
+          select(.alert.signature | test("Google Cast|mDNS|NBT-NS|NetBIOS|SSL/TLS.*unusual.*port") | not) |
+          .alert.signature
+        ' /var/log/suricata/eve.json 2>/dev/null | tail -5)
 
         if [ -n "$CRITICAL" ]; then
           ${sendSecurityAlert} \
@@ -165,8 +172,8 @@ in {
     description = "Suricata Alert Check Timer";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnBootSec = "10min";
-      OnUnitActiveSec = "10min";
+      OnBootSec = "15min";
+      OnUnitActiveSec = "1h";  # Reduziert von 10min auf 1h
       Persistent = true;
     };
   };

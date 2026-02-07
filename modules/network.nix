@@ -154,6 +154,11 @@ in
         FallbackDNS = "";
         DNSStubListener = "yes";
         Cache = "no-negative";
+        # SICHERHEIT: LLMNR und mDNS deaktivieren (Suricata-Warnung beheben)
+        # LLMNR ist anfällig für Credential-Theft und MITM-Angriffe
+        # mDNS leakt Device-Information ins lokale Netzwerk
+        LLMNR = "no";
+        MulticastDNS = "no";
       };
     };
   };
