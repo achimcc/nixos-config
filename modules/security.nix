@@ -213,6 +213,9 @@
       # Nitrokey 3C NFC
       allow id 20a0:42b2 name "Nitrokey 3" with-connect-type "hotplug"
 
+      # reMarkable 2 Tablet
+      allow id 04b3:4010 with-connect-type "hotplug"
+
       # USB-C Monitor Hub (Genesys Logic USB2.0 Hub)
       # Häufig in externen USB-C Monitoren verbaut
       allow id 05e3:0608 name "USB2.0 Hub" with-connect-type "hotplug"

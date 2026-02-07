@@ -176,6 +176,7 @@ in
     # --- PDF VIEWER & E-BOOKS ---
     evince # GNOME Document Viewer (via Firejail in modules/network.nix)
     foliate # E-Book-Reader (GNOME/libadwaita)
+    calibre # E-Book-Management & -Konvertierung
 
     # --- MEDIA PLAYER ---
     celluloid # GTK-Frontend für mpv
@@ -527,8 +528,8 @@ in
   };
 
   # --- VS CODIUM (Open Source VSCode ohne Microsoft Telemetrie) ---
-  # WICHTIG: VSCodium läuft via Firejail-Wrapper (siehe modules/network.nix)
-  # Der Firejail-Wrapper in /run/wrappers/bin/codium hat PATH-Priorität
+  # WICHTIG: VSCodium läuft via Bubblewrap-Wrapper in ~/.local/bin/codium
+  # Der Wrapper isoliert VSCodium vom System und deaktiviert Electron-Sandbox
   programs.vscode = {
     enable = true;
     package = pkgs-unstable.vscodium;
@@ -866,16 +867,26 @@ in
   };
 
   # --- VSCODIUM BUBBLEWRAP WRAPPER ---
-  # Bubblewrap-Sandbox für VSCodium (Firejail ist inkompatibel mit Electron)
-  # Minimale Sandbox OHNE PID-Namespace (notwendig für Terminal/PTY)
+  # Bubblewrap-Sandbox für VSCodium - Isoliert vom Rest des Systems
+  # Integriertes Terminal funktioniert nicht (hardened Kernel + Electron PTY Issue)
+  # Nutze externes Terminal: Strg+Shift+C
   home.file.".local/bin/codium" = {
     executable = true;
     text = ''
       #!/bin/sh
-      # Bubblewrap-Sandbox für VSCodium - Minimale Isolation für PTY-Kompatibilität
-      # Electron-Sandbox deaktiviert für hardened Kernel Kompatibilität
+      # Bubblewrap-Sandbox für VSCodium
       exec ${pkgs.bubblewrap}/bin/bwrap \
-        --dev-bind / / \
+        --ro-bind /nix/store /nix/store \
+        --dev-bind /dev /dev \
+        --proc /proc \
+        --tmpfs /tmp \
+        --bind "$HOME" "$HOME" \
+        --ro-bind /etc /etc \
+        --ro-bind /run/current-system /run/current-system \
+        --bind /run/user/$(id -u) /run/user/$(id -u) \
+        --ro-bind /sys /sys \
+        --setenv PATH "/run/wrappers/bin:/home/achim/.local/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin" \
+        --unshare-pid \
         --die-with-parent \
         ${pkgs-unstable.vscodium}/bin/codium \
           --no-sandbox \
@@ -908,6 +919,28 @@ in
       fi
     '';
   };
+
+  # --- WEZTERM KONFIGURATION ---
+  # Fix für fehlende Fensterdekorationen unter GNOME/Wayland
+  home.file.".config/wezterm/wezterm.lua".text = ''
+    local wezterm = require 'wezterm'
+    local config = {}
+
+    -- Client-Side Decorations für GNOME/Wayland erzwingen
+    config.enable_wayland = true
+    config.enable_tab_bar = true
+    config.use_fancy_tab_bar = true
+    config.window_decorations = "INTEGRATED_BUTTONS|RESIZE"
+
+    -- Farb-Schema
+    config.color_scheme = 'Tokyo Night'
+
+    -- Font
+    config.font = wezterm.font('Hack Nerd Font Mono')
+    config.font_size = 11.0
+
+    return config
+  '';
 
   # --- CA-ZERTIFIKATE FÜR FLATPAK APPS (Flare) ---
   home.file.".local/share/ca-certificates/ca-bundle.crt".source = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";

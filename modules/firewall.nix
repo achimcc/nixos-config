@@ -43,6 +43,12 @@ let
     printerIP = "192.168.178.28";
   };
 
+  # reMarkable 2 USB network
+  remarkableNetwork = {
+    subnet = "10.11.99.0/24";
+    deviceIP = "10.11.99.1";
+  };
+
   # DNS configuration
   dnsServers = {
     mullvad = "194.242.2.2";  # DNS-over-TLS
@@ -68,11 +74,28 @@ in
   # FIREWALL SERVICE ORDERING (KRITISCH!)
   # ==========================================
   # NixOS manages nftables.service automatically when networking.nftables.enable = true
-  # Firewall startet VOR NetworkManager (via NixOS default: before=network-pre.target)
-  # Dies ist korrekt für einen VPN Kill Switch - verhindert Netzwerk-Leaks beim Booten.
-  # DHCP/DNS funktionieren trotzdem, da die Firewall-Regeln diese erlauben.
+  #
+  # WICHTIG: Firewall MUSS NACH network-online.target starten!
+  # Grund: systemd-resolved braucht eine funktionierende Netzwerkverbindung (IP, Route)
+  # um DNS-over-TLS zu Quad9 (9.9.9.9:853) aufzubauen.
+  #
+  # Service-Reihenfolge beim Boot:
+  # 1. systemd-resolved.service (DNS-Daemon startet)
+  # 2. NetworkManager.service (Netzwerk-Interfaces, DHCP, IP-Konfiguration)
+  # 3. network-online.target (Netzwerk ist ONLINE mit IP und Route)
+  # 4. nftables.service (Firewall aktivieren - VPN Kill Switch)
+  # 5. wg-quick-proton0.service (VPN verbinden)
   #
   # Service-Name ist "nftables.service" (NixOS-managed)!
+
+  # Override nftables.service to start AFTER network-online.target
+  systemd.services.nftables = {
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    # KRITISCH: mkForce überschreibt den NixOS-Standard (before=network-pre.target)
+    # um systemd ordering cycle zu vermeiden
+    before = lib.mkForce [ "wg-quick-proton0.service" ];
+  };
 
   networking.nftables = {
     enable = true;
@@ -105,8 +128,9 @@ in
           # 3. DHCP responses (server:67 -> client:68) - only from gateway
           ip saddr ${localNetwork.gateway} udp sport 67 udp dport 68 accept
 
-          # 4. mDNS for local discovery (Avahi) - rate limited
-          udp dport 5353 ip saddr 224.0.0.251 limit rate 100/minute accept
+          # 4. SECURITY: Block LLMNR/mDNS (Suricata alert mitigation)
+          udp dport 5355 drop comment "Block LLMNR (credential theft risk)"
+          udp dport 5353 drop comment "Block mDNS (information leakage)"
 
           # 5. Printer (Brother MFC-7360N) - IPP/CUPS and Raw Printing
           ip saddr ${localNetwork.printerIP} tcp sport 631 accept
@@ -124,16 +148,19 @@ in
           iifname "tun*" udp dport ${toString syncthingPorts.quic} accept
           iifname "wg*" udp dport ${toString syncthingPorts.quic} accept
 
-          # 8. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
+          # 8. reMarkable 2 USB network
+          ip saddr ${remarkableNetwork.subnet} accept
+
+          # 9. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
           meta nfproto ipv6 icmpv6 type { nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept
 
-          # 9. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
+          # 10. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
           meta nfproto ipv6 ip6 saddr != fe80::/10 drop
 
-          # 10. Port-scan detection
+          # 11. Port-scan detection
           update @portscan { ip saddr limit rate over 10/minute } drop
 
-          # 11. Dropped packets (logging temporarily disabled)
+          # 12. Dropped packets (logging temporarily disabled)
         }
 
         # OUTPUT CHAIN
@@ -180,8 +207,9 @@ in
           tcp dport 853 drop
           udp dport 853 drop
 
-          # 10. mDNS for local discovery - rate limited
-          ip daddr 224.0.0.251 udp dport 5353 limit rate 100/minute accept
+          # 10. SECURITY: Block LLMNR/mDNS outbound (Suricata alert mitigation)
+          udp dport 5355 drop comment "Block LLMNR (credential theft risk)"
+          udp dport 5353 drop comment "Block mDNS (information leakage)"
 
           # 11. Printer access
           ip daddr ${localNetwork.printerIP} tcp dport 631 accept
@@ -196,14 +224,17 @@ in
           ip daddr 255.255.255.255 udp dport ${toString syncthingPorts.discovery} accept
           ip daddr 192.168.178.255 udp dport ${toString syncthingPorts.discovery} accept
 
-          # 14. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
+          # 14. reMarkable 2 USB network (SSH, HTTP, etc.)
+          ip daddr ${remarkableNetwork.subnet} accept
+
+          # 15. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
           meta nfproto ipv6 icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept
 
-          # 15. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
+          # 16. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
           # Even though IPv6 is disabled at kernel level, this prevents leaks if accidentally enabled
           meta nfproto ipv6 ip6 daddr != fe80::/10 drop
 
-          # 16. Dropped packets (logging temporarily disabled)
+          # 17. Dropped packets (logging temporarily disabled)
         }
 
         # FORWARD CHAIN

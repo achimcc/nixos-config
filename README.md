@@ -590,6 +590,7 @@ nrs  → sudo nixos-rebuild switch --flake ...#achim-laptop
 
 - **Evince**: GNOME Document Viewer (benutzerfreundlich, Firejail-gesandboxt)
 - **Foliate**: E-Book-Reader (EPUB, MOBI, FB2)
+- **Calibre**: E-Book-Management & -Konvertierung (EPUB, MOBI, AZW3, PDF)
 - **Rnote**: Handschriftliche Notizen und Skizzen
 - **Apostrophe**: Distraction-free Markdown-Editor
 - **Logseq**: Wissensmanagement / Personal Wiki (Firejail)
