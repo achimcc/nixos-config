@@ -1,0 +1,4 @@
+# YouTube IPv4 addresses (Workaround für IPv6-Problem)
+108.177.96.93 youtube.com www.youtube.com
+108.177.96.93 m.youtube.com
+142.250.185.46 googlevideo.com

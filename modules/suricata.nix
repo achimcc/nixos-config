@@ -8,6 +8,10 @@
     enable = true;
 
     settings = {
+      # Threshold/Suppression Configuration
+      # Unterdrückt normale lokale Netzwerk-Discovery (MDNS, LLMNR)
+      threshold-file = "/etc/suricata/threshold.config";
+
       # Netzwerkinterfaces für Paket-Capture (WiFi + VPN)
       af-packet = [
         {
@@ -19,7 +23,7 @@
           tpacket-v3 = true;
         }
         {
-          interface = "proton0";  # VPN (ProtonVPN WireGuard)
+          interface = "proton-cli";  # VPN (ProtonVPN CLI WireGuard)
           cluster-id = 100;
           cluster-type = "cluster_flow";
           defrag = true;
@@ -184,4 +188,20 @@
   systemd.tmpfiles.rules = [
     "d /var/log/suricata 0755 suricata suricata -"
   ];
+
+  # Threshold-Konfiguration für Alert-Suppression
+  environment.etc."suricata/threshold.config".text = ''
+    # Suricata Threshold/Suppression Configuration
+    # Unterdrückt Alerts für normale lokale Netzwerk-Discovery-Protokolle
+
+    # Unterdrücke MDNS (Multicast DNS) Alerts aus dem lokalen Netzwerk
+    # MDNS wird von macOS/Linux für lokale Service-Discovery verwendet
+    suppress gen_id 1, sig_id 2027512, track by_src, ip 192.168.178.0/24
+    suppress gen_id 1, sig_id 2027513, track by_src, ip 192.168.178.0/24
+
+    # Unterdrücke LLMNR (Link-Local Multicast Name Resolution) Alerts aus dem lokalen Netzwerk
+    # LLMNR wird von Windows für lokale Namensauflösung verwendet
+    suppress gen_id 1, sig_id 2027857, track by_src, ip 192.168.178.0/24
+    suppress gen_id 1, sig_id 2027858, track by_src, ip 192.168.178.0/24
+  '';
 }

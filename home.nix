@@ -390,8 +390,14 @@ in
         # Verhindert Schreiben in Keyring während er noch lädt (→ Korruption)
         echo "Warte auf GNOME Keyring..."
         for i in {1..60}; do
-          # Prüfe ob Keyring antwortet UND ob Default-Keyring existiert
-          if ${pkgs.libsecret}/bin/secret-tool search --all nonexistent test 2>&1 | grep -q "No matching"; then
+          # Prüfe ob Keyring antwortet (lookup gibt Exit Code 1 wenn nicht bereit)
+          # Verwende lookup statt search, da lookup einen klaren Exit Code zurückgibt
+          if ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null; then
+            # Keyring antwortet (auch wenn nicht gefunden)
+            :
+          fi
+          # Wenn Exit Code ist (0 oder 1, nicht Timeout/Error), dann ist Keyring bereit
+          if [ $? -lt 2 ]; then
             # Zusätzliche Sicherheit: Warte weitere 3 Sekunden
             sleep 3
             echo "GNOME Keyring ist bereit (nach $i Sekunden)"
