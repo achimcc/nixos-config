@@ -370,45 +370,128 @@ in
   systemd.user.services.posteo-keyring-sync = {
     Unit = {
       Description = "Sync Posteo password from sops to GNOME Keyring";
-      After = [ "graphical-session.target" ];
+      # CRITICAL: Warte bis GNOME vollständig geladen ist (nicht nur Keyring-Service!)
+      # Verhindert Race Condition die zu korrupten Keyring-Dateien führt
+      # Startet NACH gnome-shell (Desktop vollständig geladen)
+      After = [ "graphical-session.target" "gnome-keyring.service" "gnome-shell-wayland.service" ];
       PartOf = [ "graphical-session.target" ];
+      # Zusätzliche Absicherung: Starte erst wenn Session wirklich bereit ist
+      Wants = [ "gnome-shell-wayland.service" ];
     };
     Service = {
       Type = "oneshot";
       RemainAfterExit = true;
+      # Delay vor dem Start (gibt GNOME Zeit zum Starten)
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
       ExecStart = pkgs.writeShellScript "posteo-keyring-sync" ''
-        # Warte bis Keyring bereit ist
-        sleep 3
+        set -e  # Bei Fehler abbrechen
+
+        # Robuste Wartezeit bis Keyring wirklich bereit ist (max 60s statt 30s)
+        # Verhindert Schreiben in Keyring während er noch lädt (→ Korruption)
+        echo "Warte auf GNOME Keyring..."
+        for i in {1..60}; do
+          # Prüfe ob Keyring antwortet UND ob Default-Keyring existiert
+          if ${pkgs.libsecret}/bin/secret-tool search --all nonexistent test 2>&1 | grep -q "No matching"; then
+            # Zusätzliche Sicherheit: Warte weitere 3 Sekunden
+            sleep 3
+            echo "GNOME Keyring ist bereit (nach $i Sekunden)"
+            break
+          fi
+          if [ $i -eq 60 ]; then
+            echo "FEHLER: GNOME Keyring nicht bereit nach 60 Sekunden!"
+            exit 1
+          fi
+          sleep 1
+        done
 
         # Passwort aus sops lesen
-        if [ -f /run/secrets/email/posteo ]; then
-          PASSWORD=$(cat /run/secrets/email/posteo)
-
-          # In GNOME Keyring speichern (Format das Thunderbird erwartet)
-          # IMAP Passwort
-          echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo IMAP" \
-            protocol imap \
-            server posteo.de \
-            user "user@posteo.de"
-
-          # SMTP Passwort
-          echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo SMTP" \
-            protocol smtp \
-            server posteo.de \
-            user "user@posteo.de"
-
-          # GNOME Online Accounts (CalDAV für GNOME Kalender)
-          # GVariant-Format: {'password': <'...'> }
-          printf "{'password': <'%s'>}" "$PASSWORD" | \
-            ${pkgs.libsecret}/bin/secret-tool store \
-              --label="GOA webdav credentials for identity account_posteo_caldav_0" \
-              xdg:schema org.gnome.OnlineAccounts \
-              goa-identity "webdav:gen0:account_posteo_caldav_0"
+        if [ ! -f /run/secrets/email/posteo ]; then
+          echo "FEHLER: /run/secrets/email/posteo nicht gefunden!"
+          exit 1
         fi
+
+        PASSWORD=$(cat /run/secrets/email/posteo)
+
+        # In GNOME Keyring speichern (Format das Thunderbird erwartet)
+        echo "Schreibe Posteo-Credentials in Keyring..."
+
+        # IMAP Passwort
+        echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo IMAP" \
+          protocol imap \
+          server posteo.de \
+          user "user@posteo.de"
+
+        # SMTP Passwort
+        echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo SMTP" \
+          protocol smtp \
+          server posteo.de \
+          user "user@posteo.de"
+
+        # GNOME Online Accounts (CalDAV für GNOME Kalender)
+        # GVariant-Format: {'password': <'...'> }
+        printf "{'password': <'%s'>}" "$PASSWORD" | \
+          ${pkgs.libsecret}/bin/secret-tool store \
+            --label="GOA webdav credentials for identity account_posteo_caldav_0" \
+            xdg:schema org.gnome.OnlineAccounts \
+            goa-identity "webdav:gen0:account_posteo_caldav_0"
+
+        echo "Posteo-Credentials erfolgreich gespeichert!"
       '';
     };
     Install = {
       WantedBy = [ "graphical-session.target" ];
+    };
+  };
+
+  # --- GNOME KEYRING BACKUP ---
+  # Sichert den GNOME Keyring täglich, um Datenverlust bei Korruption zu verhindern
+  # Hält die letzten 7 Backups
+  systemd.user.services.gnome-keyring-backup = {
+    Unit = {
+      Description = "Backup GNOME Keyring";
+      After = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = pkgs.writeShellScript "gnome-keyring-backup" ''
+        set -e
+
+        BACKUP_DIR="$HOME/.local/share/keyrings/backups"
+        KEYRING_DIR="$HOME/.local/share/keyrings"
+
+        # Backup-Verzeichnis erstellen
+        mkdir -p "$BACKUP_DIR"
+
+        # Timestamp für Backup
+        TIMESTAMP=$(${pkgs.coreutils}/bin/date +%Y-%m-%d_%H-%M-%S)
+
+        # Alle Keyring-Dateien sichern
+        echo "Erstelle Keyring-Backup: $TIMESTAMP"
+        ${pkgs.gnutar}/bin/tar -czf "$BACKUP_DIR/keyring-backup-$TIMESTAMP.tar.gz" \
+          -C "$KEYRING_DIR" \
+          --exclude="backups" \
+          . 2>/dev/null || true
+
+        # Alte Backups löschen (behalte nur die letzten 7)
+        cd "$BACKUP_DIR"
+        ls -t keyring-backup-*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
+
+        echo "Backup abgeschlossen. $(ls -1 keyring-backup-*.tar.gz 2>/dev/null | wc -l) Backups vorhanden."
+      '';
+    };
+  };
+
+  # Timer für tägliches Keyring-Backup
+  systemd.user.timers.gnome-keyring-backup = {
+    Unit = {
+      Description = "Daily GNOME Keyring Backup";
+    };
+    Timer = {
+      OnCalendar = "daily";
+      Persistent = true;  # Führe aus wenn Zeit verpasst wurde (z.B. Laptop war aus)
+    };
+    Install = {
+      WantedBy = [ "timers.target" ];
     };
   };
 
@@ -895,6 +978,60 @@ in
           --disable-gpu-sandbox \
           --disable-seccomp-filter-sandbox \
           "$@"
+    '';
+  };
+
+  # --- GNOME KEYRING RESTORE SCRIPT ---
+  home.file.".local/bin/restore-keyring" = {
+    executable = true;
+    text = ''
+      #!/bin/sh
+      # GNOME Keyring Restore Script
+      # Stellt den Keyring aus einem Backup wieder her
+
+      set -e
+
+      BACKUP_DIR="$HOME/.local/share/keyrings/backups"
+      KEYRING_DIR="$HOME/.local/share/keyrings"
+
+      # Prüfe ob Backups existieren
+      if [ ! -d "$BACKUP_DIR" ] || [ -z "$(ls -A "$BACKUP_DIR"/keyring-backup-*.tar.gz 2>/dev/null)" ]; then
+        echo "FEHLER: Keine Keyring-Backups gefunden in $BACKUP_DIR"
+        exit 1
+      fi
+
+      # Liste verfügbare Backups
+      echo "Verfügbare Keyring-Backups:"
+      ls -1t "$BACKUP_DIR"/keyring-backup-*.tar.gz | nl
+
+      # Wähle neuestes Backup (kann später interaktiv gemacht werden)
+      LATEST_BACKUP=$(ls -1t "$BACKUP_DIR"/keyring-backup-*.tar.gz | head -1)
+      echo ""
+      echo "Stelle neuestes Backup wieder her: $(basename "$LATEST_BACKUP")"
+      echo ""
+      echo "WARNUNG: Dies überschreibt den aktuellen Keyring!"
+      echo "Drücke Enter zum Fortfahren oder Strg+C zum Abbrechen..."
+      read
+
+      # GNOME Keyring beenden (damit Dateien nicht gesperrt sind)
+      echo "Beende GNOME Keyring..."
+      ${pkgs.procps}/bin/pkill -u $USER gnome-keyring-daemon || true
+      sleep 2
+
+      # Aktuellen Keyring sichern (für den Fall dass Restore fehlschlägt)
+      echo "Sichere aktuellen Keyring..."
+      ${pkgs.gnutar}/bin/tar -czf "$BACKUP_DIR/keyring-before-restore-$(${pkgs.coreutils}/bin/date +%Y-%m-%d_%H-%M-%S).tar.gz" \
+        -C "$KEYRING_DIR" \
+        --exclude="backups" \
+        . 2>/dev/null || true
+
+      # Restore Backup
+      echo "Stelle Backup wieder her..."
+      ${pkgs.gnutar}/bin/tar -xzf "$LATEST_BACKUP" -C "$KEYRING_DIR"
+
+      echo ""
+      echo "Keyring erfolgreich wiederhergestellt!"
+      echo "Bitte neu einloggen (Logout/Login) damit der Keyring neu geladen wird."
     '';
   };
 

@@ -12,7 +12,7 @@
 # 2. NetworkManager.service (Netzwerk-Interfaces aktivieren, DHCP)
 # 3. network-online.target (Netzwerk ist online)
 # 4. nixos-firewall.service (Firewall aktivieren - MUSS NACH network-online sein!)
-# 5. wg-quick-proton0.service (VPN verbinden)
+# 5. wg-quick-proton-cli.service (VPN CLI autoconnect) + ProtonVPN GUI (proton0)
 
 let
   # VPN configuration
@@ -84,7 +84,8 @@ in
   # 2. NetworkManager.service (Netzwerk-Interfaces, DHCP, IP-Konfiguration)
   # 3. network-online.target (Netzwerk ist ONLINE mit IP und Route)
   # 4. nftables.service (Firewall aktivieren - VPN Kill Switch)
-  # 5. wg-quick-proton0.service (VPN verbinden)
+  # 5. wg-quick-proton-cli.service (VPN CLI autoconnect)
+  # 6. ProtonVPN GUI (optional, creates proton0 interface after login)
   #
   # Service-Name ist "nftables.service" (NixOS-managed)!
 
@@ -95,7 +96,8 @@ in
     # KRITISCH: mkForce überschreibt NixOS-Default (before=network-pre.target)
     # um systemd ordering cycle zu vermeiden. Ohne mkForce: ordering cycle
     # → systemd entfernt NetworkManager aus Boot → kein Netzwerk!
-    before = lib.mkForce [];
+    # HYBRID MODE: Firewall must start BEFORE CLI VPN service (wg-quick-proton-cli)
+    before = lib.mkForce [ "wg-quick-proton-cli.service" ];
   };
 
   networking.nftables = {
@@ -141,10 +143,12 @@ in
           ip saddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.quic} accept
           ip saddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.discovery} accept
 
-          # 7. Syncthing - Over VPN interfaces
+          # 7. Syncthing - Over VPN interfaces (HYBRID MODE: CLI + GUI)
+          iifname "proton-cli" tcp dport ${toString syncthingPorts.tcp} accept
           iifname "proton0" tcp dport ${toString syncthingPorts.tcp} accept
           iifname "tun*" tcp dport ${toString syncthingPorts.tcp} accept
           iifname "wg*" tcp dport ${toString syncthingPorts.tcp} accept
+          iifname "proton-cli" udp dport ${toString syncthingPorts.quic} accept
           iifname "proton0" udp dport ${toString syncthingPorts.quic} accept
           iifname "tun*" udp dport ${toString syncthingPorts.quic} accept
           iifname "wg*" udp dport ${toString syncthingPorts.quic} accept
@@ -174,7 +178,8 @@ in
           # 2. Established/Related connections
           ct state established,related accept
 
-          # 3. VPN interfaces - allow ALL traffic
+          # 3. VPN interfaces - allow ALL traffic (HYBRID MODE: CLI + GUI)
+          oifname "proton-cli" accept
           oifname "proton0" accept
           oifname "tun*" accept
           oifname "wg*" accept
@@ -199,7 +204,8 @@ in
           # 7. DNS-over-TLS - Bootstrap phase (Quad9)
           ip daddr 9.9.9.9 tcp dport 853 accept
 
-          # 8. DNS-over-TLS - VPN phase (Mullvad)
+          # 8. DNS-over-TLS - VPN phase (Mullvad) (HYBRID MODE: CLI + GUI)
+          oifname "proton-cli" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
           oifname "proton0" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
           oifname "tun*" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
           oifname "wg*" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
@@ -305,8 +311,9 @@ in
 
       # Setze loose rp_filter (2) für VPN interfaces (falls vorhanden)
       # Note: grep exits with 1 if no matches, so use || true to prevent script failure at boot
+      # HYBRID MODE: Match both proton-cli (CLI) and proton0 (GUI)
       VPN_IFACES=$(${pkgs.iproute2}/bin/ip -o link show | \
-        ${pkgs.gnugrep}/bin/grep -E "^[0-9]+: (tun|wg|proton)" | \
+        ${pkgs.gnugrep}/bin/grep -E "^[0-9]+: (tun|wg|proton-cli|proton0)" | \
         ${pkgs.gawk}/bin/awk -F': ' '{print $2}' | \
         ${pkgs.gnugrep}/bin/grep -v "@" || true)
 

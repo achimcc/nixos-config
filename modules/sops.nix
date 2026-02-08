@@ -105,8 +105,9 @@
       mode = "0400";
     };
 
-    # WireGuard Konfigurationsdatei für ProtonVPN (aus Secrets generiert)
-    templates."wireguard-proton0.conf" = {
+    # WireGuard Konfigurationsdatei für ProtonVPN CLI (aus Secrets generiert)
+    # HYBRID MODE: CLI uses "proton-cli" interface, GUI uses "proton0"
+    templates."wireguard-proton-cli.conf" = {
       content = ''
         [Interface]
         PrivateKey = ${config.sops.placeholder."wireguard-private-key"}
@@ -122,7 +123,7 @@
         AllowedIPs = 0.0.0.0/0
         PersistentKeepalive = 25
       '';
-      path = "/etc/wireguard/proton0.conf";
+      path = "/etc/wireguard/proton-cli.conf";
       owner = "root";
       group = "root";
       mode = "0600";

@@ -38,9 +38,9 @@
   # ==========================================
 
   # Eigener Service, der die sops-generierte Konfigurationsdatei verwendet
-  # DISABLED: Using ProtonVPN GUI instead for easier server switching
-  systemd.services."wg-quick-proton0" = {
-    description = "WireGuard VPN - ProtonVPN";
+  # HYBRID MODE: CLI autoconnect beim Boot (proton-cli) + GUI für manuellen Serverwechsel (proton0)
+  systemd.services."wg-quick-proton-cli" = {
+    description = "WireGuard VPN - ProtonVPN CLI (Autoconnect)";
 
     # Starte nach Netzwerk, sops UND Firewall (Kill Switch muss zuerst aktiv sein!)
     after = [ "network-online.target" "sops-nix.service" "nftables.service" ];
@@ -82,35 +82,36 @@
       '';
 
       # Starte WireGuard mit der sops-generierten Konfiguration
-      ExecStart = "${pkgs.wireguard-tools}/bin/wg-quick up ${config.sops.templates."wireguard-proton0.conf".path}";
+      ExecStart = "${pkgs.wireguard-tools}/bin/wg-quick up ${config.sops.templates."wireguard-proton-cli.conf".path}";
 
       # Policy Routing: Route ALL user traffic through VPN
       # WireGuard packets (to endpoint) are marked with fwmark 51820 and use main table
       # All other traffic uses table 51820 (VPN)
-      ExecStartPost = pkgs.writeShellScript "vpn-policy-routing" ''
+      ExecStartPost = pkgs.writeShellScript "vpn-policy-routing-cli" ''
         # Wait for interface to be fully up
         sleep 1
 
         # Priority 100: WireGuard's own packets (fwmark 51820) use main table to reach endpoint
         ${pkgs.iproute2}/bin/ip rule add fwmark 51820 table main priority 100 2>/dev/null || true
 
-        # Priority 101: All other traffic goes through VPN (table 51820)
-        ${pkgs.iproute2}/bin/ip rule add not fwmark 51820 table 51820 priority 101 2>/dev/null || true
+        # Priority 200: All other traffic goes through VPN (table 51820)
+        # NOTE: Lower priority than GUI (101-102) so GUI takes precedence when both active
+        ${pkgs.iproute2}/bin/ip rule add not fwmark 51820 table 51820 priority 200 2>/dev/null || true
 
-        # Priority 102: Suppress default route in main table for unmarked packets (prevents leak)
-        ${pkgs.iproute2}/bin/ip rule add table main suppress_prefixlength 0 priority 102 2>/dev/null || true
+        # Priority 201: Suppress default route in main table for unmarked packets (prevents leak)
+        ${pkgs.iproute2}/bin/ip rule add table main suppress_prefixlength 0 priority 201 2>/dev/null || true
 
-        echo "✓ VPN policy routing active"
+        echo "✓ CLI VPN policy routing active (proton-cli)"
       '';
 
-      ExecStop = "${pkgs.wireguard-tools}/bin/wg-quick down ${config.sops.templates."wireguard-proton0.conf".path}";
+      ExecStop = "${pkgs.wireguard-tools}/bin/wg-quick down ${config.sops.templates."wireguard-proton-cli.conf".path}";
 
       # Cleanup policy routing rules on stop
-      ExecStopPost = pkgs.writeShellScript "vpn-policy-routing-cleanup" ''
+      ExecStopPost = pkgs.writeShellScript "vpn-policy-routing-cli-cleanup" ''
         ${pkgs.iproute2}/bin/ip rule del fwmark 51820 table main priority 100 2>/dev/null || true
-        ${pkgs.iproute2}/bin/ip rule del not fwmark 51820 table 51820 priority 101 2>/dev/null || true
-        ${pkgs.iproute2}/bin/ip rule del table main suppress_prefixlength 0 priority 102 2>/dev/null || true
-        echo "✓ VPN policy routing removed"
+        ${pkgs.iproute2}/bin/ip rule del not fwmark 51820 table 51820 priority 200 2>/dev/null || true
+        ${pkgs.iproute2}/bin/ip rule del table main suppress_prefixlength 0 priority 201 2>/dev/null || true
+        echo "✓ CLI VPN policy routing removed"
       '';
 
       # Aggressiver Neustart bei Fehlern (VPN Kill Switch erfordert aktives VPN!)
@@ -121,7 +122,7 @@
     # Post-Up Logging
     postStart = ''
       sleep 2
-      echo "ProtonVPN WireGuard verbunden!"
+      echo "ProtonVPN CLI (proton-cli) verbunden!"
     '';
   };
 
@@ -138,7 +139,9 @@
       ExecStart = pkgs.writeShellScript "vpn-watchdog" ''
         set -euo pipefail
 
-        INTERFACE="proton0"
+        # HYBRID MODE: Check both CLI (proton-cli) and GUI (proton0) interfaces
+        CLI_INTERFACE="proton-cli"
+        GUI_INTERFACE="proton0"
         EXPECTED_IP_PREFIX="10.2.0"
         CONNECTIVITY_HOST="1.1.1.1"
         MAX_FAILURES=3
@@ -146,12 +149,15 @@
 
         send_alert() {
           local msg="$1"
+          local notify="''${2:-false}"  # Optional parameter: send notification (default: false)
           echo "⚠ VPN WATCHDOG: $msg"
 
-          # Desktop notification
-          ${pkgs.sudo}/bin/sudo -u user DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
-            ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=network-error \
-            "VPN Kill Switch Active" "$msg" 2>/dev/null || true
+          # Desktop notification nur bei kritischen Problemen (notify=true)
+          if [[ "$notify" == "true" ]]; then
+            ${pkgs.sudo}/bin/sudo -u user DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+              ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=network-error \
+              "VPN Kill Switch Active" "$msg" 2>/dev/null || true
+          fi
 
           echo "$msg" | ${pkgs.systemd}/bin/systemd-cat -t vpn-watchdog -p warning
         }
@@ -174,17 +180,36 @@
 
         # Check 1: Firewall active
         if ! systemctl is-active --quiet nftables.service; then
-          send_alert "Firewall not active! Aborting VPN checks."
+          send_alert "Firewall not active! Aborting VPN checks." "true"  # ALWAYS notify - critical!
           exit 0
         fi
 
-        # Check 2: Interface exists
-        if ! ${pkgs.iproute2}/bin/ip link show "$INTERFACE" &>/dev/null; then
-          # Gracefully wait for VPN to connect (ProtonVPN GUI starts after login)
-          # Don't spam alerts during boot phase
-          echo "ℹ VPN interface not yet up (waiting for ProtonVPN GUI to connect)"
+        # Check 2: At least one interface exists
+        cli_exists=false
+        gui_exists=false
+
+        if ${pkgs.iproute2}/bin/ip link show "$CLI_INTERFACE" &>/dev/null; then
+          cli_exists=true
+        fi
+
+        if ${pkgs.iproute2}/bin/ip link show "$GUI_INTERFACE" &>/dev/null; then
+          gui_exists=true
+        fi
+
+        if ! $cli_exists && ! $gui_exists; then
+          # Gracefully wait for VPN to connect (CLI autoconnect or GUI after login)
+          echo "ℹ No VPN interface up yet (waiting for CLI or GUI to connect)"
           reset_failures
           exit 0
+        fi
+
+        # Prefer GUI over CLI when both exist
+        if $gui_exists; then
+          INTERFACE="$GUI_INTERFACE"
+          echo "✓ Using GUI interface ($GUI_INTERFACE)"
+        else
+          INTERFACE="$CLI_INTERFACE"
+          echo "✓ Using CLI interface ($CLI_INTERFACE)"
         fi
 
         # Check 3: Interface UP
@@ -192,11 +217,11 @@
         # Check for UP flag in interface flags instead of state field
         if ! ${pkgs.iproute2}/bin/ip link show "$INTERFACE" | grep -q "<.*UP.*>"; then
           failures=$(increment_failures)
-          send_alert "Interface DOWN! (Failure $failures/$MAX_FAILURES)"
+          send_alert "Interface DOWN! (Failure $failures/$MAX_FAILURES)" "false"  # Log only
 
           if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
             # Don't restart automatically - ProtonVPN GUI manages the connection
-            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI."
+            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI." "true"  # NOTIFY!
             reset_failures
           fi
           exit 1
@@ -205,25 +230,26 @@
         # Check 4: IP address assigned
         if ! ${pkgs.iproute2}/bin/ip addr show "$INTERFACE" | grep -q "inet $EXPECTED_IP_PREFIX"; then
           failures=$(increment_failures)
-          send_alert "No valid IP address! (Failure $failures/$MAX_FAILURES)"
+          send_alert "No valid IP address! (Failure $failures/$MAX_FAILURES)" "false"  # Log only
 
           if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
             # Don't restart automatically - ProtonVPN GUI manages the connection
-            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI."
+            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI." "true"  # NOTIFY!
             reset_failures
           fi
           exit 1
         fi
 
         # Check 5: VPN routing table
-        # Support both systemd (table 51820) and ProtonVPN GUI (dynamic table)
-        if ! ${pkgs.iproute2}/bin/ip route show table all | grep -q "default.*$INTERFACE"; then
+        # Support both CLI (table 51820) and ProtonVPN GUI (dynamic table)
+        # Check if ANY VPN interface has a default route
+        if ! ${pkgs.iproute2}/bin/ip route show table all | grep -qE "default.*(proton-cli|proton0)"; then
           failures=$(increment_failures)
-          send_alert "VPN routing table broken! (Failure $failures/$MAX_FAILURES)"
+          send_alert "VPN routing table broken! (Failure $failures/$MAX_FAILURES)" "false"  # Log only
 
           if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
             # Don't restart automatically - ProtonVPN GUI manages the connection
-            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI."
+            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI." "true"  # NOTIFY!
             reset_failures
           fi
           exit 1
@@ -232,11 +258,11 @@
         # Check 6: VPN connectivity
         if ! ${pkgs.iputils}/bin/ping -c 1 -W 3 -I "$INTERFACE" "$CONNECTIVITY_HOST" &>/dev/null; then
           failures=$(increment_failures)
-          send_alert "VPN connectivity failed! (Failure $failures/$MAX_FAILURES)"
+          send_alert "VPN connectivity failed! (Failure $failures/$MAX_FAILURES)" "false"  # Log only
 
           if [[ "$failures" -ge "$MAX_FAILURES" ]]; then
             # Don't restart automatically - ProtonVPN GUI manages the connection
-            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI."
+            send_alert "VPN connection failed after $MAX_FAILURES attempts. Please check ProtonVPN GUI." "true"  # NOTIFY!
             reset_failures
           fi
           exit 1
@@ -246,7 +272,7 @@
         current_failures=$(get_failures)
         if [[ "$current_failures" -gt 0 ]]; then
           echo "✓ VPN recovered (was failing, now healthy)"
-          send_alert "VPN connection restored"
+          send_alert "VPN connection restored" "false"  # Log only, keine Notification
         fi
 
         reset_failures
