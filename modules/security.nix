@@ -248,12 +248,38 @@
     '')
   ];
 
-  # Audit Framework - DEAKTIVIERT
-  # ROOT CAUSE: NixOS generiert automatisch "-b 1024" (buffer size) in audit.rules
-  # Das schlägt fehl weil Audit-Buffer zur Boot-Zeit gesetzt wird und nicht änderbar ist
-  # NICHT KRITISCH: Kernel-Audit (AppArmor, etc.) funktioniert weiterhin
-  security.auditd.enable = false;
+  # ==========================================
+  # AUDIT FRAMEWORK (Custom Implementation)
+  # ==========================================
+
+  # Enable auditd daemon
+  security.auditd.enable = true;
+
+  # DISABLE NixOS audit module (wegen -b buffer bug)
   security.audit.enable = false;
+
+  # Custom audit rules (bypasses NixOS module)
+  environment.etc."audit/rules.d/nixos-custom.rules".text = ''
+    # Custom Audit Rules (NixOS-compatible)
+    # Loaded by auditd without problematic -b flag
+
+    # Überwache kritische Systemdateien
+    -w /etc/passwd -p wa -k passwd_changes
+    -w /etc/shadow -p wa -k shadow_changes
+    -w /etc/group -p wa -k group_changes
+    -w /etc/gshadow -p wa -k gshadow_changes
+    -w /etc/sudoers -p wa -k sudoers_changes
+
+    # Überwache sudo/su Execution (syscall-based)
+    -a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/sudo -k sudo_exec
+    -a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/su -k su_exec
+
+    # Überwache Kernel-Module (verhindert Rootkit-Installation)
+    -a always,exit -F arch=b64 -S init_module,finit_module -k kernel_modules
+
+    # Enable audit
+    -e 1
+  '';
 
   # ==========================================
   # APPARMOR
