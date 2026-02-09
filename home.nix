@@ -858,6 +858,14 @@ in
       # "dom.storage.enabled" = false würde Extensions brechen
       "network.cookie.cookieBehavior" = 5; # Total Cookie Protection (dFPI)
 
+      # WebAuthn/FIDO2 für Nitrokey (GitLab, GitHub, etc.)
+      # WICHTIG: Muss explizit aktiviert werden trotz Privacy-Einstellungen
+      "security.webauthn.enable" = true; # WebAuthn aktivieren
+      "security.webauthn.u2f" = true; # U2F-Kompatibilität (ältere FIDO2)
+      "security.webauthn.webauthn_enable_usbtoken" = true; # USB-Token erlauben
+      "security.webauthn.webauthn_enable_softtoken" = false; # Nur Hardware-Token
+      "security.webauthn.ctap2" = true; # CTAP2-Protokoll (modern FIDO2)
+
       # Telemetrie & Reporting komplett deaktivieren
       "browser.safebrowsing.malware.enabled" = false;
       "browser.safebrowsing.phishing.enabled" = false;
