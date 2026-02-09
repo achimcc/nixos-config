@@ -136,6 +136,9 @@
 
     serviceConfig = {
       Type = "oneshot";
+      # Don't fail system activation when VPN is down (exit 1 is expected during rebuilds)
+      # The watchdog will continue checking via timer and alert when needed
+      SuccessExitStatus = "0 1";
       ExecStart = pkgs.writeShellScript "vpn-watchdog" ''
         set -euo pipefail
 
