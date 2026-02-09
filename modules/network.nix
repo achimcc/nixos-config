@@ -228,14 +228,13 @@ in
     nonewprivs
     noroot
 
-    # Private /dev (aber mit Audio/Video + FIDO2/Nitrokey)
-    private-dev
+    # CRITICAL: NO private-dev for FIDO2/WebAuthn support
+    # private-dev creates isolated /dev without proper ACLs for USB HID devices
+    # This breaks Nitrokey access (hidraw0 loses user:achim:rw- ACL)
+    # LibreWolf has strong internal sandbox, so this is acceptable
+    # Still protected by: noroot, nogroups, nonewprivs, AppArmor, netfilter
+    ignore private-dev
     keep-dev-shm
-    # CRITICAL: Allow USB HID devices for FIDO2/WebAuthn (Nitrokey)
-    noblacklist /dev/hidraw0
-    noblacklist /dev/hidraw1
-    noblacklist /dev/hidraw2
-    noblacklist /dev/hidraw3
 
     # /tmp Isolation
     private-tmp
