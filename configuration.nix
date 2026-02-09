@@ -1,7 +1,7 @@
 # NixOS Hauptkonfiguration für achim-laptop
 # Module werden aus ./modules/ importiert
 
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 {
   imports = [
@@ -30,9 +30,11 @@
   # BOOTLOADER (Secure Boot via Lanzaboote in modules/secureboot.nix)
   # ==========================================
 
-  # Kernel: Linux 6.18 (latest) für bessere Meteor Lake GuC-Unterstützung
-  # Upstream-Fix für random GuC initialization failures (Ubuntu Bug #2061049)
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # Kernel: Linux 6.12-hardened (Standard aus modules/security.nix)
+  # WICHTIG: Kernel 6.18 wurde getestet aber führt zu GuC init failure (-5)
+  # → System bootet nicht ohne nomodeset (siehe Debugging 2026-02-09)
+  # → Bleiben bei 6.12-hardened bis Kernel-Fix für Meteor Lake verfügbar
+  # boot.kernelPackages = lib.mkForce pkgs.linuxPackages_latest;  # DEAKTIVIERT wegen GuC-Bug
 
   boot.kernelParams = [
     # IOMMU (DMA-Schutz)
@@ -62,20 +64,17 @@
     "mem_sleep_default=deep"       # S3 Suspend statt S0ix (zuverlässiger auf neuer HW)
     "intel_idle.max_cstate=1"      # Limitiere CPU C-States (verhindert Resume-Freeze)
 
-    # Intel i915 Grafiktreiber Stabilität (Meteor Lake GPU / Fix für kernel BUG highmem.h)
-    # Fix für Kernel-Crash bei GNOME Loupe/Vulkan (siehe Debugging 2026-02-08)
-    # UPDATE 2026-02-08 19:57: Erste Workarounds waren unzureichend, System crashte erneut
-    # Erweitert um aggressivere Parameter nach GPU HANG in Apostrophe/Nautilus
-    "i915.enable_psr=0"            # Deaktiviere Panel Self Refresh (verursacht Memory-Bugs)
-    "i915.enable_dc=0"             # Deaktiviere Display Power Saving (DC states)
-    "i915.enable_fbc=0"            # Deaktiviere Frame Buffer Compression
-    "i915.enable_guc=0"            # Deaktiviere GuC/HuC Firmware (GPU Command Submission)
-    "i915.reset=0"                 # GPU Reset deaktivieren (Resets führen zu System-Hangs)
-
-    # Hardware Watchdog (automatischer Reboot bei Hard Lockup durch GPU HANGs)
-    "nmi_watchdog=1"               # NMI Watchdog aktivieren (detektiert Hard Lockups)
-    "softlockup_panic=1"           # Panic bei Soft Lockup (statt freeze)
-    "hardlockup_panic=1"           # Panic bei Hard Lockup (erzwingt Reboot via Watchdog)
+    # Intel i915 Grafiktreiber KRITISCHER BUG (Meteor Lake GPU device ID 7dd5)
+    # PROBLEM: GuC firmware loading schlägt mit -5 (I/O Error) fehl beim Boot
+    # FEHLER: "GT0: Enabling uc failed (-5)" → GPU wird als "wedged" deklariert
+    # URSACHE: Weitreichender i915-Bug auf Meteor Lake (Kernel 6.12-6.18, auch 6.15+)
+    #          Framework/Arch/Ubuntu-Nutzer berichten identisches Problem (Feb 2026)
+    #          GuC init schlägt VOR allen Kernel-Parametern fehl → keine Workarounds möglich
+    # LÖSUNG: nomodeset deaktiviert i915 komplett, nutzt simpledrm Framebuffer
+    # TRADE-OFF: Keine GPU-Beschleunigung, aber System bootet stabil
+    # QUELLEN: Framework Community #69102, Ubuntu Bug #2061049, Arch Forums #308313
+    # STATUS: Permanent bis Kernel-Fix verfügbar (getestet: 2026-02-09)
+    "nomodeset"                    # KRITISCH: i915 komplett deaktivieren (GuC init schlägt fehl)
   ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;
