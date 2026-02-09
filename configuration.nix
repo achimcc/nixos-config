@@ -30,6 +30,10 @@
   # BOOTLOADER (Secure Boot via Lanzaboote in modules/secureboot.nix)
   # ==========================================
 
+  # Kernel: Linux 6.18 (latest) für bessere Meteor Lake GuC-Unterstützung
+  # Upstream-Fix für random GuC initialization failures (Ubuntu Bug #2061049)
+  boot.kernelPackages = pkgs.linuxPackages_latest;
+
   boot.kernelParams = [
     # IOMMU (DMA-Schutz)
     "intel_iommu=on"
