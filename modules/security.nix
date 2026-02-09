@@ -249,22 +249,11 @@
   ];
 
   # Audit Framework aktivieren (für Incident Response)
+  # TEMPORÄR DEAKTIVIERT: Audit-Rules verursachen Boot-Fehler
+  # Debugging notwendig - Rules werden generiert aber auditctl lehnt sie ab
+  # TODO: Audit-Konfiguration debuggen und reaktivieren
   security.auditd.enable = true;
-  security.audit = {
-    enable = true;
-    rules = [
-      # Überwache Passwort-Dateien (kritisch für Security)
-      "-w /etc/passwd -p wa -k passwd_changes"
-      "-w /etc/shadow -p wa -k shadow_changes"
-      "-w /etc/group -p wa -k group_changes"
-      "-w /etc/gshadow -p wa -k gshadow_changes"
-
-      # Überwache sudo/su Nutzung via Syscalls (statt File-Watch)
-      # File-Watch auf /run/wrappers/ ist problematisch (wird erst nach Boot erstellt)
-      "-a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/sudo -k sudo_usage"
-      "-a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/su -k su_usage"
-    ];
-  };
+  security.audit.enable = false;  # Deaktiviert Rules, aber auditd läuft weiter
 
   # ==========================================
   # APPARMOR
