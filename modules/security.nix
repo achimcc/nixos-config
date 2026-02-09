@@ -253,14 +253,16 @@
   security.audit = {
     enable = true;
     rules = [
-      # Überwache sudo/su Nutzung (NixOS-Pfade in /run/wrappers/bin/)
-      "-w /run/wrappers/bin/sudo -p x -k sudo_usage"
-      "-w /run/wrappers/bin/su -p x -k su_usage"
-      # Überwache Passwort-Dateien
+      # Überwache Passwort-Dateien (kritisch für Security)
       "-w /etc/passwd -p wa -k passwd_changes"
       "-w /etc/shadow -p wa -k shadow_changes"
-      # Überwache SSH Konfiguration
-      "-w /etc/ssh/sshd_config -p wa -k sshd_config"
+      "-w /etc/group -p wa -k group_changes"
+      "-w /etc/gshadow -p wa -k gshadow_changes"
+
+      # Überwache sudo/su Nutzung via Syscalls (statt File-Watch)
+      # File-Watch auf /run/wrappers/ ist problematisch (wird erst nach Boot erstellt)
+      "-a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/sudo -k sudo_usage"
+      "-a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/su -k su_usage"
     ];
   };
 
