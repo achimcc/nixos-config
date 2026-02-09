@@ -788,7 +788,9 @@ in
       "xpinstall.signatures.required" = true;
 
       # ANTI-FINGERPRINTING (Maximum Privacy Mode)
-      "privacy.resistFingerprinting" = true;
+      # DISABLED: Blocks WebAuthn/FIDO2 even with exemptedDomains
+      # Trade-off: Nitrokey functionality > fingerprinting protection
+      "privacy.resistFingerprinting" = false;
       "privacy.resistFingerprinting.letterboxing" = true; # Fenster-Größe normalisieren
       "privacy.resistFingerprinting.block_mozAddonManager" = true;
       # CRITICAL: Exempt domains that need WebAuthn/FIDO2 (Nitrokey)
