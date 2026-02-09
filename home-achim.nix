@@ -791,7 +791,9 @@ in
       "privacy.resistFingerprinting" = true;
       "privacy.resistFingerprinting.letterboxing" = true; # Fenster-Größe normalisieren
       "privacy.resistFingerprinting.block_mozAddonManager" = true;
-      "privacy.resistFingerprinting.exemptedDomains" = ""; # Keine Ausnahmen
+      # CRITICAL: Exempt domains that need WebAuthn/FIDO2 (Nitrokey)
+      # resistFingerprinting blocks WebAuthn even when explicitly enabled
+      "privacy.resistFingerprinting.exemptedDomains" = "gitlab.com,github.com,webauthn.io";
       "privacy.spoof_english" = 2; # Englisch vortäuschen (häufigste Sprache)
       "privacy.firstparty.isolate" = true; # Strikte Cookie-Isolation
       "privacy.trackingprotection.fingerprinting.enabled" = true;
