@@ -253,8 +253,16 @@
   security.audit = {
     enable = true;
     rules = [
-      # DEBUG: Teste mit nur einer einfachen Regel
+      # Überwache kritische Systemdateien
       "-w /etc/passwd -p wa -k passwd_changes"
+      "-w /etc/shadow -p wa -k shadow_changes"
+      "-w /etc/group -p wa -k group_changes"
+      "-w /etc/gshadow -p wa -k gshadow_changes"
+      "-w /etc/sudoers -p wa -k sudoers_changes"
+
+      # Überwache sudo/su Execution (Syscall-based, nicht File-Watch)
+      "-a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/sudo -k sudo_exec"
+      "-a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/su -k su_exec"
     ];
   };
 
