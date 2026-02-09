@@ -1002,6 +1002,9 @@ in
           --no-sandbox \
           --disable-gpu-sandbox \
           --disable-seccomp-filter-sandbox \
+          --disable-gpu \
+          --disable-gpu-compositing \
+          --disable-software-rasterizer \
           "$@"
     '';
   };
