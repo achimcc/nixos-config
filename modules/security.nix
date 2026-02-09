@@ -249,11 +249,14 @@
   ];
 
   # Audit Framework aktivieren (für Incident Response)
-  # TEMPORÄR DEAKTIVIERT: Audit-Rules verursachen Boot-Fehler
-  # Debugging notwendig - Rules werden generiert aber auditctl lehnt sie ab
-  # TODO: Audit-Konfiguration debuggen und reaktivieren
   security.auditd.enable = true;
-  security.audit.enable = false;  # Deaktiviert Rules, aber auditd läuft weiter
+  security.audit = {
+    enable = true;
+    rules = [
+      # DEBUG: Teste mit nur einer einfachen Regel
+      "-w /etc/passwd -p wa -k passwd_changes"
+    ];
+  };
 
   # ==========================================
   # APPARMOR
