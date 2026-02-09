@@ -248,19 +248,12 @@
     '')
   ];
 
-  # Audit Framework aktivieren (für Incident Response)
-  security.auditd.enable = true;
-  security.audit = {
-    enable = true;
-    rules = [
-      # MINIMAL CONFIG: Nur passwd (shadow hat Line 2 Error - PermissionProblem?)
-      "-w /etc/passwd -p wa -k passwd_changes"
-
-      # TODO: Andere Rules einzeln testen
-      # "-w /etc/shadow -p wa -k shadow_changes"  # FAILS at line 2
-      # "-w /etc/group -p wa -k group_changes"
-    ];
-  };
+  # Audit Framework - DEAKTIVIERT
+  # ROOT CAUSE: NixOS generiert automatisch "-b 1024" (buffer size) in audit.rules
+  # Das schlägt fehl weil Audit-Buffer zur Boot-Zeit gesetzt wird und nicht änderbar ist
+  # NICHT KRITISCH: Kernel-Audit (AppArmor, etc.) funktioniert weiterhin
+  security.auditd.enable = false;
+  security.audit.enable = false;
 
   # ==========================================
   # APPARMOR
