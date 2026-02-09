@@ -60,9 +60,18 @@
 
     # Intel i915 Grafiktreiber Stabilität (Meteor Lake GPU / Fix für kernel BUG highmem.h)
     # Fix für Kernel-Crash bei GNOME Loupe/Vulkan (siehe Debugging 2026-02-08)
+    # UPDATE 2026-02-08 19:57: Erste Workarounds waren unzureichend, System crashte erneut
+    # Erweitert um aggressivere Parameter nach GPU HANG in Apostrophe/Nautilus
     "i915.enable_psr=0"            # Deaktiviere Panel Self Refresh (verursacht Memory-Bugs)
     "i915.enable_dc=0"             # Deaktiviere Display Power Saving (DC states)
     "i915.enable_fbc=0"            # Deaktiviere Frame Buffer Compression
+    "i915.enable_guc=0"            # Deaktiviere GuC/HuC Firmware (GPU Command Submission)
+    "i915.reset=0"                 # GPU Reset deaktivieren (Resets führen zu System-Hangs)
+
+    # Hardware Watchdog (automatischer Reboot bei Hard Lockup durch GPU HANGs)
+    "nmi_watchdog=1"               # NMI Watchdog aktivieren (detektiert Hard Lockups)
+    "softlockup_panic=1"           # Panic bei Soft Lockup (statt freeze)
+    "hardlockup_panic=1"           # Panic bei Hard Lockup (erzwingt Reboot via Watchdog)
   ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;

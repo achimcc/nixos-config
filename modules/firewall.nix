@@ -43,6 +43,11 @@ let
     printerIP = "192.168.178.28";
   };
 
+  # Second local network (server network)
+  secondLocalNetwork = {
+    subnet = "192.168.188.0/24";
+  };
+
   # reMarkable 2 USB network
   remarkableNetwork = {
     subnet = "10.11.99.0/24";
@@ -153,19 +158,22 @@ in
           iifname "tun*" udp dport ${toString syncthingPorts.quic} accept
           iifname "wg*" udp dport ${toString syncthingPorts.quic} accept
 
-          # 8. reMarkable 2 USB network
+          # 8. Second local network (server network) - allow all traffic
+          ip saddr ${secondLocalNetwork.subnet} accept
+
+          # 9. reMarkable 2 USB network
           ip saddr ${remarkableNetwork.subnet} accept
 
-          # 9. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
+          # 10. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
           meta nfproto ipv6 icmpv6 type { nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept
 
-          # 10. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
+          # 11. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
           meta nfproto ipv6 ip6 saddr != fe80::/10 drop
 
-          # 11. Port-scan detection
+          # 12. Port-scan detection
           update @portscan { ip saddr limit rate over 10/minute } drop
 
-          # 12. Dropped packets (logging temporarily disabled)
+          # 13. Dropped packets (logging temporarily disabled)
         }
 
         # OUTPUT CHAIN
@@ -231,17 +239,20 @@ in
           ip daddr 255.255.255.255 udp dport ${toString syncthingPorts.discovery} accept
           ip daddr 192.168.178.255 udp dport ${toString syncthingPorts.discovery} accept
 
-          # 14. reMarkable 2 USB network (SSH, HTTP, etc.)
+          # 14. Second local network (server network) - allow all traffic
+          ip daddr ${secondLocalNetwork.subnet} accept
+
+          # 15. reMarkable 2 USB network (SSH, HTTP, etc.)
           ip daddr ${remarkableNetwork.subnet} accept
 
-          # 15. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
+          # 16. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
           meta nfproto ipv6 icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept
 
-          # 16. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
+          # 17. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
           # Even though IPv6 is disabled at kernel level, this prevents leaks if accidentally enabled
           meta nfproto ipv6 ip6 daddr != fe80::/10 drop
 
-          # 17. Dropped packets (logging temporarily disabled)
+          # 18. Dropped packets (logging temporarily disabled)
         }
 
         # FORWARD CHAIN

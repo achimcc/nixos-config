@@ -178,11 +178,9 @@ in
       Resolve = {
         # DNSSEC Validation (strict enforcement)
         # "yes" = validate and FAIL resolution if validation fails
+        # SECURITY: Never use "allow-downgrade" - strict validation only!
+        # Note: DNSSECNegativeTrustAnchors was removed in systemd 258+
         DNSSEC = "yes";
-        # Negative trust anchors: Domains mit bekannten DNSSEC-Problemen
-        # fwupd.org + fastly.net: cdn.fwupd.org → Fastly CDN CNAME-Chain
-        # WICHTIG: Muss als String mit Leerzeichen sein, nicht als Array!
-        DNSSECNegativeTrustAnchors = "fwupd.org fastly.net";
         Domains = [ "~." ];
         DNSOverTLS = "true";
         # Primary DNS: Quad9 (Bootstrap) + Mullvad (über VPN, für Domains die Quad9 blockiert)
