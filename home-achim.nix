@@ -1186,7 +1186,7 @@ in
       # Alias nicht nötig, da ~/.local/bin bereits im PATH ist
       # Sonstiges
       obb = "openbb"; # FHS-wrapped, installiert automatisch beim ersten Start
-      nrs = "sudo nixos-rebuild switch --flake /home/achim/nixos-config#achim-laptop";
+      nrs = "sudo nixos-rebuild switch --flake /home/achim/nixos-config#nixos";
       charge = "sudo tlp fullcharge";
     };
     environmentVariables = {
