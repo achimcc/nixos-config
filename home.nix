@@ -185,6 +185,7 @@ in
     calibre # E-Book-Management & -Konvertierung
 
     # --- MEDIA PLAYER ---
+    vlc # VLC Media Player (exzellentes SW-Decoding, wichtig mit nomodeset)
     celluloid # GTK-Frontend für mpv
     amberol # GNOME Musik-Player für lokale Dateien
 
