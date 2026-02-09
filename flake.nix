@@ -46,7 +46,9 @@
       customOverlay = final: prev: import ./pkgs { pkgs = prev; };
     in
     {
-      nixosConfigurations.achim-laptop = nixpkgs.lib.nixosSystem {
+      # NixOS configuration name MUST match networking.hostName in network.nix
+      # Otherwise nixos-rebuild will fail to find the configuration
+      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         inherit system;
         # Hier geben wir die Inputs an alle Module weiter
         specialArgs = { inherit inputs llm-agents pkgs-unstable; };

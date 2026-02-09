@@ -145,11 +145,12 @@ in {
       if [ -f /var/log/suricata/eve.json ]; then
         # Filtere bekannte False Positives:
         # - Google Cast/mDNS (harmlose Chromecast-Discovery)
+        # - LLMNR (harmlose Windows Name Resolution)
         # - NBT-NS (harmlose Windows NetBIOS-Broadcasts)
         # - SSL/TLS auf ungewöhnlichen Ports (oft legitim)
         CRITICAL=$(${pkgs.jq}/bin/jq -r '
           select(.event_type=="alert" and .alert.severity==1) |
-          select(.alert.signature | test("Google Cast|mDNS|NBT-NS|NetBIOS|SSL/TLS.*unusual.*port") | not) |
+          select(.alert.signature | test("Google Cast|[Mm][Dd][Nn][Ss]|LLMNR|NBT-NS|NetBIOS|SSL/TLS.*unusual.*port"; "i") | not) |
           .alert.signature
         ' /var/log/suricata/eve.json 2>/dev/null | tail -5)
 
@@ -182,13 +183,13 @@ in {
   systemd.services.vpn-failure-alert = {
     description = "VPN Failure Alert";
     script = ''
-      if ! systemctl is-active --quiet wg-quick-proton0; then
+      if ! systemctl is-active --quiet wg-quick-proton-cli; then
         ${sendSecurityAlert} \
           "VPN Connection Failure" \
           "ProtonVPN WireGuard connection is DOWN.
 
           Kill switch is active - no internet access.
-          Check logs: journalctl -u wg-quick-proton0
+          Check logs: journalctl -u wg-quick-proton-cli
 
           Action: Restart VPN or investigate connection issue."
       fi

@@ -7,6 +7,10 @@
   systemd.services.dns-watchdog = {
     description = "DNS Health Check";
 
+    # Ensure network and systemd-resolved are fully ready before running
+    after = [ "network-online.target" "systemd-resolved.service" ];
+    wants = [ "network-online.target" ];
+
     serviceConfig = {
       Type = "oneshot";
       ExecStart = pkgs.writeShellScript "dns-watchdog" ''
@@ -18,9 +22,11 @@
           local msg="$1"
           echo "⚠ DNS WATCHDOG: $msg"
 
-          ${pkgs.sudo}/bin/sudo -u achim DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
-            ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=network-error \
-            "DNS Failure" "$msg" 2>/dev/null || true
+          # Desktop notification disabled (annoying)
+          # Watchdog still logs to journalctl and auto-recovers DNS
+          # ${pkgs.sudo}/bin/sudo -u achim DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+          #   ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=network-error \
+          #   "DNS Failure" "$msg" 2>/dev/null || true
 
           echo "$msg" | ${pkgs.systemd}/bin/systemd-cat -t dns-watchdog -p err
         }
@@ -57,7 +63,9 @@
     wantedBy = [ "timers.target" ];
 
     timerConfig = {
-      OnBootSec = "30s";
+      # Increased from 30s to 60s to ensure systemd-resolved is fully initialized
+      # DNS-over-TLS connections need time to establish
+      OnBootSec = "60s";
       OnUnitActiveSec = "5min";
       Unit = "dns-watchdog.service";
     };

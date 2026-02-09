@@ -75,6 +75,11 @@ in
   # SSH Agent Socket für FIDO2-Schlüssel
   home.sessionVariables = {
     SSH_AUTH_SOCK = "$XDG_RUNTIME_DIR/ssh-agent.socket";
+
+    # Intel i915 Vulkan GPU Hang Workaround (2026-02-08)
+    # Erzwingt OpenGL-Renderer statt Vulkan für GTK4/GNOME Apps
+    # Verhindert GPU HANGs in Nautilus, Apostrophe, Loupe (Meteor Lake GPU Bug)
+    GSK_RENDERER = "gl";
   };
 
   # User-spezifische Pakete
@@ -1066,16 +1071,16 @@ in
   };
 
   # --- WEZTERM KONFIGURATION ---
-  # Fix für fehlende Fensterdekorationen unter GNOME/Wayland
+  # GNOME handelt Fensterdekorationen (Server-Side Decorations)
   home.file.".config/wezterm/wezterm.lua".text = ''
     local wezterm = require 'wezterm'
     local config = {}
 
-    -- Client-Side Decorations für GNOME/Wayland erzwingen
+    -- Wayland-Support aktivieren, aber GNOME Decorations verwenden
     config.enable_wayland = true
     config.enable_tab_bar = true
     config.use_fancy_tab_bar = true
-    config.window_decorations = "INTEGRATED_BUTTONS|RESIZE"
+    config.window_decorations = "RESIZE"
 
     -- Farb-Schema
     config.color_scheme = 'Tokyo Night'
