@@ -253,9 +253,9 @@
   security.audit = {
     enable = true;
     rules = [
-      # Überwache sudo/su Nutzung
-      "-w /usr/bin/sudo -p x -k sudo_usage"
-      "-w /usr/bin/su -p x -k su_usage"
+      # Überwache sudo/su Nutzung (NixOS-Pfade in /run/wrappers/bin/)
+      "-w /run/wrappers/bin/sudo -p x -k sudo_usage"
+      "-w /run/wrappers/bin/su -p x -k su_usage"
       # Überwache Passwort-Dateien
       "-w /etc/passwd -p wa -k passwd_changes"
       "-w /etc/shadow -p wa -k shadow_changes"
