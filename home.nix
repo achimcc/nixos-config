@@ -76,9 +76,10 @@ in
   home.sessionVariables = {
     SSH_AUTH_SOCK = "$XDG_RUNTIME_DIR/ssh-agent.socket";
 
-    # Intel i915 Vulkan GPU Hang Workaround (2026-02-08)
+    # Intel i915 Vulkan GPU Hang Workaround (2026-02-08, reaktiviert 2026-02-09)
     # Erzwingt OpenGL-Renderer statt Vulkan für GTK4/GNOME Apps
     # Verhindert GPU HANGs in Nautilus, Apostrophe, Loupe (Meteor Lake GPU Bug)
+    # WICHTIG: Auch ohne GuC bleibt Vulkan instabil → OpenGL ist sicherer
     GSK_RENDERER = "gl";
   };
 
