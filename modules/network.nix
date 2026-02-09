@@ -228,9 +228,14 @@ in
     nonewprivs
     noroot
 
-    # Private /dev (aber mit Audio/Video)
+    # Private /dev (aber mit Audio/Video + FIDO2/Nitrokey)
     private-dev
     keep-dev-shm
+    # CRITICAL: Allow USB HID devices for FIDO2/WebAuthn (Nitrokey)
+    noblacklist /dev/hidraw0
+    noblacklist /dev/hidraw1
+    noblacklist /dev/hidraw2
+    noblacklist /dev/hidraw3
 
     # /tmp Isolation
     private-tmp
