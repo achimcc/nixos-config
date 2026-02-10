@@ -47,18 +47,9 @@ in
     packages = [
       "org.jdownloader.JDownloader"
       "info.portfolio_performance.PortfolioPerformance"
-      "de.schmidhuberj.Flare"
       "org.nickvision.money" # Denaro - Persönliche Finanzverwaltung
     ];
     overrides = {
-      "de.schmidhuberj.Flare" = {
-        "Session Bus Policy"."org.freedesktop.secrets" = "talk";
-        # CA-Zertifikate für SSL-Verbindungen (Signal-Server)
-        # /etc/ssl/certs ist standardmäßig im Flatpak-Sandbox zugänglich
-        "Environment" = {
-          SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
-        };
-      };
     };
     update.auto = {
       enable = true;
@@ -130,6 +121,9 @@ in
 
     # --- FINANZEN ---
     # portfolio - via Flatpak (siehe services.flatpak.packages)
+
+    # --- KRYPTOWÄHRUNG ---
+    eigenwallet # Bitcoin/Monero Atomic Swaps (GUI + CLI)
 
     # --- SCREENSHOT & CLIPBOARD (Wayland) ---
     grim # Screenshot-Tool
@@ -216,7 +210,7 @@ in
     flutter
 
     # --- KOMMUNIKATION ---
-    # Signal Desktop + Flare via Flatpak (siehe services.flatpak.packages)
+    # Signal Desktop via Firejail (siehe modules/network.nix)
 
     # --- NODE.JS ---
     nodejs_22 # Enthält npm für globale Pakete
@@ -1230,34 +1224,30 @@ in
   # ==========================================
   # PROTONVPN GUI - Manuelle Serverauswahl
   # ==========================================
-  # HYBRID MODE: CLI (systemd) verbindet beim Boot, GUI für manuellen Serverwechsel
+  # GUI MODE: Nur ProtonVPN GUI verwenden (CLI-Autoconnect deaktiviert)
   #
-  # WICHTIG: In der GUI DEAKTIVIEREN:
+  # WICHTIG: In der GUI KONFIGURIEREN:
   # 1. ProtonVPN GUI öffnen → Settings → Advanced
-  # 2. "Auto-connect" DEAKTIVIEREN (verhindert Konflikte mit CLI)
+  # 2. "Auto-connect" AKTIVIEREN (verbindet automatisch beim Login)
   # 3. "Kill Switch" DEAKTIVIEREN (wird von Firewall gehandhabt)
   #
-  # GUI Verwendung:
-  # - Zum Serverwechsel: Disconnect vom CLI-VPN, dann in GUI anderen Server wählen
-  # - Nach GUI-Disconnect: Systemd startet CLI-VPN automatisch neu
-  #
-  # AUTOSTART DEAKTIVIERT - GUI nur bei Bedarf manuell starten
-  # systemd.user.services.protonvpn-gui = {
-  #   Unit = {
-  #     Description = "ProtonVPN GUI";
-  #     After = [ "graphical-session.target" "network-online.target" ];
-  #     PartOf = [ "graphical-session.target" ];
-  #   };
-  #   Service = {
-  #     Type = "simple";
-  #     ExecStart = "${pkgs.protonvpn-gui}/bin/protonvpn-app";
-  #     Restart = "on-failure";
-  #     RestartSec = "5s";
-  #   };
-  #   Install = {
-  #     WantedBy = [ "graphical-session.target" ];
-  #   };
-  # };
+  # AUTOSTART: GUI startet automatisch beim Login
+  systemd.user.services.protonvpn-gui = {
+    Unit = {
+      Description = "ProtonVPN GUI";
+      After = [ "graphical-session.target" "network-online.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "simple";
+      ExecStart = "${pkgs.protonvpn-gui}/bin/protonvpn-app";
+      Restart = "on-failure";
+      RestartSec = "5s";
+    };
+    Install = {
+      WantedBy = [ "graphical-session.target" ];
+    };
+  };
 
   # ==========================================
   # SYNCTHING - Sichere Dateisynchronisation
