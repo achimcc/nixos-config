@@ -73,8 +73,8 @@
     # LÖSUNG: nomodeset deaktiviert i915 komplett, nutzt simpledrm Framebuffer
     # TRADE-OFF: Keine GPU-Beschleunigung, aber System bootet stabil
     # QUELLEN: Framework Community #69102, Ubuntu Bug #2061049, Arch Forums #308313
-    # STATUS: Permanent bis Kernel-Fix verfügbar (getestet: 2026-02-09)
-    "nomodeset"                    # KRITISCH: i915 komplett deaktivieren (GuC init schlägt fehl)
+    # STATUS: Test ob i915 jetzt funktioniert (2026-02-09, externer Monitor benötigt)
+    # "nomodeset"                  # DEAKTIVIERT: Testen ob i915 GuC init jetzt funktioniert
   ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;
@@ -171,6 +171,9 @@
 
     # Dateisystem-Unterstützung
     exfatprogs  # exFAT für externe SSDs/USB-Sticks
+
+    # Monero Wallet
+    feather  # Feather Wallet (Monero)
   ];
 
   # ==========================================
@@ -226,6 +229,13 @@
   # ==========================================
 
   services.flatpak.enable = true;
+
+  # ==========================================
+  # TOR
+  # ==========================================
+
+  services.tor.enable = true;
+  services.tor.client.enable = true;
 
   # ==========================================
   # SSD OPTIMIERUNG

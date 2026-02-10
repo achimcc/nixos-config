@@ -354,6 +354,37 @@ in
     dbus-user.talk org.freedesktop.secrets
   '';
 
+  # Signal Desktop-spezifische Firejail-Konfiguration
+  environment.etc."firejail/signal-desktop.local".text = ''
+    # Signal Desktop braucht vollständigen Zugriff auf eigene Daten
+    noblacklist ''${HOME}/.config/Signal
+    whitelist ''${HOME}/.config/Signal
+
+    # D-Bus für Benachrichtigungen und System-Integration
+    ignore dbus-user none
+    ignore dbus-system none
+    dbus-user filter
+    dbus-user.talk org.freedesktop.Notifications
+    dbus-user.talk org.freedesktop.secrets
+    dbus-user.own org.signal.*
+
+    # Wayland Display
+    noblacklist /run/user/1000
+    whitelist /run/user/1000/wayland-*
+
+    # Make /run/user writable
+    writable-run-user
+
+    # Audio
+    ignore nosound
+
+    # Private /tmp kann Probleme verursachen
+    ignore private-tmp
+
+    # Kein private-dev (für Hardware-Zugriff)
+    ignore private-dev
+  '';
+
   # Thunderbird-spezifische Firejail-Konfiguration
   environment.etc."firejail/thunderbird.local".text = ''
     # D-Bus Zugriff (erforderlich für pinentry-gnome3 und GNOME Keyring)
@@ -430,7 +461,11 @@ in
         ];
       };
 
-      # Signal Desktop - via Flatpak (siehe home-achim.nix)
+      # Signal Desktop - Messenger mit Sandbox
+      signal-desktop = {
+        executable = "${pkgs.signal-desktop}/bin/signal-desktop --no-sandbox";
+        profile = "${pkgs.firejail}/etc/firejail/signal-desktop.profile";
+      };
 
       # LibreWolf - Privacy Browser mit AppArmor + Firejail
       # AppArmor-Profil siehe modules/apparmor-profiles.nix
@@ -510,7 +545,6 @@ in
   # NICHT über home-achim.nix installieren, sonst wird Wrapper überschrieben!
   # VSCodium jetzt system-level mit Firejail (Home Manager nur für Extensions/Settings)
   # (KeePassXC, Newsflash sind in home-achim.nix)
-  # Signal via Flatpak (home-achim.nix), nicht mehr hier
   environment.systemPackages = with pkgs; [
     tor-browser
     mullvad-browser  # Maximum Anti-Fingerprinting (Firejail-wrapped)
@@ -520,6 +554,7 @@ in
     discord
     spotify
     thunderbird
+    signal-desktop  # Messenger (Firejail-wrapped)
     pkgs-unstable.vscodium  # VSCodium aus unstable (für aktuelle Version)
   ];
 }

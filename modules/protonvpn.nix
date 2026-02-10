@@ -46,8 +46,8 @@
     after = [ "network-online.target" "sops-nix.service" "nftables.service" ];
     wants = [ "network-online.target" "nftables.service" ]; # Softer dependency - won't stop VPN if firewall restarts
     # NOTE: Pre-check script still validates firewall is active before starting VPN
-    # HYBRID MODE: CLI autoconnect beim Boot + GUI für manuellen Serverwechsel
-    wantedBy = [ "multi-user.target" ];
+    # GUI MODE: Nur ProtonVPN GUI (CLI-Autoconnect deaktiviert)
+    # wantedBy = [ "multi-user.target" ];  # DEAKTIVIERT - Nur GUI verwenden
 
     # Vor dem Display Manager starten
     before = [ "display-manager.service" ];
