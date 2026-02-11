@@ -116,8 +116,10 @@
     "firewire-ohci"
     "firewire-sbp2"
 
-    # Thunderbolt (falls nicht genutzt - DMA-Risiko)
-    # "thunderbolt" # Auskommentiert falls Thunderbolt-Dock genutzt wird
+    # Thunderbolt: DMA-Risiko, aber IOMMU (intel_iommu=on) schützt vor DMA-Angriffen
+    # Nicht blacklisted wegen USB-C Monitor Hub (USBGuard: 05e3:0608)
+    # Falls kein externer Monitor genutzt wird: Zeile einkommentieren
+    # "thunderbolt"
   ];
 
   # Kernel-Module beim Boot laden (vor Kernel-Lockdown)
@@ -207,7 +209,9 @@
       allow id 8087:0033 with-interface { e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 } with-connect-type "not used"
 
       # SanDisk Portable SSD - Vereinfachte Regel für schnelleres Matching
-      # Erlaubt alle SanDisk Portable SSDs (0781:55b0) per Hotplug
+      # SICHERHEIT: Seriennummer hinzufügen für gezielte Geräte-Identifikation
+      # Seriennummer ermitteln: lsusb -v -d 0781:55b0 | grep iSerial
+      # TODO: Seriennummer nach Ermittlung hier eintragen: allow id 0781:55b0 serial "SERIAL" ...
       allow id 0781:55b0 with-connect-type "hotplug"
 
       # Nitrokey 3C NFC
@@ -276,6 +280,20 @@
 
     # Überwache Kernel-Module (verhindert Rootkit-Installation)
     -a always,exit -F arch=b64 -S init_module,finit_module -k kernel_modules
+
+    # Überwache Dateilöschungen (Erkennung von Spurenverwischung)
+    -a always,exit -F arch=b64 -S unlink,unlinkat,rename,renameat -F auid>=1000 -F auid!=4294967295 -k file_delete
+
+    # Überwache Netzwerk-Bind/Listen (Erkennung neuer Listener/Backdoors)
+    -a always,exit -F arch=b64 -S bind -F auid>=1000 -F auid!=4294967295 -k network_bind
+    -a always,exit -F arch=b64 -S listen -F auid>=1000 -F auid!=4294967295 -k network_listen
+
+    # Überwache mount/umount (Erkennung von Filesystem-Manipulation)
+    -a always,exit -F arch=b64 -S mount,umount2 -F auid>=1000 -F auid!=4294967295 -k filesystem_mount
+
+    # Überwache Zeitmanipulation (Erkennung von Log-Tampering)
+    -a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time_change
+    -w /etc/localtime -p wa -k time_change
 
     # Enable audit
     -e 1

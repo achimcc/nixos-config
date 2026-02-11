@@ -372,6 +372,9 @@ in
     noblacklist /run/user/1000
     whitelist /run/user/1000/wayland-*
 
+    # GNOME Keyring Socket (für SQLCipher-Verschlüsselung)
+    whitelist /run/user/1000/keyring
+
     # Make /run/user writable
     writable-run-user
 
