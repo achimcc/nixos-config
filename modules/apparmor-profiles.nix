@@ -86,6 +86,9 @@
         /dev/snd/ r,
         /dev/snd/** rw,
 
+        # Webcam/Video devices
+        /dev/video* rw,
+
         # Deny dangerous paths
         deny @{HOME}/.ssh/** rw,
         deny @{HOME}/.gnupg/** rw,
@@ -93,6 +96,7 @@
         deny /etc/passwd w,
         deny /etc/sudoers* rw,
         deny /var/lib/sops-nix/** r,
+        deny /run/secrets/** r,
 
         # Network
         network inet stream,
@@ -209,6 +213,7 @@
         deny @{HOME}/.gnupg/** rw,
         deny /etc/shadow r,
         deny /var/lib/sops-nix/** r,
+        deny /run/secrets/** r,
 
         # Network (IMAP/SMTP)
         network inet stream,
@@ -298,7 +303,9 @@
 
         # Deny secrets even with broad home access
         deny /var/lib/sops-nix/** r,
+        deny /run/secrets/** r,
         deny @{HOME}/.gnupg/private-keys-v1.d/** r,
+        deny /etc/shadow r,
 
         # Network (for extensions)
         network inet stream,
@@ -364,6 +371,8 @@
         deny @{HOME}/** rw,
         audit deny @{HOME}/.ssh/** rw,
         audit deny /var/lib/sops-nix/** r,
+        deny /run/secrets/** r,
+        deny /etc/shadow r,
 
         # Network
         network inet stream,
@@ -430,6 +439,8 @@
         deny @{HOME}/.ssh/** rw,
         deny @{HOME}/.gnupg/** rw,
         deny /var/lib/sops-nix/** r,
+        deny /run/secrets/** r,
+        deny /etc/shadow r,
 
         # Network
         network inet stream,

@@ -50,6 +50,14 @@ in
       "org.nickvision.money" # Denaro - Persönliche Finanzverwaltung
     ];
     overrides = {
+      # JDownloader: Bekannt für aggressive Telemetrie
+      # Flatpak-Sandbox beschränkt Zugriff, aber Netzwerk-Telemetrie bleibt
+      "org.jdownloader.JDownloader" = {
+        Context.filesystems = [
+          "!home"         # Kein Zugriff auf Home (nur Downloads via Portal)
+          "~/Downloads"   # Nur Downloads-Ordner
+        ];
+      };
     };
     update.auto = {
       enable = true;
@@ -382,30 +390,46 @@ in
     Service = {
       Type = "oneshot";
       RemainAfterExit = true;
-      # Delay vor dem Start (gibt GNOME Zeit zum Starten)
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
+      # CRITICAL DELAY: 20 Sekunden initial delay (GNOME braucht Zeit zum Initialisieren!)
+      # Der Keyring-Daemon antwortet zu früh, bevor die Keyring-Datei vollständig geladen ist
+      # Schreiben in einen nicht-initialisierten Keyring führt zu Korruption
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 20";
       ExecStart = pkgs.writeShellScript "posteo-keyring-sync" ''
         set -e  # Bei Fehler abbrechen
 
-        # Robuste Wartezeit bis Keyring wirklich bereit ist (max 60s statt 30s)
-        # Verhindert Schreiben in Keyring während er noch lädt (→ Korruption)
-        echo "Warte auf GNOME Keyring..."
+        # ROBUSTE WARTEZEIT mit mehreren Checks
+        echo "Warte auf GNOME Keyring Initialisierung..."
+
+        KEYRING_FILE="$HOME/.local/share/keyrings/Default_keyring.keyring"
+
         for i in {1..60}; do
-          # Prüfe ob Keyring antwortet (lookup gibt Exit Code 1 wenn nicht bereit)
-          # Verwende lookup statt search, da lookup einen klaren Exit Code zurückgibt
+          # Check 1: Keyring-Daemon antwortet
           if ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null; then
-            # Keyring antwortet (auch wenn nicht gefunden)
             :
           fi
-          # Wenn Exit Code ist (0 oder 1, nicht Timeout/Error), dann ist Keyring bereit
-          if [ $? -lt 2 ]; then
-            # Zusätzliche Sicherheit: Warte weitere 3 Sekunden
-            sleep 3
-            echo "GNOME Keyring ist bereit (nach $i Sekunden)"
+          DAEMON_EXIT=$?
+
+          # Check 2: Keyring-Datei existiert und ist nicht leer (> 512 bytes)
+          FILE_READY=false
+          if [ -f "$KEYRING_FILE" ]; then
+            FILE_SIZE=$(stat -c %s "$KEYRING_FILE" 2>/dev/null || echo 0)
+            if [ "$FILE_SIZE" -gt 512 ]; then
+              FILE_READY=true
+            fi
+          fi
+
+          # Beide Checks müssen erfolgreich sein
+          if [ $DAEMON_EXIT -lt 2 ] && [ "$FILE_READY" = true ]; then
+            # Zusätzliche Sicherheit: Warte weitere 5 Sekunden (erhöht von 3)
+            echo "Keyring-Daemon bereit, Keyring-Datei existiert ($FILE_SIZE bytes)"
+            sleep 5
+            echo "GNOME Keyring ist bereit (nach $i Sekunden + 5s safety delay)"
             break
           fi
+
           if [ $i -eq 60 ]; then
             echo "FEHLER: GNOME Keyring nicht bereit nach 60 Sekunden!"
+            echo "Daemon Exit Code: $DAEMON_EXIT, File Ready: $FILE_READY"
             exit 1
           fi
           sleep 1
@@ -466,8 +490,8 @@ in
         BACKUP_DIR="$HOME/.local/share/keyrings/backups"
         KEYRING_DIR="$HOME/.local/share/keyrings"
 
-        # Backup-Verzeichnis erstellen
-        mkdir -p "$BACKUP_DIR"
+        # Backup-Verzeichnis erstellen (mit vollem Pfad!)
+        ${pkgs.coreutils}/bin/mkdir -p "$BACKUP_DIR"
 
         # Timestamp für Backup
         TIMESTAMP=$(${pkgs.coreutils}/bin/date +%Y-%m-%d_%H-%M-%S)
@@ -494,8 +518,12 @@ in
       Description = "Daily GNOME Keyring Backup";
     };
     Timer = {
-      OnCalendar = "daily";
-      Persistent = true;  # Führe aus wenn Zeit verpasst wurde (z.B. Laptop war aus)
+      # CRITICAL: Feste Tageszeit statt "daily" (verhindert Ausführung beim Login!)
+      # "daily" würde nach Mitternacht beim nächsten Login triggern
+      # Das würde den Keyring während GNOME-Startup korruptieren
+      OnCalendar = "15:00";
+      # REMOVED Persistent=true: Verpasste Backups werden NICHT beim Login nachgeholt
+      # (würde Keyring während Startup korruptieren)
     };
     Install = {
       WantedBy = [ "timers.target" ];
@@ -809,9 +837,9 @@ in
       "media.webaudio.enabled" = false;
       "media.audiochannel.audioCompeting.backgroundPlaybackMuted" = true;
 
-      # Fonts & Hardware-Fingerprinting (MAXIMUM PROTECTION)
+      # Fonts & Hardware-Fingerprinting
       "gfx.font_rendering.opentype_svg.enabled" = false;
-      "gfx.downloadable_fonts.enabled" = false; # Keine Web-Fonts
+      "gfx.downloadable_fonts.enabled" = true; # Web-Fonts erlauben (benötigt für moderne Websites wie Google Gemini)
       "gfx.font_rendering.graphite.enabled" = false; # Graphite Fonts deaktivieren
       "layout.css.font-visibility.enabled" = true; # Font-Visibility API
       "layout.css.font-visibility.standard" = 1; # Nur Standard-Fonts exposieren

@@ -170,8 +170,9 @@ in
           # 11. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
           meta nfproto ipv6 ip6 saddr != fe80::/10 drop
 
-          # 12. Port-scan detection
-          update @portscan { ip saddr limit rate over 10/minute } drop
+          # 12. Port-scan detection (3/minute Schwelle)
+          # SICHERHEIT: Niedrige Schwelle erkennt auch langsame Port-Scans
+          update @portscan { ip saddr limit rate over 3/minute } drop
 
           # 13. Dropped packets (logging temporarily disabled)
         }
@@ -192,15 +193,19 @@ in
           oifname "tun*" accept
           oifname "wg*" accept
 
-          # 4. VPN connection establishment (physical interface)
-          udp dport ${toString vpnPorts.wireguard} accept
-          udp dport ${toString vpnPorts.wireguardAlt1} accept
-          udp dport ${toString vpnPorts.wireguardAlt2} accept
-          udp dport ${toString vpnPorts.openvpn} accept
-          tcp dport ${toString vpnPorts.https} accept
-          udp dport ${toString vpnPorts.https} accept
-          udp dport ${toString vpnPorts.ikev2} accept
-          udp dport ${toString vpnPorts.ikev2Nat} accept
+          # 4. VPN connection establishment (NUR physische Interfaces)
+          # SICHERHEIT: Explizit auf Nicht-VPN-Interfaces beschränkt (Defense-in-Depth)
+          # VPN-Interfaces werden bereits durch Regel 3 oben abgedeckt (blanket accept)
+          # WireGuard-Handshake ist verschlüsselt - kein Daten-Leak möglich
+          oifname != { "proton-cli", "proton0" } udp dport { ${toString vpnPorts.wireguard}, ${toString vpnPorts.wireguardAlt1}, ${toString vpnPorts.wireguardAlt2} } accept
+          # REMOVED: HTTPS port 443 - was allowing ALL HTTPS traffic without VPN!
+          # ProtonVPN connects via WireGuard (ports above), not HTTPS
+          # If VPN fails to connect, manually allow specific ProtonVPN API IPs
+          # udp dport ${toString vpnPorts.openvpn} accept  # Not needed for WireGuard
+          # tcp dport ${toString vpnPorts.https} accept  # SECURITY LEAK - REMOVED!
+          # udp dport ${toString vpnPorts.https} accept  # SECURITY LEAK - REMOVED!
+          # udp dport ${toString vpnPorts.ikev2} accept  # Not needed for WireGuard
+          # udp dport ${toString vpnPorts.ikev2Nat} accept  # Not needed for WireGuard
 
           # 5. DHCP requests (client:68 -> broadcast:67)
           udp sport 68 udp dport 67 accept
@@ -239,20 +244,25 @@ in
           ip daddr 255.255.255.255 udp dport ${toString syncthingPorts.discovery} accept
           ip daddr 192.168.178.255 udp dport ${toString syncthingPorts.discovery} accept
 
-          # 14. Second local network (server network) - allow all traffic
+          # 14. Egress Rate Limiting - Syncthing (Anti-Exfiltration)
+          # Begrenzt Datenübertragung über VPN auf 10 MB/s pro Verbindung
+          oifname { "proton-cli", "proton0" } tcp dport ${toString syncthingPorts.tcp} limit rate over 10 mbytes/second drop
+          oifname { "proton-cli", "proton0" } udp dport ${toString syncthingPorts.quic} limit rate over 10 mbytes/second drop
+
+          # 15. Second local network (server network) - allow all traffic
           ip daddr ${secondLocalNetwork.subnet} accept
 
-          # 15. reMarkable 2 USB network (SSH, HTTP, etc.)
+          # 16. reMarkable 2 USB network (SSH, HTTP, etc.)
           ip daddr ${remarkableNetwork.subnet} accept
 
-          # 16. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
+          # 17. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
           meta nfproto ipv6 icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept
 
-          # 17. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
+          # 18. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
           # Even though IPv6 is disabled at kernel level, this prevents leaks if accidentally enabled
           meta nfproto ipv6 ip6 daddr != fe80::/10 drop
 
-          # 18. Dropped packets (logging temporarily disabled)
+          # 19. Dropped packets (logging temporarily disabled)
         }
 
         # FORWARD CHAIN
