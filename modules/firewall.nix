@@ -193,19 +193,15 @@ in
           oifname "tun*" accept
           oifname "wg*" accept
 
-          # 4. VPN connection establishment (NUR physische Interfaces)
+          # 4. VPN connection establishment (NUR physische Interfaces, NUR UDP)
           # SICHERHEIT: Explizit auf Nicht-VPN-Interfaces beschränkt (Defense-in-Depth)
           # VPN-Interfaces werden bereits durch Regel 3 oben abgedeckt (blanket accept)
           # WireGuard-Handshake ist verschlüsselt - kein Daten-Leak möglich
-          oifname != { "proton-cli", "proton0" } udp dport { ${toString vpnPorts.wireguard}, ${toString vpnPorts.wireguardAlt1}, ${toString vpnPorts.wireguardAlt2} } accept
-          # REMOVED: HTTPS port 443 - was allowing ALL HTTPS traffic without VPN!
-          # ProtonVPN connects via WireGuard (ports above), not HTTPS
-          # If VPN fails to connect, manually allow specific ProtonVPN API IPs
-          # udp dport ${toString vpnPorts.openvpn} accept  # Not needed for WireGuard
-          # tcp dport ${toString vpnPorts.https} accept  # SECURITY LEAK - REMOVED!
-          # udp dport ${toString vpnPorts.https} accept  # SECURITY LEAK - REMOVED!
-          # udp dport ${toString vpnPorts.ikev2} accept  # Not needed for WireGuard
-          # udp dport ${toString vpnPorts.ikev2Nat} accept  # Not needed for WireGuard
+          # ProtonVPN WireGuard nutzt: UDP 443, 88, 1224, 51820, 500, 4500
+          # WICHTIG: UDP 443 wird benötigt! ProtonVPN GUI versucht Port 443 zuerst.
+          # Ohne UDP 443: WireGuard-Handshake timeout → GUI crasht → kein Netzwerk
+          # NUR UDP erlaubt (kein TCP 443 = kein HTTPS-Leak ohne VPN)
+          oifname != { "proton-cli", "proton0" } udp dport { ${toString vpnPorts.https}, ${toString vpnPorts.wireguard}, ${toString vpnPorts.wireguardAlt1}, ${toString vpnPorts.wireguardAlt2}, ${toString vpnPorts.ikev2}, ${toString vpnPorts.ikev2Nat} } accept
 
           # 5. DHCP requests (client:68 -> broadcast:67)
           udp sport 68 udp dport 67 accept
