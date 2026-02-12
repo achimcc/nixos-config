@@ -412,8 +412,8 @@ in
           if [ -f "$GOLDEN" ]; then
             echo "Stelle Golden Backup wieder her..."
 
-            # Daemon beenden
-            ${pkgs.procps}/bin/pkill -u "$USER" gnome-keyring-daemon || true
+            # Daemon beenden (pkill -f nötig: "gnome-keyring-daemon" > 15 Zeichen!)
+            ${pkgs.procps}/bin/pkill -f gnome-keyring-daemon || true
             sleep 2
 
             # Korrupten Zustand sichern (für Analyse)

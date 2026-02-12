@@ -73,9 +73,18 @@ in
 
       # Zufällige MAC-Adresse beim Scannen (erschwert Tracking)
       wifi.scanRandMacAddress = true;
-      # Zufällige MAC-Adresse bei jeder Verbindung
-      wifi.macAddress = "random";
-      ethernet.macAddress = "random";
+      # Stabile MAC-Adresse pro Netzwerk (gleiche SSID = gleiche MAC)
+      # NICHT "random" verwenden! Random erzeugt bei JEDEM Verbinden eine neue MAC,
+      # was dazu führt, dass die Fritz!Box das Gerät nicht erkennt und kein IPv4 per DHCP zuweist.
+      # "stable" generiert eine konsistente MAC pro SSID → Router erkennt Gerät, Privacy bleibt für andere Netze.
+      wifi.macAddress = "stable";
+      ethernet.macAddress = "stable";
+      # WWAN Modem ignorieren (ModemManager aktiviert cdc-wdm0/GSM und erzeugt Routing-Konflikte)
+      # ProtonVPN Kill Switch Interfaces ignorieren (pvpnksintrf0/ipv6leakintrf0)
+      # Grund: ProtonVPN GUI erstellt dummy-Interfaces die DNS-Routing stehlen
+      # und systemd-resolved mit ungültiger DNS (::1) konfigurieren → DNS-Deadlock
+      # Unser nftables Kill Switch (firewall.nix) übernimmt den VPN-Leak-Schutz.
+      unmanaged = [ "type:gsm" "interface-name:cdc-wdm*" "interface-name:wwp*" "interface-name:pvpnksintrf*" "interface-name:ipv6leakintrf*" ];
       # NetworkManager nutzt systemd-resolved
       dns = "systemd-resolved";
 
@@ -115,10 +124,12 @@ in
               psk = "$WIFI_HOME_PSK";
             };
             ipv4 = {
-              method = "auto";
-              # CRITICAL: Ignore DHCP DNS servers, use systemd-resolved global config instead
-              # Without this, router DNS (192.168.178.1) overrides Quad9 DNS-over-TLS
-              # and gets blocked by firewall, breaking DNS resolution
+              # Statische IP statt DHCP: Fritz!Box DHCP vergibt 192.168.178.28,
+              # die aber von einem anderen Gerät (30:05:5C:5C:BC:C1) belegt ist.
+              # ARP-Konflikt → NM weigert sich, die Adresse zu konfigurieren.
+              method = "manual";
+              address1 = "192.168.178.50/24,192.168.178.1";
+              # Kein DHCP-DNS, systemd-resolved global config wird genutzt
               ignore-auto-dns = true;
             };
             ipv6 = {
@@ -134,15 +145,31 @@ in
   };
 
   # ==========================================
-  # PROTONVPN KILL SWITCH CLEANUP
+  # NM CONNECTION CLEANUP (vor jedem NM-Start)
   # ==========================================
-  # ProtonVPN GUI erstellt Kill Switch NM-Verbindungen die beim Boot
-  # automatisch verbinden und WiFi/DNS brechen:
-  # - pvpn-killswitch-ipv6: DNS ::1 (unerreichbar) mit default-route=yes
-  # - pvpn-killswitch: ungültige DNS, stiehlt Default-Route
-  # Unser nftables Kill Switch (firewall.nix) übernimmt den VPN-Leak-Schutz.
-  systemd.services.cleanup-protonvpn-killswitch = {
-    description = "Remove ProtonVPN kill switch NM connections (nftables handles this)";
+  # Bereinigt störende NM-Verbindungen BEVOR NetworkManager startet:
+  #
+  # 1. ProtonVPN Kill Switch Connections:
+  #    ProtonVPN GUI erstellt Kill Switch NM-Verbindungen die beim Boot
+  #    automatisch verbinden und WiFi/DNS brechen:
+  #    - pvpn-killswitch-ipv6: DNS ::1 (unerreichbar) mit default-route=yes
+  #    - pvpn-killswitch: ungültige DNS, stiehlt Default-Route
+  #    Unser nftables Kill Switch (firewall.nix) übernimmt den VPN-Leak-Schutz.
+  #
+  # 2. Stale WiFi Profiles:
+  #    Wenn WiFi-Einstellungen manuell geändert werden (GNOME Settings, nmcli),
+  #    überschreibt NM die deklarative Konfiguration mit falschen Werten:
+  #    - ipv4.method: manual statt auto (DHCP)
+  #    - ipv6.method: auto statt disabled (IPv6-Leak!)
+  #    - ignore-auto-dns: nein statt ja (Router-DNS statt Quad9)
+  #    Durch Löschung vor NM-Start erstellt ensureProfiles ein frisches Profil.
+  #
+  # 3. ProtonVPN GUI VPN-Verbindungen:
+  #    ProtonVPN GUI erstellt WireGuard-Verbindungen (z.B. "ProtonVPN DE#11")
+  #    mit autoconnect=ja, die beim Boot DNS (10.2.0.1) und Routing (100.85.x)
+  #    auf dem WiFi-Interface übernehmen → DNS und Routing brechen.
+  systemd.services.cleanup-nm-connections = {
+    description = "Remove stale NM connections before NetworkManager starts";
     before = [ "NetworkManager.service" ];
     requiredBy = [ "NetworkManager.service" ];
     serviceConfig = {
@@ -150,10 +177,31 @@ in
       RemainAfterExit = false;
     };
     script = ''
+      # 1. ProtonVPN Kill Switch Connections entfernen
       for f in /etc/NetworkManager/system-connections/pvpn-killswitch*; do
         if [ -f "$f" ]; then
           rm -f "$f"
-          echo "Gelöscht: $f"
+          echo "Gelöscht (pvpn-killswitch): $f"
+        fi
+      done
+
+      # 2. Stale WiFi Profiles entfernen (ensureProfiles erstellt frische nach NM-Start)
+      # WICHTIG: Löscht ALLE Greenside4-Dateien, damit ensureProfiles die einzige Quelle ist
+      for f in /etc/NetworkManager/system-connections/Greenside4*; do
+        if [ -f "$f" ]; then
+          rm -f "$f"
+          echo "Gelöscht (stale wifi): $f"
+        fi
+      done
+
+      # 3. ProtonVPN GUI VPN-Verbindungen entfernen
+      # ProtonVPN GUI erstellt WireGuard-Verbindungen (z.B. "ProtonVPN DE#11")
+      # mit autoconnect=ja, die beim Boot DNS (10.2.0.1) und Routing (100.85.x)
+      # auf dem WiFi-Interface übernehmen → DNS und Routing brechen
+      for f in /etc/NetworkManager/system-connections/ProtonVPN*; do
+        if [ -f "$f" ]; then
+          rm -f "$f"
+          echo "Gelöscht (protonvpn-gui): $f"
         fi
       done
     '';

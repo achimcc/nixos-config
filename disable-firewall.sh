@@ -98,8 +98,9 @@ done
 # ============================================================================
 log_section "3️⃣  Setze Firewall-Regeln zurück..."
 
-# nftables - flush all rulesets and tables
-log_info "Resette nftables..."
+# nftables Service stoppen (nicht nur flush - verhindert dass systemd ihn neu startet)
+log_info "Stoppe nftables Service..."
+systemctl stop nftables 2>/dev/null && log_success "nftables Service gestoppt" || log_info "nftables Service war nicht aktiv"
 nft flush ruleset 2>/dev/null || true
 log_success "nftables Firewall deaktiviert"
 
@@ -187,55 +188,121 @@ fi
 log_success "Standard-Routing-Regeln überprüft"
 
 # ============================================================================
-# 5. Netzwerk-Routing prüfen
+# 5. ProtonVPN-Cleanup & WiFi-Verbindung reparieren
 # ============================================================================
-log_section "5️⃣  Prüfe Netzwerk-Routing..."
+log_section "5️⃣  WiFi-Verbindung reparieren..."
 
-# Dynamisch WiFi-Interface erkennen
-WIFI_IFACE=$(ip link show | grep -E "^\s*[0-9]+:\s*(wlp|wlan)" | head -1 | cut -d: -f2 | tr -d ' ')
+# 5a. ProtonVPN GUI-Verbindungen löschen (übernehmen DNS/Routing auf WiFi)
+log_info "Entferne ProtonVPN NM-Verbindungen..."
+PVPN_REMOVED=0
+for f in /etc/NetworkManager/system-connections/pvpn-killswitch* /etc/NetworkManager/system-connections/ProtonVPN*; do
+    if [ -f "$f" ]; then
+        rm -f "$f"
+        log_success "Gelöscht: $(basename "$f")"
+        ((PVPN_REMOVED++))
+    fi
+done
+if [ $PVPN_REMOVED -eq 0 ]; then
+    log_info "Keine ProtonVPN-Verbindungen gefunden"
+else
+    log_success "$PVPN_REMOVED ProtonVPN-Verbindung(en) gelöscht"
+    # NM muss die gelöschten Dateien bemerken
+    nmcli connection reload 2>/dev/null || true
+fi
+
+# 5b. WiFi-Passwort aus sops lesen
+WIFI_PSK=""
+if [ -f /run/secrets/wifi/home ]; then
+    WIFI_PSK=$(cat /run/secrets/wifi/home)
+    log_success "WiFi-Passwort aus sops gelesen"
+else
+    log_warning "sops Secret /run/secrets/wifi/home nicht gefunden"
+    log_info "WiFi-Verbindung nur möglich wenn Greenside4-Profil existiert"
+fi
+
+# 5c. WiFi-Interface erkennen
+WIFI_IFACE=$(nmcli -t -f DEVICE,TYPE device status 2>/dev/null | grep ":wifi" | cut -d: -f1 | head -1)
 if [[ -z "$WIFI_IFACE" ]]; then
     log_warning "Kein WiFi-Interface gefunden, versuche Ethernet..."
-    WIFI_IFACE=$(ip link show | grep -E "^\s*[0-9]+:\s*(enp|eth)" | head -1 | cut -d: -f2 | tr -d ' ')
+    WIFI_IFACE=$(nmcli -t -f DEVICE,TYPE device status 2>/dev/null | grep ":ethernet" | cut -d: -f1 | head -1)
 fi
 
 if [[ -n "$WIFI_IFACE" ]]; then
     log_success "Netzwerk-Interface: $WIFI_IFACE"
 
-    # Prüfe IP-Adresse auf dem Interface
-    if ! ip addr show "$WIFI_IFACE" | grep -q "inet "; then
-        log_warning "Keine IP-Adresse auf $WIFI_IFACE, versuche Wiederherstellung..."
+    # Finde aktive Verbindung auf dem Interface
+    WIFI_CON=$(nmcli -t -f NAME,DEVICE connection show --active 2>/dev/null | grep ":${WIFI_IFACE}$" | cut -d: -f1)
 
-        # Versuche NetworkManager-Verbindung zu reaktivieren
-        ACTIVE_CON=$(nmcli -t -f NAME,DEVICE connection show --active | grep "$WIFI_IFACE" | cut -d: -f1)
-        if [[ -n "$ACTIVE_CON" ]]; then
-            nmcli connection up "$ACTIVE_CON" 2>/dev/null && \
-                log_success "NetworkManager-Verbindung '$ACTIVE_CON' reaktiviert" || \
-                log_warning "Konnte NM-Verbindung nicht reaktivieren"
-            sleep 3
-        fi
+    if [[ -n "$WIFI_CON" ]]; then
+        log_info "Aktive Verbindung: $WIFI_CON"
 
-        # Fallback: Manuelle IP-Adresse wenn NM nicht geholfen hat
-        if ! ip addr show "$WIFI_IFACE" | grep -q "inet "; then
-            log_warning "NM-Reaktivierung fehlgeschlagen, setze manuelle IP..."
-            ip addr add 192.168.178.100/24 dev "$WIFI_IFACE" 2>/dev/null && \
-                log_success "Manuelle IP 192.168.178.100/24 auf $WIFI_IFACE gesetzt" || \
-                log_warning "Konnte manuelle IP nicht setzen"
+        # Prüfe ob IPv4-Adresse vorhanden
+        if ip addr show "$WIFI_IFACE" | grep -q "inet "; then
+            CURRENT_IP=$(ip addr show "$WIFI_IFACE" | grep "inet " | awk '{print $2}')
+            log_success "IPv4-Adresse vorhanden: $CURRENT_IP"
+        else
+            # Keine IPv4 → Verbindung reaktivieren
+            log_warning "Keine IPv4-Adresse auf $WIFI_IFACE"
+            log_info "Reaktiviere Verbindung '$WIFI_CON' (down + up)..."
+            nmcli connection down "$WIFI_CON" 2>/dev/null || true
+            sleep 2
+            nmcli connection up "$WIFI_CON" 2>/dev/null && \
+                log_success "Verbindung '$WIFI_CON' reaktiviert" || \
+                log_warning "Konnte Verbindung nicht reaktivieren"
         fi
     else
-        CURRENT_IP=$(ip addr show "$WIFI_IFACE" | grep "inet " | awk '{print $2}')
-        log_success "IP-Adresse vorhanden: $CURRENT_IP"
+        # Keine aktive Verbindung → Greenside4 verbinden
+        log_warning "Keine aktive Verbindung auf $WIFI_IFACE"
+
+        if [[ -n "$WIFI_PSK" ]]; then
+            # Passwort aus sops verfügbar → automatisch verbinden
+            log_info "Verbinde mit Greenside4 (Passwort aus sops)..."
+            nmcli device wifi connect Greenside4 password "$WIFI_PSK" 2>/dev/null && \
+                log_success "Mit Greenside4 verbunden" || \
+                log_warning "Konnte nicht mit Greenside4 verbinden"
+        elif nmcli connection show "Greenside4" &>/dev/null; then
+            # Profil existiert → versuche ohne Passwort
+            log_info "Versuche Greenside4-Profil zu aktivieren..."
+            nmcli connection up "Greenside4" 2>/dev/null && \
+                log_success "Mit Greenside4 verbunden" || \
+                log_warning "Konnte nicht mit Greenside4 verbinden"
+        else
+            log_warning "Kein WiFi-Passwort und kein Greenside4-Profil verfügbar"
+            log_info "Manuelle Verbindung nötig: nmcli --ask device wifi connect Greenside4"
+        fi
     fi
 
-    # Prüfe Default-Route
+    # Warte auf DHCP IPv4-Adresse (max 15 Sekunden)
+    if ! ip addr show "$WIFI_IFACE" | grep -q "inet "; then
+        log_info "Warte auf DHCP IPv4-Zuweisung..."
+        for i in $(seq 1 15); do
+            if ip addr show "$WIFI_IFACE" | grep -q "inet "; then
+                CURRENT_IP=$(ip addr show "$WIFI_IFACE" | grep "inet " | awk '{print $2}')
+                log_success "IPv4-Adresse erhalten: $CURRENT_IP (nach ${i}s)"
+                break
+            fi
+            sleep 1
+        done
+
+        # Fallback: Manuelle IP wenn DHCP nicht funktioniert hat
+        if ! ip addr show "$WIFI_IFACE" | grep -q "inet "; then
+            log_warning "Kein DHCP nach 15s, setze manuelle IP..."
+            ip addr add 192.168.178.100/24 dev "$WIFI_IFACE" 2>/dev/null && \
+                log_success "Manuelle IP 192.168.178.100/24 gesetzt" || \
+                log_warning "Konnte manuelle IP nicht setzen"
+        fi
+    fi
+
+    # Default-Route prüfen
     if ! ip route show | grep -q "^default"; then
         log_warning "Keine Default-Route gefunden, versuche hinzuzufügen..."
 
-        # Versuche Router-IP aus bestehendem Subnetz zu ermitteln
+        # Router-IP aus bestehendem Subnetz ermitteln
         ROUTER_IP=$(ip route show | grep -oP '^\d+\.\d+\.\d+' | head -1)
         if [[ -n "$ROUTER_IP" ]]; then
             ROUTER_IP="${ROUTER_IP}.1"
         else
-            ROUTER_IP="192.168.178.1"  # Fallback
+            ROUTER_IP="192.168.178.1"  # Fallback Fritz!Box
         fi
 
         ip route add default via "$ROUTER_IP" dev "$WIFI_IFACE" 2>/dev/null && \
@@ -329,7 +396,7 @@ echo ""
 log_info "Um die Sicherheitskonfiguration wiederherzustellen:"
 echo ""
 echo "   1. Firewall reaktivieren:"
-echo "      ${GREEN}sudo nixos-rebuild switch --flake /home/achim/nixos-config#achim-laptop${NC}"
+echo "      ${GREEN}sudo nixos-rebuild switch --flake /home/achim/nixos-config#nixos${NC}"
 echo ""
 echo "   2. Oder nur Services neu starten:"
 echo "      ${GREEN}sudo systemctl start nftables${NC}"
