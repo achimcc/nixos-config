@@ -373,67 +373,121 @@ in
     AcceptSslErrors=false
   '';
 
-  # --- POSTEO PASSWORT IN GNOME KEYRING ---
-  # Lädt das Posteo-Passwort aus sops in den GNOME Keyring beim Login
-  # Thunderbird und GNOME Online Accounts greifen automatisch darauf zu
-  systemd.user.services.posteo-keyring-sync = {
+  # --- GNOME KEYRING GUARD ---
+  # Auto-Restore bei Korruption: secret-tool store korrumpiert die Keyring-Datei,
+  # was beim nächsten Daemon-Neustart (Reboot/nixos-rebuild) erkannt wird.
+  # Der Daemon erstellt dann einen neuen leeren Keyring (Default_1, Default_2...).
+  # Dieser Service erkennt das und stellt automatisch aus dem Golden Backup wieder her.
+  systemd.user.services.gnome-keyring-guard = {
     Unit = {
-      Description = "Sync Posteo password from sops to GNOME Keyring";
-      # CRITICAL: Warte bis GNOME vollständig geladen ist (nicht nur Keyring-Service!)
-      # Verhindert Race Condition die zu korrupten Keyring-Dateien führt
-      # Startet NACH gnome-shell (Desktop vollständig geladen)
-      After = [ "graphical-session.target" "gnome-keyring.service" "gnome-shell-wayland.service" ];
-      PartOf = [ "graphical-session.target" ];
-      # Zusätzliche Absicherung: Starte erst wenn Session wirklich bereit ist
-      Wants = [ "gnome-shell-wayland.service" ];
+      Description = "Auto-restore GNOME Keyring if corrupted";
+      After = [ "graphical-session.target" ];
+      Before = [ "posteo-keyring-sync.service" ];
     };
     Service = {
       Type = "oneshot";
       RemainAfterExit = true;
-      # CRITICAL DELAY: 20 Sekunden initial delay (GNOME braucht Zeit zum Initialisieren!)
-      # Der Keyring-Daemon antwortet zu früh, bevor die Keyring-Datei vollständig geladen ist
-      # Schreiben in einen nicht-initialisierten Keyring führt zu Korruption
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep 20";
-      ExecStart = pkgs.writeShellScript "posteo-keyring-sync" ''
-        set -e  # Bei Fehler abbrechen
+      # Warte bis gnome-keyring-daemon gestartet und Korruption ggf. erkannt hat
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
+      ExecStart = pkgs.writeShellScript "gnome-keyring-guard" ''
+        set -e
 
-        # ROBUSTE WARTEZEIT mit mehreren Checks
-        echo "Warte auf GNOME Keyring Initialisierung..."
+        KEYRING_DIR="$HOME/.local/share/keyrings"
+        BACKUP_DIR="$KEYRING_DIR/backups"
+        GOLDEN="$BACKUP_DIR/keyring-golden.tar.gz"
+        DEFAULT_FILE="$KEYRING_DIR/default"
+        EXPECTED="Default_keyring"
 
-        KEYRING_FILE="$HOME/.local/share/keyrings/Default_keyring.keyring"
+        ${pkgs.coreutils}/bin/mkdir -p "$BACKUP_DIR"
 
-        for i in {1..60}; do
-          # Check 1: Keyring-Daemon antwortet
-          if ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null; then
-            :
-          fi
-          DAEMON_EXIT=$?
+        # Daemon triggern (socket activation), damit er Korruption erkennt
+        ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
+        sleep 2
 
-          # Check 2: Keyring-Datei existiert und ist nicht leer (> 512 bytes)
-          FILE_READY=false
-          if [ -f "$KEYRING_FILE" ]; then
-            FILE_SIZE=$(stat -c %s "$KEYRING_FILE" 2>/dev/null || echo 0)
-            if [ "$FILE_SIZE" -gt 512 ]; then
-              FILE_READY=true
-            fi
-          fi
+        CURRENT_DEFAULT=$(cat "$DEFAULT_FILE" 2>/dev/null || echo "")
 
-          # Beide Checks müssen erfolgreich sein
-          if [ $DAEMON_EXIT -lt 2 ] && [ "$FILE_READY" = true ]; then
-            # Zusätzliche Sicherheit: Warte weitere 5 Sekunden (erhöht von 3)
-            echo "Keyring-Daemon bereit, Keyring-Datei existiert ($FILE_SIZE bytes)"
-            sleep 5
-            echo "GNOME Keyring ist bereit (nach $i Sekunden + 5s safety delay)"
-            break
-          fi
+        if [ "$CURRENT_DEFAULT" != "$EXPECTED" ]; then
+          echo "WARNUNG: Keyring korrupt! default='$CURRENT_DEFAULT' statt '$EXPECTED'"
 
-          if [ $i -eq 60 ]; then
-            echo "FEHLER: GNOME Keyring nicht bereit nach 60 Sekunden!"
-            echo "Daemon Exit Code: $DAEMON_EXIT, File Ready: $FILE_READY"
+          if [ -f "$GOLDEN" ]; then
+            echo "Stelle Golden Backup wieder her..."
+
+            # Daemon beenden
+            ${pkgs.procps}/bin/pkill -u "$USER" gnome-keyring-daemon || true
+            sleep 2
+
+            # Korrupten Zustand sichern (für Analyse)
+            TIMESTAMP=$(${pkgs.coreutils}/bin/date +%Y-%m-%d_%H-%M-%S)
+            ${pkgs.gnutar}/bin/tar -czf "$BACKUP_DIR/keyring-corrupt-$TIMESTAMP.tar.gz" \
+              -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
+
+            # Alle Keyring-Dateien entfernen und aus Golden Backup wiederherstellen
+            rm -f "$KEYRING_DIR"/Default*.keyring "$KEYRING_DIR"/default "$KEYRING_DIR"/login.keyring
+            ${pkgs.gnutar}/bin/tar -xzf "$GOLDEN" -C "$KEYRING_DIR"
+
+            echo "Keyring aus Golden Backup wiederhergestellt!"
+            echo "default=$(cat "$DEFAULT_FILE" 2>/dev/null)"
+          else
+            echo "FEHLER: Kein Golden Backup vorhanden! Manueller Eingriff nötig."
+            echo "Verwende: restore-keyring"
             exit 1
+          fi
+        else
+          echo "Keyring OK: default=$CURRENT_DEFAULT"
+
+          # Golden Backup erstellen/aktualisieren (VOR posteo-keyring-sync Schreibvorgängen!)
+          echo "Erstelle Golden Backup..."
+          ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
+            -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
+          echo "Golden Backup aktualisiert."
+        fi
+      '';
+    };
+    Install = {
+      WantedBy = [ "graphical-session.target" ];
+    };
+  };
+
+  # --- POSTEO PASSWORT IN GNOME KEYRING ---
+  # Lädt das Posteo-Passwort aus sops in den GNOME Keyring beim Login.
+  # IDEMPOTENT: Prüft ob Credentials bereits existieren, schreibt nur wenn nötig.
+  # ACHTUNG: secret-tool store korrumpiert die Keyring-Datei langfristig!
+  # Der gnome-keyring-guard Service stellt bei Korruption automatisch wieder her.
+  systemd.user.services.posteo-keyring-sync = {
+    Unit = {
+      Description = "Sync Posteo password from sops to GNOME Keyring";
+      # Startet NACH guard (Korruptionscheck) und GNOME-Session
+      After = [ "graphical-session.target" "gnome-keyring-guard.service" "gnome-shell-wayland.service" ];
+      PartOf = [ "graphical-session.target" ];
+      Wants = [ "gnome-keyring-guard.service" ];
+    };
+    Service = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 10";
+      ExecStart = pkgs.writeShellScript "posteo-keyring-sync" ''
+        set -e
+
+        echo "Prüfe GNOME Keyring..."
+
+        # Warte auf Keyring-Daemon
+        for i in {1..30}; do
+          ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
+          if [ $? -lt 2 ]; then
+            break
           fi
           sleep 1
         done
+
+        # Prüfe ob Credentials bereits existieren (IDEMPOTENT)
+        EXISTING=$(${pkgs.libsecret}/bin/secret-tool lookup protocol imap server posteo.de user "achim.schneider@posteo.de" 2>/dev/null || echo "")
+
+        if [ -n "$EXISTING" ]; then
+          echo "Posteo-Credentials bereits vorhanden, überspringe Schreibvorgang."
+          exit 0
+        fi
+
+        echo "Credentials nicht gefunden, schreibe..."
 
         # Passwort aus sops lesen
         if [ ! -f /run/secrets/email/posteo ]; then
@@ -443,23 +497,21 @@ in
 
         PASSWORD=$(cat /run/secrets/email/posteo)
 
-        # In GNOME Keyring speichern (Format das Thunderbird erwartet)
-        echo "Schreibe Posteo-Credentials in Keyring..."
-
         # IMAP Passwort
         echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo IMAP" \
           protocol imap \
           server posteo.de \
           user "achim.schneider@posteo.de"
+        sleep 1
 
         # SMTP Passwort
         echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo SMTP" \
           protocol smtp \
           server posteo.de \
           user "achim.schneider@posteo.de"
+        sleep 1
 
         # GNOME Online Accounts (CalDAV für GNOME Kalender)
-        # GVariant-Format: {'password': <'...'> }
         printf "{'password': <'%s'>}" "$PASSWORD" | \
           ${pkgs.libsecret}/bin/secret-tool store \
             --label="GOA webdav credentials for identity account_posteo_caldav_0" \
@@ -475,8 +527,7 @@ in
   };
 
   # --- GNOME KEYRING BACKUP ---
-  # Sichert den GNOME Keyring täglich, um Datenverlust bei Korruption zu verhindern
-  # Hält die letzten 7 Backups
+  # Tägliches Backup (zusätzlich zum Golden Backup des Guard-Service)
   systemd.user.services.gnome-keyring-backup = {
     Unit = {
       Description = "Backup GNOME Keyring";
@@ -490,13 +541,10 @@ in
         BACKUP_DIR="$HOME/.local/share/keyrings/backups"
         KEYRING_DIR="$HOME/.local/share/keyrings"
 
-        # Backup-Verzeichnis erstellen (mit vollem Pfad!)
         ${pkgs.coreutils}/bin/mkdir -p "$BACKUP_DIR"
 
-        # Timestamp für Backup
         TIMESTAMP=$(${pkgs.coreutils}/bin/date +%Y-%m-%d_%H-%M-%S)
 
-        # Alle Keyring-Dateien sichern
         echo "Erstelle Keyring-Backup: $TIMESTAMP"
         ${pkgs.gnutar}/bin/tar -czf "$BACKUP_DIR/keyring-backup-$TIMESTAMP.tar.gz" \
           -C "$KEYRING_DIR" \
@@ -518,12 +566,7 @@ in
       Description = "Daily GNOME Keyring Backup";
     };
     Timer = {
-      # CRITICAL: Feste Tageszeit statt "daily" (verhindert Ausführung beim Login!)
-      # "daily" würde nach Mitternacht beim nächsten Login triggern
-      # Das würde den Keyring während GNOME-Startup korruptieren
       OnCalendar = "15:00";
-      # REMOVED Persistent=true: Verpasste Backups werden NICHT beim Login nachgeholt
-      # (würde Keyring während Startup korruptieren)
     };
     Install = {
       WantedBy = [ "timers.target" ];
@@ -539,7 +582,7 @@ in
     Service = {
       Type = "oneshot";
       ExecStart = pkgs.writeShellScript "export-gpg-key" ''
-        mkdir -p ~/.config/thunderbird-gpg
+        ${pkgs.coreutils}/bin/mkdir -p ~/.config/thunderbird-gpg
         ${pkgs.gnupg}/bin/gpg --armor --export achim.schneider@posteo.de \
           > ~/.config/thunderbird-gpg/gpg-public-key.asc
       '';

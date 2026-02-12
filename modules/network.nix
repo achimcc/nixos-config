@@ -133,6 +133,32 @@ in
     };
   };
 
+  # ==========================================
+  # PROTONVPN KILL SWITCH CLEANUP
+  # ==========================================
+  # ProtonVPN GUI erstellt Kill Switch NM-Verbindungen die beim Boot
+  # automatisch verbinden und WiFi/DNS brechen:
+  # - pvpn-killswitch-ipv6: DNS ::1 (unerreichbar) mit default-route=yes
+  # - pvpn-killswitch: ungültige DNS, stiehlt Default-Route
+  # Unser nftables Kill Switch (firewall.nix) übernimmt den VPN-Leak-Schutz.
+  systemd.services.cleanup-protonvpn-killswitch = {
+    description = "Remove ProtonVPN kill switch NM connections (nftables handles this)";
+    before = [ "NetworkManager.service" ];
+    requiredBy = [ "NetworkManager.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = false;
+    };
+    script = ''
+      for f in /etc/NetworkManager/system-connections/pvpn-killswitch*; do
+        if [ -f "$f" ]; then
+          rm -f "$f"
+          echo "Gelöscht: $f"
+        fi
+      done
+    '';
+  };
+
   # IPv6 auf Kernel-Ebene deaktivieren (zusätzliche Absicherung)
   boot.kernel.sysctl = {
     "net.ipv6.conf.all.disable_ipv6" = 1;

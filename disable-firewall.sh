@@ -70,15 +70,17 @@ done
 # ============================================================================
 log_section "2️⃣  Trenne VPN-Verbindungen..."
 
-# WireGuard ProtonVPN
-if systemctl is-active --quiet wg-quick-proton0.service 2>/dev/null; then
-    systemctl stop wg-quick-proton0.service && log_success "WireGuard ProtonVPN gestoppt"
-else
-    log_info "WireGuard Service nicht aktiv"
-fi
+# WireGuard ProtonVPN (CLI + GUI)
+for vpn_svc in wg-quick-proton-cli.service wg-quick-proton0.service; do
+    if systemctl is-active --quiet "$vpn_svc" 2>/dev/null; then
+        systemctl stop "$vpn_svc" && log_success "$vpn_svc gestoppt"
+    else
+        log_info "$vpn_svc nicht aktiv"
+    fi
+done
 
 # Manuelle WireGuard Interfaces
-for iface in proton0 wg0 wg1; do
+for iface in proton-cli proton0 wg0 wg1; do
     if ip link show "$iface" &>/dev/null; then
         wg-quick down "$iface" 2>/dev/null && log_success "$iface down" || log_info "$iface bereits down"
     fi
@@ -199,13 +201,40 @@ fi
 if [[ -n "$WIFI_IFACE" ]]; then
     log_success "Netzwerk-Interface: $WIFI_IFACE"
 
+    # Prüfe IP-Adresse auf dem Interface
+    if ! ip addr show "$WIFI_IFACE" | grep -q "inet "; then
+        log_warning "Keine IP-Adresse auf $WIFI_IFACE, versuche Wiederherstellung..."
+
+        # Versuche NetworkManager-Verbindung zu reaktivieren
+        ACTIVE_CON=$(nmcli -t -f NAME,DEVICE connection show --active | grep "$WIFI_IFACE" | cut -d: -f1)
+        if [[ -n "$ACTIVE_CON" ]]; then
+            nmcli connection up "$ACTIVE_CON" 2>/dev/null && \
+                log_success "NetworkManager-Verbindung '$ACTIVE_CON' reaktiviert" || \
+                log_warning "Konnte NM-Verbindung nicht reaktivieren"
+            sleep 3
+        fi
+
+        # Fallback: Manuelle IP-Adresse wenn NM nicht geholfen hat
+        if ! ip addr show "$WIFI_IFACE" | grep -q "inet "; then
+            log_warning "NM-Reaktivierung fehlgeschlagen, setze manuelle IP..."
+            ip addr add 192.168.178.100/24 dev "$WIFI_IFACE" 2>/dev/null && \
+                log_success "Manuelle IP 192.168.178.100/24 auf $WIFI_IFACE gesetzt" || \
+                log_warning "Konnte manuelle IP nicht setzen"
+        fi
+    else
+        CURRENT_IP=$(ip addr show "$WIFI_IFACE" | grep "inet " | awk '{print $2}')
+        log_success "IP-Adresse vorhanden: $CURRENT_IP"
+    fi
+
     # Prüfe Default-Route
     if ! ip route show | grep -q "^default"; then
         log_warning "Keine Default-Route gefunden, versuche hinzuzufügen..."
 
-        # Versuche Router-IP zu finden
-        ROUTER_IP=$(ip route show | grep "^192.168.178" | grep -oP '(?<=via )\S+' | head -1)
-        if [[ -z "$ROUTER_IP" ]]; then
+        # Versuche Router-IP aus bestehendem Subnetz zu ermitteln
+        ROUTER_IP=$(ip route show | grep -oP '^\d+\.\d+\.\d+' | head -1)
+        if [[ -n "$ROUTER_IP" ]]; then
+            ROUTER_IP="${ROUTER_IP}.1"
+        else
             ROUTER_IP="192.168.178.1"  # Fallback
         fi
 
@@ -303,7 +332,8 @@ echo "   1. Firewall reaktivieren:"
 echo "      ${GREEN}sudo nixos-rebuild switch --flake /home/achim/nixos-config#achim-laptop${NC}"
 echo ""
 echo "   2. Oder nur Services neu starten:"
-echo "      ${GREEN}sudo systemctl start wg-quick-proton0${NC}"
+echo "      ${GREEN}sudo systemctl start nftables${NC}"
+echo "      ${GREEN}sudo systemctl start wg-quick-proton-cli${NC}"
 echo "      ${GREEN}sudo systemctl start suricata${NC}"
 echo ""
 echo "   3. System neu starten (empfohlen):"
