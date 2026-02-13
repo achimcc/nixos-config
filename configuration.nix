@@ -64,17 +64,13 @@
     "mem_sleep_default=deep"       # S3 Suspend statt S0ix (zuverlässiger auf neuer HW)
     "intel_idle.max_cstate=1"      # Limitiere CPU C-States (verhindert Resume-Freeze)
 
-    # Intel i915 Grafiktreiber KRITISCHER BUG (Meteor Lake GPU device ID 7dd5)
-    # PROBLEM: GuC firmware loading schlägt mit -5 (I/O Error) fehl beim Boot
-    # FEHLER: "GT0: Enabling uc failed (-5)" → GPU wird als "wedged" deklariert
-    # URSACHE: Weitreichender i915-Bug auf Meteor Lake (Kernel 6.12-6.18, auch 6.15+)
-    #          Framework/Arch/Ubuntu-Nutzer berichten identisches Problem (Feb 2026)
-    #          GuC init schlägt VOR allen Kernel-Parametern fehl → keine Workarounds möglich
-    # LÖSUNG: nomodeset deaktiviert i915 komplett, nutzt simpledrm Framebuffer
-    # TRADE-OFF: Keine GPU-Beschleunigung, aber System bootet stabil
-    # QUELLEN: Framework Community #69102, Ubuntu Bug #2061049, Arch Forums #308313
-    # STATUS: Test ob i915 jetzt funktioniert (2026-02-09, externer Monitor benötigt)
-    # "nomodeset"                  # DEAKTIVIERT: Testen ob i915 GuC init jetzt funktioniert
+    # Intel i915 Meteor Lake Stabilitätsfix (GPU device ID 7dd5)
+    # PROBLEM: "Selective fetch area calculation failed in pipe A" → harter Crash
+    # URSACHE: PSR2 Selective Fetch Bug auf Meteor Lake (Kernel 6.12-6.18+)
+    # FIX: Selective Fetch deaktivieren, PSR-Energiesparen bleibt aktiv
+    # CRASH-LOG: 2026-02-12 19:30 SF-Error → 19:48 harter Reboot (28min Laufzeit)
+    "i915.enable_psr2_sel_fetch=0"  # PSR2 Selective Fetch deaktivieren (Crash-Ursache)
+    # Falls weiterhin Crashes: "i915.enable_psr=0" als nächste Eskalation
   ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;

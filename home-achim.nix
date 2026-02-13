@@ -396,44 +396,94 @@ in
         BACKUP_DIR="$KEYRING_DIR/backups"
         GOLDEN="$BACKUP_DIR/keyring-golden.tar.gz"
         DEFAULT_FILE="$KEYRING_DIR/default"
+        KEYRING_FILE="$KEYRING_DIR/Default_keyring.keyring"
         EXPECTED="Default_keyring"
+        MIN_KEYRING_SIZE=1000  # Gesunde Keyring-Datei ist >1KB
 
         ${pkgs.coreutils}/bin/mkdir -p "$BACKUP_DIR"
 
-        # Daemon triggern (socket activation), damit er Korruption erkennt
+        # Daemon triggern (socket activation), damit er Korruption ggf. erkennt
         ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
         sleep 2
 
+        # Korruptionsprüfung: 3 Kriterien
+        CORRUPT=false
         CURRENT_DEFAULT=$(cat "$DEFAULT_FILE" 2>/dev/null || echo "")
+        KEYRING_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$KEYRING_FILE" 2>/dev/null || echo 0)
 
+        # 1. default-Datei muss korrekten Inhalt haben
         if [ "$CURRENT_DEFAULT" != "$EXPECTED" ]; then
-          echo "WARNUNG: Keyring korrupt! default='$CURRENT_DEFAULT' statt '$EXPECTED'"
+          echo "KORRUPT: default='$CURRENT_DEFAULT' statt '$EXPECTED'"
+          CORRUPT=true
+        fi
+
+        # 2. Keyring-Datei muss existieren und Mindestgröße haben
+        if [ "$KEYRING_SIZE" -lt "$MIN_KEYRING_SIZE" ]; then
+          echo "KORRUPT: Keyring-Datei nur $KEYRING_SIZE Bytes (Minimum: $MIN_KEYRING_SIZE)"
+          CORRUPT=true
+        fi
+
+        # 3. gnome-keyring-daemon darf keine Korruption gemeldet haben
+        if journalctl --user -t gnome-keyring-daemon -b --no-pager 2>/dev/null | \
+           grep -q "invalid or unrecognized format"; then
+          echo "KORRUPT: gnome-keyring-daemon meldet ungültiges Format"
+          CORRUPT=true
+        fi
+
+        if [ "$CORRUPT" = true ]; then
+          echo "WARNUNG: Keyring korrupt erkannt!"
 
           if [ -f "$GOLDEN" ]; then
             echo "Stelle Golden Backup wieder her..."
 
-            # Daemon beenden (pkill -f nötig: "gnome-keyring-daemon" > 15 Zeichen!)
-            ${pkgs.procps}/bin/pkill -f gnome-keyring-daemon || true
-            sleep 2
+            # 1. Daemon SOFORT beenden (pkill -f nötig: Name > 15 Zeichen)
+            ${pkgs.procps}/bin/pkill -9 -f gnome-keyring-daemon || true
+            sleep 1
 
-            # Korrupten Zustand sichern (für Analyse)
+            # 2. Sicherstellen dass Daemon wirklich tot ist
+            for i in {1..5}; do
+              if ! ${pkgs.procps}/bin/pgrep -f gnome-keyring-daemon >/dev/null 2>&1; then
+                break
+              fi
+              ${pkgs.procps}/bin/pkill -9 -f gnome-keyring-daemon || true
+              sleep 1
+            done
+
+            # 3. Control-Socket entfernen (verhindert sofortige Daemon-Reaktivierung)
+            rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
+
+            # 4. Korrupten Zustand sichern (für Analyse)
             TIMESTAMP=$(${pkgs.coreutils}/bin/date +%Y-%m-%d_%H-%M-%S)
             ${pkgs.gnutar}/bin/tar -czf "$BACKUP_DIR/keyring-corrupt-$TIMESTAMP.tar.gz" \
               -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
 
-            # Alle Keyring-Dateien entfernen und aus Golden Backup wiederherstellen
+            # 5. Alle Keyring-Dateien entfernen
             rm -f "$KEYRING_DIR"/Default*.keyring "$KEYRING_DIR"/default "$KEYRING_DIR"/login.keyring
-            ${pkgs.gnutar}/bin/tar -xzf "$GOLDEN" -C "$KEYRING_DIR"
 
-            echo "Keyring aus Golden Backup wiederhergestellt!"
-            echo "default=$(cat "$DEFAULT_FILE" 2>/dev/null)"
+            # 6. Golden Backup wiederherstellen
+            ${pkgs.gnutar}/bin/tar -xzf "$GOLDEN" -C "$KEYRING_DIR"
+            sync  # Sicherstellen dass Dateien auf Disk sind
+
+            # 7. Kurz warten, dann Daemon neu starten lassen (via secret-tool)
+            sleep 2
+            ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
+            sleep 1
+
+            # 8. Verifizieren dass Restore erfolgreich war
+            NEW_DEFAULT=$(cat "$DEFAULT_FILE" 2>/dev/null || echo "")
+            if [ "$NEW_DEFAULT" = "$EXPECTED" ]; then
+              echo "Keyring erfolgreich aus Golden Backup wiederhergestellt!"
+            else
+              echo "FEHLER: Restore fehlgeschlagen! default='$NEW_DEFAULT'"
+              exit 1
+            fi
           else
             echo "FEHLER: Kein Golden Backup vorhanden! Manueller Eingriff nötig."
             echo "Verwende: restore-keyring"
             exit 1
           fi
         else
-          echo "Keyring OK: default=$CURRENT_DEFAULT"
+          echo "Keyring OK: default=$CURRENT_DEFAULT, size=$KEYRING_SIZE"
 
           # Golden Backup erstellen/aktualisieren (VOR posteo-keyring-sync Schreibvorgängen!)
           echo "Erstelle Golden Backup..."

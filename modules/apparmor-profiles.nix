@@ -259,12 +259,13 @@
         owner @{HOME}/.cache/mesa_shader_cache/** rwk,
 
         # Workspace (full access to home for development)
-        owner @{HOME}/** rw,
-        owner @{HOME}/nixos-config/** rw,
-        owner @{HOME}/Projects/** rw,
+        # k = lock, m = mmap exec (needed for proc-macro .so loading by rust-analyzer)
+        owner @{HOME}/** rwkm,
+        owner @{HOME}/nixos-config/** rwkm,
+        owner @{HOME}/Projects/** rwkm,
 
-        # Temporary files
-        owner /tmp/** rw,
+        # Temporary files (m = mmap exec for rust-analyzer target dir in /tmp)
+        owner /tmp/** rwm,
 
         # Full access to user runtime directory
         owner /run/user/*/ r,

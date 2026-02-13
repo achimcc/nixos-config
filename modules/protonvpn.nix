@@ -49,8 +49,10 @@
     after = [ "network-online.target" "sops-nix.service" "nftables.service" ];
     wants = [ "network-online.target" "nftables.service" ]; # Softer dependency - won't stop VPN if firewall restarts
     # NOTE: Pre-check script still validates firewall is active before starting VPN
-    # GUI MODE: Nur ProtonVPN GUI (CLI-Autoconnect deaktiviert)
-    # wantedBy = [ "multi-user.target" ];  # DEAKTIVIERT - Nur GUI verwenden
+    # HYBRID MODE: CLI autoconnect beim Boot, GUI für Serverwechsel
+    # CLI stellt VPN-Tunnel her (nur UDP, kein API-Zugriff nötig)
+    # GUI erreicht ProtonVPN API dann über den VPN-Tunnel
+    wantedBy = [ "multi-user.target" ];
 
     # Vor dem Display Manager starten
     before = [ "display-manager.service" ];
@@ -152,17 +154,19 @@
         CONNECTIVITY_HOST="1.1.1.1"
         MAX_FAILURES=3
         FAILURE_FILE="/var/run/vpn-watchdog-failures"
+        NOTIFIED_FILE="/var/run/vpn-watchdog-notified"
 
         send_alert() {
           local msg="$1"
           local notify="''${2:-false}"  # Optional parameter: send notification (default: false)
           echo "⚠ VPN WATCHDOG: $msg"
 
-          # Desktop notification nur bei kritischen Problemen (notify=true)
-          if [[ "$notify" == "true" ]]; then
+          # Desktop notification nur einmal pro Problem (nicht bei jedem Watchdog-Durchlauf)
+          if [[ "$notify" == "true" ]] && [[ ! -f "$NOTIFIED_FILE" ]]; then
             ${pkgs.sudo}/bin/sudo -u achim DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
               ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=network-error \
               "VPN Kill Switch Active" "$msg" 2>/dev/null || true
+            touch "$NOTIFIED_FILE"
           fi
 
           echo "$msg" | ${pkgs.systemd}/bin/systemd-cat -t vpn-watchdog -p warning
@@ -186,7 +190,7 @@
 
         # Check 1: Firewall active
         if ! systemctl is-active --quiet nftables.service; then
-          send_alert "Firewall not active! Aborting VPN checks." "true"  # ALWAYS notify - critical!
+          send_alert "Firewall not active! Aborting VPN checks." "false"  # Log only, kein Notification-Spam
           exit 0
         fi
 
@@ -282,6 +286,7 @@
         fi
 
         reset_failures
+        rm -f "$NOTIFIED_FILE"  # Notification-Sperre zurücksetzen wenn VPN OK
         echo "✓ VPN fully operational"
       '';
     };
