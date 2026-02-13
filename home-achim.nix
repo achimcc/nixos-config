@@ -398,13 +398,36 @@ in
         DEFAULT_FILE="$KEYRING_DIR/default"
         KEYRING_FILE="$KEYRING_DIR/Default_keyring.keyring"
         EXPECTED="Default_keyring"
-        MIN_KEYRING_SIZE=1000  # Gesunde Keyring-Datei ist >1KB
+        MIN_KEYRING_SIZE=100  # Frische Keyring-Datei ist ~300 Bytes
 
         ${pkgs.coreutils}/bin/mkdir -p "$BACKUP_DIR"
 
+        # Hilfsfunktion: Verwaiste .keyring-Dateien entfernen
+        cleanup_orphans() {
+          for f in "$KEYRING_DIR"/*.keyring; do
+            [ -f "$f" ] || continue
+            local basename=$(${pkgs.coreutils}/bin/basename "$f")
+            case "$basename" in
+              Default_keyring.keyring|login.keyring) ;;  # Behalten
+              *) echo "Entferne verwaiste Datei: $basename"; rm -f "$f" ;;
+            esac
+          done
+        }
+
+        # Hilfsfunktion: Journal-Polling auf Format-Fehler (5×2s)
+        check_journal_corruption() {
+          for attempt in 1 2 3 4 5; do
+            if journalctl --user -t gnome-keyring-daemon -b --no-pager 2>/dev/null | \
+               grep -q "invalid or unrecognized format"; then
+              return 0  # Korruption gefunden
+            fi
+            sleep 2
+          done
+          return 1  # Keine Korruption
+        }
+
         # Daemon triggern (socket activation), damit er Korruption ggf. erkennt
         ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
-        sleep 2
 
         # Korruptionsprüfung: 3 Kriterien
         CORRUPT=false
@@ -423,9 +446,8 @@ in
           CORRUPT=true
         fi
 
-        # 3. gnome-keyring-daemon darf keine Korruption gemeldet haben
-        if journalctl --user -t gnome-keyring-daemon -b --no-pager 2>/dev/null | \
-           grep -q "invalid or unrecognized format"; then
+        # 3. Journal-Polling: gnome-keyring-daemon darf keine Korruption melden
+        if check_journal_corruption; then
           echo "KORRUPT: gnome-keyring-daemon meldet ungültiges Format"
           CORRUPT=true
         fi
@@ -441,7 +463,7 @@ in
             sleep 1
 
             # 2. Sicherstellen dass Daemon wirklich tot ist
-            for i in {1..5}; do
+            for i in 1 2 3 4 5; do
               if ! ${pkgs.procps}/bin/pgrep -f gnome-keyring-daemon >/dev/null 2>&1; then
                 break
               fi
@@ -458,23 +480,36 @@ in
               -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
 
             # 5. Alle Keyring-Dateien entfernen
-            rm -f "$KEYRING_DIR"/Default*.keyring "$KEYRING_DIR"/default "$KEYRING_DIR"/login.keyring
+            rm -f "$KEYRING_DIR"/*.keyring "$KEYRING_DIR"/default "$KEYRING_DIR"/login.keyring
 
             # 6. Golden Backup wiederherstellen
             ${pkgs.gnutar}/bin/tar -xzf "$GOLDEN" -C "$KEYRING_DIR"
-            sync  # Sicherstellen dass Dateien auf Disk sind
+            sync
 
-            # 7. Kurz warten, dann Daemon neu starten lassen (via secret-tool)
+            # 7. Verwaiste Dateien aus dem Backup entfernen
+            cleanup_orphans
+
+            # 8. Daemon neu starten lassen (via secret-tool)
             sleep 2
             ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
             sleep 1
 
-            # 8. Verifizieren dass Restore erfolgreich war
+            # 9. Verifizieren dass Restore erfolgreich war
             NEW_DEFAULT=$(cat "$DEFAULT_FILE" 2>/dev/null || echo "")
             if [ "$NEW_DEFAULT" = "$EXPECTED" ]; then
               echo "Keyring erfolgreich aus Golden Backup wiederhergestellt!"
             else
               echo "FEHLER: Restore fehlgeschlagen! default='$NEW_DEFAULT'"
+              exit 1
+            fi
+
+            # 10. Post-Restore-Validierung: Prüfe ob Golden Backup selbst korrupt war
+            sleep 3
+            if journalctl --user -t gnome-keyring-daemon -b --no-pager 2>/dev/null | \
+               grep -c "invalid or unrecognized format" | grep -q "^[3-9]\|^[0-9][0-9]"; then
+              echo "WARNUNG: Golden Backup war selbst korrupt! Lösche Golden Backup."
+              rm -f "$GOLDEN"
+              echo "Manueller Eingriff nötig: restore-keyring oder Neuinstallation."
               exit 1
             fi
           else
@@ -485,11 +520,24 @@ in
         else
           echo "Keyring OK: default=$CURRENT_DEFAULT, size=$KEYRING_SIZE"
 
-          # Golden Backup erstellen/aktualisieren (VOR posteo-keyring-sync Schreibvorgängen!)
-          echo "Erstelle Golden Backup..."
-          ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
-            -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
-          echo "Golden Backup aktualisiert."
+          # Verwaiste Dateien aufräumen (auch im OK-Pfad)
+          cleanup_orphans
+
+          # Zweite Validierung: 10s warten, dann erneut Journal prüfen
+          # (Daemon meldet Korruption oft erst verzögert nach Socket-Aktivierung)
+          echo "Warte 10s für zweite Validierung..."
+          sleep 10
+
+          if journalctl --user -t gnome-keyring-daemon -b --no-pager 2>/dev/null | \
+             grep -q "invalid or unrecognized format"; then
+            echo "WARNUNG: Verzögerte Korruption erkannt! Golden Backup wird NICHT aktualisiert."
+          else
+            # Golden Backup erstellen/aktualisieren (VOR posteo-keyring-sync Schreibvorgängen!)
+            echo "Erstelle Golden Backup..."
+            ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
+              -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
+            echo "Golden Backup aktualisiert."
+          fi
         fi
       '';
     };
