@@ -8,12 +8,11 @@
   # WIREGUARD KERNEL MODUL
   # ==========================================
 
-  # WireGuard-Kernel-Modul beim Boot laden (benötigt für wg-quick)
-  # KEIN dummy-Modul: ProtonVPN GUI Kill Switch (pvpnksintrf0) ist deaktiviert!
-  # Grund: pvpnksintrf0 stiehlt DNS-Routing von wlp0s20f3 beim GNOME-Login
-  # und pusht ungültige DNS (::1) → DNS bricht komplett → VPN-Deadlock
-  # Unser nftables Kill Switch (firewall.nix) übernimmt den VPN-Leak-Schutz.
-  boot.kernelModules = [ "wireguard" ];
+  # WireGuard + dummy Kernel-Module laden
+  # dummy: Benötigt von ProtonVPN GUI für Kill-Switch-Interface (pvpnksintrf0)
+  # Ohne dummy crasht die GUI mit TimeoutError bei nm_client.add_connection_async()
+  # Kill Switch in GUI bleibt OFF (settings.json) — unser nftables Kill Switch schützt bereits
+  boot.kernelModules = [ "wireguard" "dummy" ];
 
   # ==========================================
   # SOPS SECRETS FÜR WIREGUARD
