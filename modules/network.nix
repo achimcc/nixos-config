@@ -80,11 +80,12 @@ in
       wifi.macAddress = "stable";
       ethernet.macAddress = "stable";
       # WWAN Modem ignorieren (ModemManager aktiviert cdc-wdm0/GSM und erzeugt Routing-Konflikte)
-      # ProtonVPN Kill Switch Interfaces ignorieren (pvpnksintrf0/ipv6leakintrf0)
-      # Grund: ProtonVPN GUI erstellt dummy-Interfaces die DNS-Routing stehlen
-      # und systemd-resolved mit ungültiger DNS (::1) konfigurieren → DNS-Deadlock
-      # Unser nftables Kill Switch (firewall.nix) übernimmt den VPN-Leak-Schutz.
-      unmanaged = [ "type:gsm" "interface-name:cdc-wdm*" "interface-name:wwp*" "interface-name:pvpnksintrf*" "interface-name:ipv6leakintrf*" ];
+      # ProtonVPN Kill-Switch-Interfaces (pvpnksintrf*/ipv6leakintrf*) NICHT als
+      # unmanaged markieren! Die GUI erstellt diese IMMER beim Verbinden (auch bei
+      # killswitch=0) und NM muss sie aktivieren können, sonst: TimeoutError → Crash.
+      # DNS-Priorität der dummy-Interfaces (-1400) wird von systemd-resolved korrekt
+      # gehandhabt: VPN-Interface hat Vorrang wenn verbunden.
+      unmanaged = [ "type:gsm" "interface-name:cdc-wdm*" "interface-name:wwp*" ];
       # NetworkManager nutzt systemd-resolved
       dns = "systemd-resolved";
 
@@ -542,6 +543,15 @@ in
       signal-desktop = {
         executable = "${pkgs.signal-desktop}/bin/signal-desktop --no-sandbox";
         profile = "${pkgs.firejail}/etc/firejail/signal-desktop.profile";
+        # SQLCipher (DB-Verschlüsselung) braucht Syscalls die der
+        # Default-Seccomp-Filter blockiert. private-etc bricht Electron IPC.
+        # Ohne diese: "hmac check failed" → DB kann nicht geöffnet werden
+        extraArgs = [
+          "--ignore=seccomp"
+          "--ignore=private-tmp"
+          "--ignore=private-etc"
+          "--ignore=private-dev"
+        ];
       };
 
       # LibreWolf - Privacy Browser mit AppArmor + Firejail

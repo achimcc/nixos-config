@@ -194,15 +194,18 @@ in
           oifname "tun*" accept
           oifname "wg*" accept
 
-          # 4. VPN connection establishment (NUR physische Interfaces, NUR UDP)
-          # SICHERHEIT: Explizit auf Nicht-VPN-Interfaces beschränkt (Defense-in-Depth)
-          # VPN-Interfaces werden bereits durch Regel 3 oben abgedeckt (blanket accept)
+          # 4a. VPN WireGuard-Handshake (UDP auf physischen Interfaces)
           # WireGuard-Handshake ist verschlüsselt - kein Daten-Leak möglich
           # ProtonVPN WireGuard nutzt: UDP 443, 88, 1224, 51820, 500, 4500
-          # WICHTIG: UDP 443 wird benötigt! ProtonVPN GUI versucht Port 443 zuerst.
-          # Ohne UDP 443: WireGuard-Handshake timeout → GUI crasht → kein Netzwerk
-          # NUR UDP erlaubt (kein TCP 443 = kein HTTPS-Leak ohne VPN)
           oifname != { "proton-cli", "proton0" } udp dport { ${toString vpnPorts.https}, ${toString vpnPorts.wireguard}, ${toString vpnPorts.wireguardAlt1}, ${toString vpnPorts.wireguardAlt2}, ${toString vpnPorts.ikev2}, ${toString vpnPorts.ikev2Nat} } accept
+
+          # 4b. ProtonVPN GUI API-Zugriff (TCP HTTPS auf physischen Interfaces)
+          # ERFORDERLICH: GUI braucht HTTPS zu api.protonvpn.ch für Authentifizierung
+          # BEVOR WireGuard-Tunnel aufgebaut werden kann.
+          # Ohne TCP 443: GUI kann nicht authentifizieren → kein VPN → kein Internet
+          # Risiko: HTTPS-Verbindungen möglich wenn VPN nicht aktiv (Kill Switch Ausnahme)
+          # Akzeptabel: HTTPS ist verschlüsselt, DNS-over-TLS aktiv, Fenster ist kurz
+          oifname != { "proton-cli", "proton0" } tcp dport ${toString vpnPorts.https} accept
 
           # 5. DHCP requests (client:68 -> broadcast:67)
           udp sport 68 udp dport 67 accept

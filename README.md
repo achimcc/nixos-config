@@ -1,42 +1,8 @@
-# NixOS Configuration - nixos
+# NixOS Configuration
 
 A **security-hardened**, declarative NixOS configuration focused on privacy, anonymity, and full reproducibility.
 
-**🔒 Sicherheitsscore: 9.5/10** | [Security Hardening Details](docs/SECURITY-HARDENING.md)
-
-## 🆕 Recent Security Improvements (2026-02-06)
-
-**Phase 1 - Critical Gaps (8/8 ✅):**
-- ✅ **Suricata VPN Monitoring**: IDS now monitors VPN interface (proton0) - closes monitoring blind spot
-- ✅ **AppArmor Custom Profiles**: Added MAC for LibreWolf, Thunderbird, VSCodium, Spotify, Discord
-- ✅ **DHCP Snooping**: Restricted DHCP responses to gateway IP only (prevents spoofing)
-- ✅ **Enhanced Sudo Logging**: Dedicated audit log with PTY enforcement and password limits
-- ✅ **AIDE /nix/store**: Package binary integrity verification added
-- ✅ **ClamAV Full Filesystem**: Expanded from /home to entire system (with smart exclusions)
-- ✅ **Daily Rootkit Scans**: Changed from weekly to daily (unhide + unhide-tcp)
-- ✅ **Secret Rotation Policy**: Documented rotation schedule and audit trail
-
-**Phase 2 - Remaining Gaps (5/5 ✅):**
-- ✅ **DNSSEC Enforcement**: Strict validation enabled (fails on validation failure)
-- ✅ **mDNS Rate Limiting**: 100/minute limit prevents flooding attacks
-- ✅ **Core Dumps Disabled**: All core dumps blocked (prevents memory leaks)
-- ✅ **Email Alerts**: Critical security events sent to admin email (msmtp)
-- ✅ **Per-Interface rp_filter**: Dynamic strict filtering for physical interfaces
-
-**Security Impact:**
-- Closed 13 critical/high/medium vulnerabilities from security audit
-- Reduced attack surface for application escapes (AppArmor MAC)
-- Improved visibility into VPN-tunneled traffic (Suricata)
-- Enhanced audit trail for privilege escalation (sudo logging)
-- Package tampering detection capability (AIDE /nix/store)
-- Immediate notification of security incidents (email alerts)
-- Anti-spoofing protection per interface (rp_filter)
-
-**New Modules:**
-- `email-alerts.nix` - Automated security event notifications
-- `apparmor-profiles.nix` - Custom MAC policies
-
-See [SECRET-ROTATION-POLICY.md](docs/SECRET-ROTATION-POLICY.md) for rotation schedule.
+**Sicherheitsscore: 9.5/10** | [Security Hardening Details](docs/SECURITY-HARDENING.md) | [Secret Rotation Policy](docs/SECRET-ROTATION-POLICY.md)
 
 ## Table of Contents
 
@@ -59,7 +25,7 @@ See [SECRET-ROTATION-POLICY.md](docs/SECRET-ROTATION-POLICY.md) for rotation sch
 | **Desktop** | GNOME 49.3 (Wayland, GDM) |
 | **Shell** | Nushell + Starship + Modern Unix Tools |
 | **Editor** | Neovim (Rust IDE), VSCodium (externe Terminal) |
-| **VPN** | ProtonVPN (WireGuard, Auto-Connect, Kill-Switch) |
+| **VPN** | ProtonVPN GUI (WireGuard, Auto-Connect, Kill-Switch) |
 | **Encryption** | LUKS2 Full-Disk + FIDO2 + TPM 2.0 + Secure Boot |
 | **Secrets** | sops-nix (Age-encrypted) |
 | **Hardware Key** | Nitrokey 3C NFC (FIDO2, SSH, OpenPGP, TOTP) |
@@ -87,40 +53,42 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
     ├── power.nix         # TLP, Thermald
     ├── sops.nix          # Secret Management (Age)
     ├── security.nix      # Kernel Hardening, Base AppArmor, ClamAV, USBGuard, AIDE
-    ├── apparmor-profiles.nix # 🆕 Custom AppArmor MAC for LibreWolf, Thunderbird, etc.
-    ├── email-alerts.nix  # 🆕 Critical Security Event Notifications (msmtp)
+    ├── apparmor-profiles.nix # Custom AppArmor MAC for LibreWolf, Thunderbird, etc.
+    ├── email-alerts.nix  # Critical Security Event Notifications (msmtp)
+    ├── cve-monitoring.nix # CVE-Monitoring für installierte Pakete
     ├── secureboot.nix    # Lanzaboote + TPM2 + Secure Boot Monitoring
     ├── suricata.nix      # Intrusion Detection System (WiFi + VPN)
     ├── logwatch.nix      # Automated Security Monitoring & Daily Reports
     ├── ssh-hardening.nix # SSH Server Hardening (prepared, disabled)
     └── home/
         ├── gnome-settings.nix  # GNOME Dconf (Privacy, Screen Lock)
-        └── neovim.nix          # Neovim IDE
+        ├── neovim.nix          # Neovim IDE
+        └── sway.nix            # Sway Window Manager
 ```
 
 ## Security Features
 
 > **📚 Detaillierte Dokumentation**: [SECURITY-HARDENING.md](docs/SECURITY-HARDENING.md)
 
-### Anonymity & Privacy (NEW)
+### Anonymity & Privacy
 
-- **🆕 IPv6 komplett deaktiviert**: Verhindert VPN-Bypass und DNS-Leaks
-- **🆕 Hostname anonymisiert**: Generischer Hostname "nixos" (kein personalisierter Name)
-- **🆕 Kein DHCP Hostname**: NetworkManager sendet keinen Hostname
-- **🆕 mDNS-Broadcasting deaktiviert**: Avahi Publishing aus (kein .local Broadcasting)
-- **🆕 Browser Anti-Fingerprinting**: WebGL aus, WebRTC aus, Letterboxing, First-Party Isolation
+- **IPv6 komplett deaktiviert**: Verhindert VPN-Bypass und DNS-Leaks
+- **Hostname anonymisiert**: Generischer Hostname "nixos" (kein personalisierter Name)
+- **Kein DHCP Hostname**: NetworkManager sendet keinen Hostname
+- **mDNS-Broadcasting deaktiviert**: Avahi Publishing aus (kein .local Broadcasting)
+- **Browser Anti-Fingerprinting**: WebGL aus, WebRTC aus, Letterboxing, First-Party Isolation
 - **Random MAC addresses**: Bei jedem WiFi-Scan und jeder Verbindung
 
 ### Network & VPN
 
 - **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel (nftables)
-- **🆕 Port-Scan Detection**: Blockiert nach 10 Verbindungen in 60 Sekunden
-- **🆕 DHCP Snooping**: Nur Antworten vom Gateway (192.168.178.1) akzeptiert - verhindert DHCP spoofing
-- **🆕 mDNS Rate Limiting**: 100/minute limit verhindert Flooding-Attacken
+- **Port-Scan Detection**: Blockiert nach 10 Verbindungen in 60 Sekunden
+- **DHCP Snooping**: Nur Antworten vom Gateway (192.168.178.1) akzeptiert - verhindert DHCP spoofing
+- **mDNS Rate Limiting**: 100/minute limit verhindert Flooding-Attacken
 - **DNS-over-TLS NUR über VPN**: Port 853 nur über VPN-Interfaces (verhindert DNS-Leaks)
-- **🆕 DNSSEC Strict Validation**: Scheitert bei Validierungsfehlern (keine insecure fallback)
-- **🆕 Kein Fallback-DNS**: Explizit leer (verhindert DNS-Leaks bei VPN-Ausfall)
-- **🆕 Lokales Netzwerk restriktiv**: DHCP nur vom Gateway, kein Ping, kein Web-Interface
+- **DNSSEC Strict Validation**: Scheitert bei Validierungsfehlern (keine insecure fallback)
+- **Kein Fallback-DNS**: Explizit leer (verhindert DNS-Leaks bei VPN-Ausfall)
+- **Lokales Netzwerk restriktiv**: DHCP nur vom Gateway, kein Ping, kein Web-Interface
 - **DoT Port-Einschränkung**: Port 853 nur zu Mullvad DNS (verhindert Daten-Exfiltration)
 - **Firewall-Logging optimiert**: 1/min Rate-Limit (DoS-Schutz)
 - **WireGuard Auto-Connect**: VPN verbindet sich vor dem Login
@@ -128,11 +96,11 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 ### Encryption & Authentication
 
 - **LUKS2 Full-Disk Encryption**: Mit FIDO2 (Nitrokey 3C NFC) + Passwort-Fallback
-- **🆕 Swap Hardening**: Verschlüsselt mit FIDO2, allowDiscards=false (keine Metadata-Leaks)
-- **🆕 Swappiness minimiert**: vm.swappiness=1 (sensitive Daten bleiben im RAM)
+- **Swap Hardening**: Verschlüsselt mit FIDO2, allowDiscards=false (keine Metadata-Leaks)
+- **Swappiness minimiert**: vm.swappiness=1 (sensitive Daten bleiben im RAM)
 - **TPM2 Support**: Optionales automatisches LUKS-Unlock via TPM2
 - **Secure Boot**: Lanzaboote mit eigenen Signatur-Keys
-- **🆕 Secure Boot Monitoring**: Automatische Verifikation nach jedem Boot
+- **Secure Boot Monitoring**: Automatische Verifikation nach jedem Boot
 - **sops-nix**: Secrets mit Age verschlüsselt im Git Repository
 - **SSH Commit Signing**: Git Commits mit Ed25519 Security Key signiert
 - **FIDO2 PAM**: sudo, login und GDM mit Nitrokey + PIN als Alternative zum Passwort
@@ -142,25 +110,25 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - **Bubblewrap + AppArmor**: Modern sandboxing für kritische Apps
   - Bubblewrap: VSCodium (Electron-kompatibel, minimale Isolation)
   - Firejail: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, Evince, Newsflash
-  - **🆕 AppArmor Custom Profiles**: LibreWolf, Thunderbird, VSCodium, Spotify, Discord (kernel-level MAC)
+  - **AppArmor Custom Profiles**: LibreWolf, Thunderbird, VSCodium, Spotify, Discord (kernel-level MAC)
   - AppArmor Enforcement: `killUnconfinedConfinables = true`
 - **Hardened Kernel**: `linuxPackages_hardened` mit zusätzlichen sysctl-Parametern
 - **Kernel Module Locking**: Verhindert Runtime-Laden von Kernel-Modulen (Rootkit-Schutz)
 - **USBGuard**: USB-Geräte-Autorisierung (blockiert unbekannte Geräte)
-- **🆕 ClamAV Full Filesystem**: Echtzeit-Scanning von / (mit Ausnahmen), aktive Prävention
+- **ClamAV Full Filesystem**: Echtzeit-Scanning von / (mit Ausnahmen), aktive Prävention
 - **Fail2Ban**: Schutz gegen Brute-Force (exponentieller Backoff, max 48h)
-- **🆕 AIDE Enhanced**: File Integrity Monitoring inkl. /nix/store (Package-Binaries)
-- **🆕 unhide Daily**: Rootkit-Erkennung täglich (Prozesse + TCP/UDP Ports)
-- **🆕 Sudo Audit Log**: Dedicated /var/log/sudo.log mit PTY enforcement
+- **AIDE Enhanced**: File Integrity Monitoring inkl. /nix/store (Package-Binaries)
+- **unhide Daily**: Rootkit-Erkennung täglich (Prozesse + TCP/UDP Ports)
+- **Sudo Audit Log**: Dedicated /var/log/sudo.log mit PTY enforcement
 
 ### Intrusion Detection & Monitoring
 
-- **🆕 Suricata IDS Enhanced**: Network IDS auf WiFi (wlp0s20f3) + VPN (proton0)
+- **Suricata IDS Enhanced**: Network IDS auf WiFi (wlp0s20f3) + VPN (proton0)
   - Emerging Threats Open ruleset mit automatischen Updates
   - Configuration validation vor Reload
   - Automatische Regel-Updates täglich mit Integritätsprüfung
-  - **🆕 Email-Alerts**: Critical alerts (Priority 1) per Email
-- **🆕 Email Alert System**: Automatische Benachrichtigung bei kritischen Events
+  - **Email-Alerts**: Critical alerts (Priority 1) per Email
+- **Email Alert System**: Automatische Benachrichtigung bei kritischen Events
   - AIDE Integritätsverletzungen
   - Rootkit-Erkennung (hidden processes)
   - Virus-Detection (ClamAV)
@@ -184,7 +152,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 
 ### Kernel Hardening
 
-**🆕 Erweiterte Boot-Parameter**:
+**Erweiterte Boot-Parameter**:
 ```
 - IOMMU aktiviert (intel_iommu=on, DMA-Schutz)
 - init_on_alloc=1 (Speicher bei Allokation nullen)
@@ -205,15 +173,15 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - Kexec deaktiviert
 - BPF JIT gehärtet
 - Ptrace eingeschränkt (yama.ptrace_scope=1)
-- 🆕 Core Dumps komplett deaktiviert (kernel.core_pattern = /bin/false)
+- Core Dumps komplett deaktiviert (kernel.core_pattern = /bin/false)
 - Unprivilegierte BPF deaktiviert
 - TCP Timestamps deaktiviert (OS-Fingerprinting-Schutz)
 - SYN Cookies aktiviert
 - Source Routing deaktiviert
 - ICMP Redirects ignoriert
-- 🆕 Per-Interface Reverse Path Filtering (strict für physical, loose für VPN)
+- Per-Interface Reverse Path Filtering (strict für physical, loose für VPN)
 - Kernel Module Locking aktiviert (lockKernelModules = true)
-- 🆕 Swappiness minimiert (vm.swappiness=1)
+- Swappiness minimiert (vm.swappiness=1)
 ```
 
 ### Blacklisted Kernel Modules
@@ -227,11 +195,11 @@ Ungenutzte und potenziell unsichere Module sind blockiert:
 
 - **Flake-Inputs gepinnt**: sops-nix und rcu auf geprüfte Commit-Hashes fixiert
 - **VSCodium Extensions via Nix**: Versioniert und reproduzierbar
-- **🆕 Update-Benachrichtigungen**: Tägliche Prüfung, Benachrichtigung bei verfügbaren Updates (keine Auto-Installation)
+- **Update-Benachrichtigungen**: Tägliche Prüfung, Benachrichtigung bei verfügbaren Updates (keine Auto-Installation)
 
 ### SSH Server (Prepared, Disabled)
 
-**🆕 SSH-Hardening-Modul vorbereitet** (ssh-hardening.nix):
+**SSH-Hardening-Modul vorbereitet** (ssh-hardening.nix):
 - SSH aktuell deaktiviert (enable = false)
 - Vollständige Härtungs-Konfiguration für zukünftige Aktivierung
 - Nur Key-Authentifizierung, Root-Login verboten
@@ -290,21 +258,22 @@ sudo nixos-rebuild switch --flake .#nixos
 
 ### firewall.nix
 
-VPN Kill Switch mit iptables (IPv4 + IPv6):
+VPN Kill Switch mit nftables:
 - Default Policy: DROP
 - Traffic nur über VPN-Interfaces (proton0, tun+, wg+)
 - DNS nur via localhost (127.0.0.53 / ::1)
 - DoT (Port 853) nur zu Mullvad DNS (194.242.2.2)
-- Firewall-Logging: Verworfene Pakete mit Rate-Limiting (5/min)
+- Port-Scan Detection, DHCP Snooping, mDNS Rate Limiting
+- Per-Interface Reverse Path Filtering (strict für physical, loose für VPN)
+- Firewall-Logging: Verworfene Pakete mit Rate-Limiting
 - Syncthing nur im lokalen Netzwerk + über VPN
 
 ### protonvpn.nix
 
-WireGuard-Konfiguration für ProtonVPN:
-- Auto-Connect beim Boot (vor Display Manager)
-- Private Key aus sops
+ProtonVPN GUI mit WireGuard:
+- ProtonVPN GUI als systemd User-Service (Auto-Start)
+- Kill-Switch via nftables (firewall.nix)
 - AllowedIPs: IPv4 + IPv6 (kein IPv6-Leak)
-- Automatischer Neustart bei Verbindungsabbruch
 
 ### security.nix
 
@@ -715,7 +684,7 @@ nix store optimise
 
 ### Auto-Updates
 
-**🆕 Neue Update-Strategie**:
+**Neue Update-Strategie**:
 - Automatische Updates **deaktiviert** (manuelle Kontrolle)
 - Tägliche **Benachrichtigung** bei verfügbaren Updates
 - Flake-Updates werden heruntergeladen und committed
@@ -809,22 +778,20 @@ sudo unhide-tcp                          # Versteckte TCP/UDP Ports
 ```
 
 Automatisierte Scans:
-- **🆕 unhide (Prozesse): Täglich** (vorher: nur Sonntag)
-- **🆕 unhide-tcp (Ports): Täglich** (vorher: nur Sonntag)
+- **unhide (Prozesse): Täglich** (vorher: nur Sonntag)
+- **unhide-tcp (Ports): Täglich** (vorher: nur Sonntag)
 
-### Firewall-Logging
-
-Verworfene Pakete werden mit Rate-Limiting geloggt:
+### Firewall
 
 ```bash
-# Verworfene Pakete anzeigen (IPv4)
-journalctl --grep="iptables-dropped"
+# nftables Regelwerk anzeigen
+sudo nft list ruleset
 
-# Verworfene Pakete anzeigen (IPv6)
-journalctl --grep="ip6tables-dropped"
+# nftables Service Status
+systemctl status nftables
 
-# Echtzeit-Monitoring
-journalctl -f --grep="iptables-dropped"
+# Firewall neu laden
+sudo systemctl restart nftables
 ```
 
 ### Security Logs mit journalctl
@@ -898,9 +865,10 @@ sudo wg-quick up proton0
 sudo ./disable-firewall.sh
 
 # Oder manuell:
-sudo iptables -P INPUT ACCEPT
-sudo iptables -P OUTPUT ACCEPT
-sudo iptables -F
+sudo nft flush ruleset
+sudo nft add table inet filter
+sudo nft add chain inet filter input '{ type filter hook input priority 0; policy accept; }'
+sudo nft add chain inet filter output '{ type filter hook output priority 0; policy accept; }'
 ```
 
 ### Secrets Not Available
