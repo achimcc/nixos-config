@@ -52,15 +52,8 @@
       mode = "0400";
     };
 
-    # ProtonVPN WireGuard Konfiguration
-    secrets."protonvpn/endpoint" = {
-      owner = "root";
-      mode = "0400";
-    };
-    secrets."protonvpn/publickey" = {
-      owner = "root";
-      mode = "0400";
-    };
+    # ProtonVPN WireGuard Secrets entfernt — GUI MODE: GUI verwaltet Verbindung
+    # Bei Bedarf für manuellen CLI-Betrieb: git log für alte Konfiguration
 
     # SSH Key für Hetzner VPS
     secrets."ssh/hetzner-vps" = {
@@ -105,29 +98,8 @@
       mode = "0400";
     };
 
-    # WireGuard Konfigurationsdatei für ProtonVPN CLI (aus Secrets generiert)
-    # HYBRID MODE: CLI uses "proton-cli" interface, GUI uses "proton0"
-    templates."wireguard-proton-cli.conf" = {
-      content = ''
-        [Interface]
-        PrivateKey = ${config.sops.placeholder."wireguard-private-key"}
-        Address = 10.2.0.2/32
-        # Table = 51820 statt "auto" vermeidet iptables-restore (nftables-Konflikt)
-        # FwMark marks WireGuard's own packets (to endpoint) so policy routing can exclude them
-        Table = 51820
-        FwMark = 51820
-
-        [Peer]
-        PublicKey = ${config.sops.placeholder."protonvpn/publickey"}
-        Endpoint = ${config.sops.placeholder."protonvpn/endpoint"}
-        AllowedIPs = 0.0.0.0/0
-        PersistentKeepalive = 25
-      '';
-      path = "/etc/wireguard/proton-cli.conf";
-      owner = "root";
-      group = "root";
-      mode = "0600";
-    };
+    # WireGuard CLI-Template entfernt — GUI MODE: ProtonVPN GUI verwaltet Verbindung
+    # Bei Bedarf für manuellen CLI-Betrieb: git log für alte Konfiguration
   };
 
   # Sops CLI Tool verfügbar machen

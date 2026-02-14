@@ -183,15 +183,16 @@ in {
   systemd.services.vpn-failure-alert = {
     description = "VPN Failure Alert";
     script = ''
-      if ! systemctl is-active --quiet wg-quick-proton-cli; then
+      # GUI MODE: Prüfe ob proton0 Interface existiert (von ProtonVPN GUI erstellt)
+      if ! ${pkgs.iproute2}/bin/ip link show proton0 &>/dev/null; then
         ${sendSecurityAlert} \
           "VPN Connection Failure" \
-          "ProtonVPN WireGuard connection is DOWN.
+          "ProtonVPN GUI connection is DOWN (no proton0 interface).
 
           Kill switch is active - no internet access.
-          Check logs: journalctl -u wg-quick-proton-cli
+          Check ProtonVPN GUI or journalctl --user -u protonvpn-gui
 
-          Action: Restart VPN or investigate connection issue."
+          Action: Open ProtonVPN GUI and reconnect."
       fi
     '';
   };

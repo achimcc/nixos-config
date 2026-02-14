@@ -12,7 +12,7 @@
 # 2. NetworkManager.service (Netzwerk-Interfaces aktivieren, DHCP)
 # 3. network-online.target (Netzwerk ist online)
 # 4. nixos-firewall.service (Firewall aktivieren - MUSS NACH network-online sein!)
-# 5. wg-quick-proton-cli.service (VPN CLI autoconnect) + ProtonVPN GUI (proton0)
+# 5. ProtonVPN GUI (proton0) - verbindet nach Login
 
 let
   # VPN configuration
@@ -101,8 +101,9 @@ in
     # KRITISCH: mkForce überschreibt NixOS-Default (before=network-pre.target)
     # um systemd ordering cycle zu vermeiden. Ohne mkForce: ordering cycle
     # → systemd entfernt NetworkManager aus Boot → kein Netzwerk!
-    # HYBRID MODE: Firewall must start BEFORE CLI VPN service (wg-quick-proton-cli)
-    before = lib.mkForce [ "wg-quick-proton-cli.service" ];
+    # KRITISCH: mkForce überschreibt NixOS-Default (before=network-pre.target)
+    # um systemd ordering cycle zu vermeiden. Leere Liste = kein before-Constraint.
+    before = lib.mkForce [ ];
   };
 
   networking.nftables = {

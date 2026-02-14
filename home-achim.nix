@@ -1391,16 +1391,18 @@ in
   };
 
   # ==========================================
-  # PROTONVPN GUI - Manuelle Serverauswahl
+  # PROTONVPN GUI - VPN-Verbindung nach Login
   # ==========================================
-  # GUI MODE: Nur ProtonVPN GUI verwenden (CLI-Autoconnect deaktiviert)
+  # GUI MODE: ProtonVPN GUI verwaltet die VPN-Verbindung komplett
+  # CLI-Autoconnect deaktiviert (kein wg-quick-proton-cli Service)
   #
   # WICHTIG: In der GUI KONFIGURIEREN:
-  # 1. ProtonVPN GUI öffnen → Settings → Advanced
+  # 1. ProtonVPN GUI öffnen → Settings → Connection
   # 2. "Auto-connect" AKTIVIEREN (verbindet automatisch beim Login)
-  # 3. "Kill Switch" DEAKTIVIEREN (wird von Firewall gehandhabt)
+  # 3. "Kill Switch" DEAKTIVIERT lassen (nftables übernimmt das)
   #
-  # AUTOSTART: GUI startet automatisch beim Login
+  # Boot-Ablauf: Firewall → NM → Login → GUI startet → GUI verbindet (proton0)
+  # Zwischen Boot und Login: Firewall Kill Switch blockiert Traffic (sicher)
   systemd.user.services.protonvpn-gui = {
     Unit = {
       Description = "ProtonVPN GUI";
