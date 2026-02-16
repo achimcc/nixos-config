@@ -1115,14 +1115,14 @@ PYEOF
       "xpinstall.signatures.required" = true;
 
       # ANTI-FINGERPRINTING (Maximum Privacy Mode)
-      # DISABLED: Blocks WebAuthn/FIDO2 even with exemptedDomains
-      # Trade-off: Nitrokey functionality > fingerprinting protection
-      "privacy.resistFingerprinting" = false;
+      # RFP aktiviert: Stärkster Anti-Fingerprinting-Schutz in Firefox/LibreWolf
+      # WebAuthn/FIDO2 via exemptedDomains freigeschaltet (Firefox 116+ verbessert)
+      # FALLS FIDO2 BRICHT: "privacy.resistFingerprinting" = false setzen
+      "privacy.resistFingerprinting" = true;
       "privacy.resistFingerprinting.letterboxing" = true; # Fenster-Größe normalisieren
       "privacy.resistFingerprinting.block_mozAddonManager" = true;
-      # CRITICAL: Exempt domains that need WebAuthn/FIDO2 (Nitrokey)
-      # resistFingerprinting blocks WebAuthn even when explicitly enabled
-      "privacy.resistFingerprinting.exemptedDomains" = "gitlab.com,github.com,webauthn.io";
+      # FIDO2/WebAuthn-Domains von RFP ausnehmen (Nitrokey-Kompatibilität)
+      "privacy.resistFingerprinting.exemptedDomains" = "*.gitlab.com,*.github.com,*.posteo.de,*.bitwarden.com,*.webauthn.io";
       "privacy.spoof_english" = 2; # Englisch vortäuschen (häufigste Sprache)
       "privacy.firstparty.isolate" = true; # Strikte Cookie-Isolation
       "privacy.trackingprotection.fingerprinting.enabled" = true;
@@ -1563,12 +1563,14 @@ PYEOF
   # 2. "Auto-connect" AKTIVIEREN (verbindet automatisch beim Login)
   # 3. "Kill Switch" DEAKTIVIERT lassen (nftables übernimmt das)
   #
-  # Boot-Ablauf: Firewall → NM → Login → GUI startet → GUI verbindet (proton0)
+  # Boot-Ablauf: Firewall → NM → Login → Guard → GUI startet → GUI verbindet (proton0)
+  # Guard muss VOR ProtonVPN laufen (Keyring-Korruption nach Hard-Crash!)
   # Zwischen Boot und Login: Firewall Kill Switch blockiert Traffic (sicher)
   systemd.user.services.protonvpn-gui = {
     Unit = {
       Description = "ProtonVPN GUI";
-      After = [ "graphical-session.target" "network-online.target" ];
+      After = [ "graphical-session.target" "network-online.target" "gnome-keyring-guard.service" ];
+      Wants = [ "gnome-keyring-guard.service" ];
       PartOf = [ "graphical-session.target" ];
     };
     Service = {

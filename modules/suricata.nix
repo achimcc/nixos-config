@@ -30,6 +30,14 @@
           use-mmap = true;
           tpacket-v3 = true;
         }
+        {
+          interface = "proton0";  # VPN (ProtonVPN GUI WireGuard)
+          cluster-id = 101;
+          cluster-type = "cluster_flow";
+          defrag = true;
+          use-mmap = true;
+          tpacket-v3 = true;
+        }
       ];
 
       # Lokale Netzwerke definieren (VPN + Home Network)
@@ -41,10 +49,11 @@
       };
 
       # App-Layer Protokoll-Erkennung
+      # DNP3/Modbus sind SCADA-Protokolle (irrelevant für Laptop)
+      # Komplett deaktiviert → ET Open Regeln werden per disable.conf gefiltert
       app-layer.protocols = {
-        modbus = {
-          enabled = "detection-only";
-        };
+        modbus.enabled = "no";
+        dnp3.enabled = "no";
       };
 
       # EVE-JSON Output für strukturierte Logs
@@ -135,6 +144,7 @@
       ${pkgs.suricata}/bin/suricata-update \
         --suricata ${pkgs.suricata}/bin/suricata \
         --suricata-conf /etc/suricata/suricata.yaml \
+        --disable-conf /etc/suricata/disable.conf \
         -o /var/lib/suricata/rules
 
       # Validate configuration before reload
@@ -188,6 +198,27 @@
   systemd.tmpfiles.rules = [
     "d /var/log/suricata 0755 suricata suricata -"
   ];
+
+  # Disable-Konfiguration für suricata-update
+  # Filtert SCADA-Regeln (DNP3, Modbus) die auf einem Laptop irrelevant sind
+  # und ohne aktiviertes Protokoll "Loading signatures failed" verursachen
+  # → führte zu Endlos-Restart-Loop (9094+ Restarts, 2026-02-15)
+  environment.etc."suricata/disable.conf".text = ''
+    # SCADA/ICS Protokolle - irrelevant für Laptop
+    group:dnp3
+    group:modbus
+    # Fallback: Einzelne SIDs die den Start blockieren
+    2270005
+    2270006
+    2250001
+    2250002
+    2250003
+    2250005
+    2250006
+    2250007
+    2250008
+    2250009
+  '';
 
   # Threshold-Konfiguration für Alert-Suppression
   environment.etc."suricata/threshold.config".text = ''

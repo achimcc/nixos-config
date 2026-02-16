@@ -65,12 +65,14 @@
     "intel_idle.max_cstate=1"      # Limitiere CPU C-States (verhindert Resume-Freeze)
 
     # Intel i915 Meteor Lake Stabilitätsfix (GPU device ID 7dd5)
-    # PROBLEM: "Selective fetch area calculation failed in pipe A" → harter Crash
-    # URSACHE: PSR2 Selective Fetch Bug auf Meteor Lake (Kernel 6.12-6.18+)
-    # FIX: Selective Fetch deaktivieren, PSR-Energiesparen bleibt aktiv
-    # CRASH-LOG: 2026-02-12 19:30 SF-Error → 19:48 harter Reboot (28min Laufzeit)
-    "i915.enable_psr2_sel_fetch=0"  # PSR2 Selective Fetch deaktivieren (Crash-Ursache)
-    # Falls weiterhin Crashes: "i915.enable_psr=0" als nächste Eskalation
+    # PROBLEM 1: "Selective fetch area calculation failed in pipe A" → harter Crash
+    # PROBLEM 2: GPU HANG ecode 12:1 (Vulkan/Render) → System-Freeze → harter Reboot
+    # URSACHE: Mehrere PSR-Bugs auf Meteor Lake (Kernel 6.12+)
+    # - enable_psr2_sel_fetch=0 reichte nicht (Crash 2026-02-15 ~20:00)
+    # - enable_psr=0 deaktiviert PSR komplett (nächste Eskalationsstufe)
+    # CRASH-LOG: 2026-02-15 18:47 GPU HANG (nautilus/Vulkan) → 20:00 Freeze → Reboot
+    "i915.enable_psr=0"             # PSR komplett deaktivieren (GPU HANG + SF Crashes)
+    # Falls weiterhin Crashes: "i915.enable_dc=0" als nächste Eskalation
   ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;
