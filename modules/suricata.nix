@@ -12,19 +12,13 @@
       # Unterdrückt normale lokale Netzwerk-Discovery (MDNS, LLMNR)
       threshold-file = "/etc/suricata/threshold.config";
 
-      # Netzwerkinterfaces für Paket-Capture (WiFi + VPN)
+      # Netzwerkinterfaces für Paket-Capture (WiFi + VPN GUI)
+      # ACHTUNG: Nur existierende Interfaces! Fehlende Interfaces verursachen
+      # Endlos-Restart-Loop → Memory-Fragmentation → kernel BUG (2026-02-17)
       af-packet = [
         {
           interface = "wlp0s20f3";  # WiFi
           cluster-id = 99;
-          cluster-type = "cluster_flow";
-          defrag = true;
-          use-mmap = true;
-          tpacket-v3 = true;
-        }
-        {
-          interface = "proton-cli";  # VPN (ProtonVPN CLI WireGuard)
-          cluster-id = 100;
           cluster-type = "cluster_flow";
           defrag = true;
           use-mmap = true;
@@ -119,6 +113,14 @@
         };
       };
     };
+  };
+
+  # Restart-Limiting: Verhindert Endlos-Restart-Loops bei fehlenden Interfaces
+  # Ohne diese Limits: 406 Restarts → 855MB×406 Memory-Churn → kernel BUG (2026-02-17)
+  systemd.services.suricata = {
+    serviceConfig.RestartSec = "30s";
+    startLimitBurst = 5;
+    startLimitIntervalSec = 300;
   };
 
   # Automatische Regel-Updates (täglich)
