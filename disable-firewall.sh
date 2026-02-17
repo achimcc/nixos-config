@@ -101,37 +101,23 @@ log_section "3️⃣  Setze Firewall-Regeln zurück..."
 # nftables Service stoppen (nicht nur flush - verhindert dass systemd ihn neu startet)
 log_info "Stoppe nftables Service..."
 systemctl stop nftables 2>/dev/null && log_success "nftables Service gestoppt" || log_info "nftables Service war nicht aktiv"
+
+# Komplettes Ruleset löschen (alle Tabellen, Chains, Regeln + IPv4/IPv6)
+log_info "Lösche nftables Ruleset..."
 nft flush ruleset 2>/dev/null || true
-log_success "nftables Firewall deaktiviert"
 
-# Legacy iptables cleanup (in case old rules exist)
-log_info "Bereinige eventuelle legacy iptables-Regeln..."
-iptables -F INPUT 2>/dev/null || true
-iptables -F OUTPUT 2>/dev/null || true
-iptables -F FORWARD 2>/dev/null || true
-iptables -X 2>/dev/null || true
-iptables -t nat -F 2>/dev/null || true
-iptables -t nat -X 2>/dev/null || true
-iptables -t mangle -F 2>/dev/null || true
-iptables -t mangle -X 2>/dev/null || true
-iptables -t raw -F 2>/dev/null || true
-iptables -t raw -X 2>/dev/null || true
-iptables -P INPUT ACCEPT 2>/dev/null || true
-iptables -P OUTPUT ACCEPT 2>/dev/null || true
-iptables -P FORWARD ACCEPT 2>/dev/null || true
-
-ip6tables -F INPUT 2>/dev/null || true
-ip6tables -F OUTPUT 2>/dev/null || true
-ip6tables -F FORWARD 2>/dev/null || true
-ip6tables -X 2>/dev/null || true
-ip6tables -t nat -F 2>/dev/null || true
-ip6tables -t nat -X 2>/dev/null || true
-ip6tables -t mangle -F 2>/dev/null || true
-ip6tables -t mangle -X 2>/dev/null || true
-ip6tables -P INPUT ACCEPT 2>/dev/null || true
-ip6tables -P OUTPUT ACCEPT 2>/dev/null || true
-ip6tables -P FORWARD ACCEPT 2>/dev/null || true
-log_success "Legacy iptables bereinigt"
+# Prüfe ob Ruleset tatsächlich leer ist
+REMAINING=$(nft list ruleset 2>/dev/null)
+if [[ -z "$REMAINING" ]]; then
+    log_success "nftables Ruleset vollständig gelöscht (alle Policies: accept)"
+else
+    log_warning "nftables Ruleset nicht vollständig gelöscht, versuche einzelne Tabellen..."
+    nft list tables 2>/dev/null | while read -r line; do
+        nft delete "$line" 2>/dev/null && log_success "Gelöscht: $line" || log_warning "Konnte nicht löschen: $line"
+    done
+    nft flush ruleset 2>/dev/null || true
+    log_success "nftables Firewall deaktiviert"
+fi
 
 # ============================================================================
 # 4. Policy-Routing-Regeln bereinigen

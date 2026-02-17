@@ -175,21 +175,32 @@ fi
 # ============================================================================
 log_section "5️⃣  Prüfe Firewall-Status..."
 
-# Prüfe ob DROP-Policy aktiv ist
-IPV4_OUTPUT_POLICY=$(iptables -L OUTPUT -n | head -1 | grep -o "policy [A-Z]*" | awk '{print $2}')
-if [[ "$IPV4_OUTPUT_POLICY" == "DROP" ]]; then
-    log_success "IPv4 Firewall aktiv (OUTPUT policy: DROP)"
+# Prüfe ob nftables Service aktiv ist
+NFTABLES_ACTIVE=false
+if systemctl is-active --quiet nftables; then
+    log_success "nftables Service aktiv"
+    NFTABLES_ACTIVE=true
 else
-    log_warning "IPv4 Firewall nicht aktiv (OUTPUT policy: $IPV4_OUTPUT_POLICY)"
+    log_warning "nftables Service nicht aktiv"
     log_warning "Führe nixos-rebuild aus, um Firewall zu aktivieren!"
 fi
 
-# Prüfe VPN-Interface-Regeln
-VPN_RULES=$(iptables -L OUTPUT -n | grep -c "proton0\|tun\|wg" || echo "0")
-if [[ "$VPN_RULES" -gt 0 ]]; then
-    log_success "VPN-Regeln gefunden ($VPN_RULES Regeln)"
-else
-    log_warning "Keine VPN-Regeln gefunden - Firewall nicht vollständig konfiguriert"
+# Prüfe ob Drop-Regeln im Ruleset vorhanden sind
+if [[ "$NFTABLES_ACTIVE" == true ]]; then
+    RULESET=$(nft list ruleset 2>/dev/null)
+    if echo "$RULESET" | grep -q "drop"; then
+        log_success "Drop-Regeln im nftables Ruleset vorhanden"
+    else
+        log_warning "Keine Drop-Regeln gefunden - Firewall nicht vollständig konfiguriert"
+    fi
+
+    # Prüfe VPN-Interface-Regeln
+    VPN_RULES=$(echo "$RULESET" | grep -c "proton0\|wg0\|proton-cli" || echo "0")
+    if [[ "$VPN_RULES" -gt 0 ]]; then
+        log_success "VPN-Regeln gefunden ($VPN_RULES Regeln)"
+    else
+        log_warning "Keine VPN-Regeln gefunden"
+    fi
 fi
 
 # ============================================================================
@@ -206,7 +217,7 @@ systemctl is-active suricata &>/dev/null && log_success "IDS: Aktiv" || log_warn
 systemctl is-active critical-alert-monitor.timer &>/dev/null && log_success "Alerts: Aktiv" || log_warning "Alerts: Inaktiv"
 
 echo ""
-if [[ "$IPV4_OUTPUT_POLICY" == "DROP" ]]; then
+if [[ "$NFTABLES_ACTIVE" == true ]]; then
     log_success "Firewall: Aktiv (Kill Switch aktiv)"
 else
     log_error "Firewall: Inaktiv (Kill Switch NICHT aktiv!)"
@@ -215,7 +226,7 @@ fi
 echo ""
 log_section "═══════════════════════════════════════════════════════"
 
-if [[ "$IPV4_OUTPUT_POLICY" != "DROP" ]]; then
+if [[ "$NFTABLES_ACTIVE" != true ]]; then
     echo ""
     log_error "ACHTUNG: Firewall ist nicht vollständig aktiv!"
     log_info "Führe aus: sudo nixos-rebuild switch --flake /home/achim/nixos-config#achim-laptop"
