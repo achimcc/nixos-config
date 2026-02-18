@@ -44,6 +44,39 @@
       
       # Custom packages overlay
       customOverlay = final: prev: import ./pkgs { pkgs = prev; };
+
+      # ProtonVPN Kill Switch Fix (systemd-resolved 258 + IPv6 disabled)
+      # PROBLEM: ProtonVPN GUI aktiviert IMMER den Kill Switch beim Verbinden
+      # (auch bei killswitch=0). Der WireGuard Kill Switch erstellt eine
+      # NM-Dummy-Verbindung mit DNS 0.0.0.0 (von resolved 258 abgelehnt)
+      # und IPv6-Config (scheitert bei kernel IPv6 disable). Beides zusammen
+      # → add_connection_async hängt → 10s TimeoutError → kein VPN.
+      # FIX: DNS auf gültige Adresse ändern + IPv6 im Kill Switch deaktivieren.
+      protonvpnFixOverlay = final: prev: {
+        pythonPackagesExtensions = (prev.pythonPackagesExtensions or []) ++ [
+          (pyfinal: pyprev: {
+            proton-vpn-api-core = pyprev.proton-vpn-api-core.overridePythonAttrs (old: {
+              postPatch = (old.postPatch or "") + ''
+                # Fix 1: DNS 0.0.0.0 → 100.85.0.1 (Kill Switch Gateway)
+                # systemd-resolved 258 lehnt 0.0.0.0 als ungültige DNS-Adresse ab
+                substituteInPlace proton/vpn/backend/networkmanager/killswitch/wireguard/killswitch_connection_handler.py \
+                  --replace-fail 'dns=["0.0.0.0"]' 'dns=["100.85.0.1"]'
+                substituteInPlace proton/vpn/backend/networkmanager/killswitch/default/killswitch_connection_handler.py \
+                  --replace-fail 'dns=["0.0.0.0"]' 'dns=["100.85.0.1"]'
+
+                # Fix 2: IPv6 im Kill Switch deaktivieren
+                # IPv6 ist auf Kernel-Ebene deaktiviert (net.ipv6.conf.all.disable_ipv6=1)
+                # → NM kann keine IPv6-Adressen/Routen auf dem Dummy-Interface konfigurieren
+                # → Verbindungsaktivierung hängt endlos
+                substituteInPlace proton/vpn/backend/networkmanager/killswitch/wireguard/killswitch_connection_handler.py \
+                  --replace-fail 'ipv6_settings=self._ipv6_ks_settings,' 'ipv6_settings=None,'
+                substituteInPlace proton/vpn/backend/networkmanager/killswitch/default/killswitch_connection_handler.py \
+                  --replace-fail 'ipv6_settings=self._ipv6_ks_settings,' 'ipv6_settings=None,'
+              '';
+            });
+          })
+        ];
+      };
     in
     {
       # NixOS configuration name MUST match networking.hostName in network.nix
@@ -54,7 +87,7 @@
         specialArgs = { inherit inputs llm-agents pkgs-unstable; };
         modules = [
           # Custom packages overlay
-          { nixpkgs.overlays = [ customOverlay ]; }
+          { nixpkgs.overlays = [ customOverlay protonvpnFixOverlay ]; }
           
           ./configuration.nix
 
