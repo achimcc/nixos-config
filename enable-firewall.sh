@@ -38,7 +38,7 @@ log_section "OPTION 1: Vollständiger Rebuild (Empfohlen)"
 echo ""
 log_info "Führt nixos-rebuild aus und stellt alle Konfigurationen wieder her:"
 echo "   • Firewall-Regeln (VPN Kill Switch)"
-echo "   • VPN-Verbindung (WireGuard ProtonVPN)"
+echo "   • VPN-Verbindung (ProtonVPN GUI → WireGuard)"
 echo "   • Intrusion Detection (Suricata IDS)"
 echo "   • Security Monitoring (Logwatch, AIDE, etc.)"
 echo "   • Alle systemd-Timer"
@@ -46,14 +46,19 @@ echo ""
 read -p "Vollständigen Rebuild durchführen? (J/n): " -r
 if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     log_info "Starte nixos-rebuild switch..."
-    if nixos-rebuild switch --flake /home/achim/nixos-config#achim-laptop; then
+    if nixos-rebuild switch --flake /home/achim/nixos-config#nixos; then
         log_success "System erfolgreich neu konfiguriert!"
 
         # Kurz warten, dann Status prüfen
         sleep 3
 
         log_section "Status der kritischen Services:"
-        systemctl is-active wg-quick-proton0 && log_success "VPN aktiv" || log_warning "VPN nicht aktiv"
+        # ProtonVPN GUI läuft als User-Service und erstellt proton0 beim Verbinden
+        if ip link show proton0 &>/dev/null; then
+            log_success "VPN aktiv (proton0 Interface vorhanden)"
+        else
+            log_warning "VPN nicht verbunden (ProtonVPN GUI muss manuell verbinden)"
+        fi
         systemctl is-active suricata && log_success "Suricata IDS aktiv" || log_warning "Suricata nicht aktiv"
         systemctl is-active critical-alert-monitor.timer && log_success "Alert Monitor aktiv" || log_warning "Alert Monitor nicht aktiv"
 
@@ -81,24 +86,25 @@ if [[ ! $REPLY =~ ^[JjYy]$ ]]; then
 fi
 
 # ============================================================================
-# 1. VPN-Verbindung starten
+# 1. ProtonVPN GUI neustarten
 # ============================================================================
-log_section "1️⃣  Starte VPN-Verbindung..."
+log_section "1️⃣  Starte ProtonVPN GUI..."
 
-if systemctl start wg-quick-proton0.service 2>&1; then
-    log_success "WireGuard ProtonVPN gestartet"
-    sleep 2
+# ProtonVPN GUI läuft als User-Service (erstellt proton0 beim Verbinden)
+if sudo -u achim XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart protonvpn-gui 2>&1; then
+    log_success "ProtonVPN GUI User-Service neugestartet"
+    sleep 3
 
-    # Prüfe VPN-Status
+    # Prüfe ob VPN bereits verbunden (Auto-Connect)
     if ip link show proton0 &>/dev/null; then
         VPN_IP=$(ip addr show proton0 | grep "inet " | awk '{print $2}')
         log_success "VPN-Interface aktiv: $VPN_IP"
     else
-        log_error "VPN-Interface nicht gefunden!"
+        log_info "ProtonVPN GUI gestartet - verbinde manuell über die GUI"
     fi
 else
-    log_error "Konnte VPN nicht starten!"
-    log_info "Prüfe: journalctl -u wg-quick-proton0 -n 50"
+    log_error "Konnte ProtonVPN GUI nicht starten!"
+    log_info "Prüfe: journalctl --user -u protonvpn-gui -n 50"
 fi
 
 # ============================================================================
@@ -164,7 +170,7 @@ if [[ "$PUBLIC_IP" != "Timeout" ]]; then
         log_success "IP gehört wahrscheinlich zu ProtonVPN"
     else
         log_warning "IP gehört möglicherweise NICHT zu ProtonVPN!"
-        log_warning "Prüfe VPN-Status: systemctl status wg-quick-proton0"
+        log_warning "Prüfe VPN-Status: ip link show proton0"
     fi
 else
     log_error "Konnte öffentliche IP nicht abrufen - Netzwerk-Problem?"
@@ -195,7 +201,7 @@ if [[ "$NFTABLES_ACTIVE" == true ]]; then
     fi
 
     # Prüfe VPN-Interface-Regeln
-    VPN_RULES=$(echo "$RULESET" | grep -c "proton0\|wg0\|proton-cli" || echo "0")
+    VPN_RULES=$(echo "$RULESET" | grep -c "proton0\|wg0" || echo "0")
     if [[ "$VPN_RULES" -gt 0 ]]; then
         log_success "VPN-Regeln gefunden ($VPN_RULES Regeln)"
     else
@@ -212,7 +218,7 @@ log_section "══════════════════════�
 echo ""
 
 echo "Service-Status:"
-systemctl is-active wg-quick-proton0 &>/dev/null && log_success "VPN: Aktiv" || log_error "VPN: Inaktiv"
+ip link show proton0 &>/dev/null && log_success "VPN: Aktiv (proton0)" || log_warning "VPN: Nicht verbunden (GUI manuell verbinden)"
 systemctl is-active suricata &>/dev/null && log_success "IDS: Aktiv" || log_warning "IDS: Inaktiv"
 systemctl is-active critical-alert-monitor.timer &>/dev/null && log_success "Alerts: Aktiv" || log_warning "Alerts: Inaktiv"
 
@@ -229,7 +235,7 @@ log_section "══════════════════════�
 if [[ "$NFTABLES_ACTIVE" != true ]]; then
     echo ""
     log_error "ACHTUNG: Firewall ist nicht vollständig aktiv!"
-    log_info "Führe aus: sudo nixos-rebuild switch --flake /home/achim/nixos-config#achim-laptop"
+    log_info "Führe aus: sudo nixos-rebuild switch --flake /home/achim/nixos-config#nixos"
     echo ""
 fi
 

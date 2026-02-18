@@ -70,24 +70,16 @@ done
 # ============================================================================
 log_section "2️⃣  Trenne VPN-Verbindungen..."
 
-# WireGuard ProtonVPN (CLI + GUI)
-for vpn_svc in wg-quick-proton-cli.service wg-quick-proton0.service; do
-    if systemctl is-active --quiet "$vpn_svc" 2>/dev/null; then
-        systemctl stop "$vpn_svc" && log_success "$vpn_svc gestoppt"
-    else
-        log_info "$vpn_svc nicht aktiv"
-    fi
-done
+# ProtonVPN GUI User-Service stoppen (verwaltet WireGuard-Verbindung)
+if sudo -u achim XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active --quiet protonvpn-gui 2>/dev/null; then
+    sudo -u achim XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop protonvpn-gui && \
+        log_success "ProtonVPN GUI gestoppt" || log_warning "Konnte ProtonVPN GUI nicht stoppen"
+else
+    log_info "ProtonVPN GUI nicht aktiv"
+fi
 
-# Manuelle WireGuard Interfaces
-for iface in proton-cli proton0 wg0 wg1; do
-    if ip link show "$iface" &>/dev/null; then
-        wg-quick down "$iface" 2>/dev/null && log_success "$iface down" || log_info "$iface bereits down"
-    fi
-done
-
-# OpenVPN Interfaces
-for iface in tun0 tun1 pvpnksintrf0; do
+# VPN- und Kill-Switch-Interfaces herunterfahren
+for iface in proton0 wg0 wg1 pvpnksintrf0 pvpnksintrf1 ipv6leakintrf0; do
     if ip link show "$iface" &>/dev/null; then
         ip link set "$iface" down 2>/dev/null && log_success "$iface down" || log_info "$iface bereits down"
     fi
@@ -386,7 +378,7 @@ echo "      ${GREEN}sudo nixos-rebuild switch --flake /home/achim/nixos-config#n
 echo ""
 echo "   2. Oder nur Services neu starten:"
 echo "      ${GREEN}sudo systemctl start nftables${NC}"
-echo "      ${GREEN}sudo systemctl start wg-quick-proton-cli${NC}"
+echo "      ${GREEN}systemctl --user restart protonvpn-gui${NC}  (als User)"
 echo "      ${GREEN}sudo systemctl start suricata${NC}"
 echo ""
 echo "   3. System neu starten (empfohlen):"
