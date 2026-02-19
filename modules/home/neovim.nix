@@ -71,7 +71,6 @@
             }),
             sources = {
               { name = 'nvim_lsp' },
-              { name = 'crates' },
               { name = 'buffer' },
               { name = 'path' },
             },
@@ -85,8 +84,11 @@
         type = "lua";
         config = ''
           require('crates').setup({
-            completion = {
-              cmp = { enabled = true },
+            lsp = {
+              enabled = true,
+              actions = true,
+              completion = true,
+              hover = true,
             },
           })
         '';
@@ -97,9 +99,11 @@
         plugin = nvim-treesitter.withAllGrammars;
         type = "lua";
         config = ''
-          require('nvim-treesitter.configs').setup({
-            highlight = { enable = true },
-            indent = { enable = true },
+          vim.api.nvim_create_autocmd('FileType', {
+            callback = function()
+              pcall(vim.treesitter.start)
+              vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+            end,
           })
         '';
       }
