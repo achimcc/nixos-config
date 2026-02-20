@@ -12,18 +12,12 @@
       # Unterdrückt normale lokale Netzwerk-Discovery (MDNS, LLMNR)
       threshold-file = "/etc/suricata/threshold.config";
 
-      # Netzwerkinterfaces für Paket-Capture (WiFi + VPN GUI)
-      # ACHTUNG: Nur existierende Interfaces! Fehlende Interfaces verursachen
-      # Endlos-Restart-Loop → Memory-Fragmentation → kernel BUG (2026-02-17)
+      # Netzwerkinterfaces für Paket-Capture (nur VPN)
+      # WiFi (wlp0s20f3) ENTFERNT: af-packet + tpacket-v3 + mmap auf iwlwifi (AX211)
+      # verursacht kernel BUG at highmem.h:263 bei WiFi-Zustandsänderungen
+      # (Roaming, missed beacons). 3 Crashes: 2026-02-15, 02-17, 02-20.
+      # Aller Internetverkehr geht durch VPN → proton0 deckt alles ab.
       af-packet = [
-        {
-          interface = "wlp0s20f3";  # WiFi
-          cluster-id = 99;
-          cluster-type = "cluster_flow";
-          defrag = true;
-          use-mmap = true;
-          tpacket-v3 = true;
-        }
         {
           interface = "proton0";  # VPN (ProtonVPN GUI WireGuard)
           cluster-id = 101;
