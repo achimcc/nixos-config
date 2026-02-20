@@ -99,6 +99,9 @@ in
     pkgs-unstable.pynitrokey # CLI-Tool: nitropy fido2/openpgp (Firmware-Updates, FIDO2-Verwaltung)
     libfido2 # CLI: fido2-token (Low-Level FIDO2-Verwaltung)
 
+    # --- SPIELE ---
+    zeroad # 0 A.D. - Echtzeit-Strategiespiel
+
     # --- GNOME ERWEITERUNGEN ---
     gnomeExtensions.pano
     libgda5
