@@ -208,11 +208,11 @@
       # Intel Bluetooth Adapter (intern, wird nach Firmware-Load re-inserted)
       allow id 8087:0033 with-interface { e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 } with-connect-type "not used"
 
-      # SanDisk Portable SSD - Vereinfachte Regel für schnelleres Matching
-      # SICHERHEIT: Seriennummer hinzufügen für gezielte Geräte-Identifikation
+      # SanDisk Portable SSD - Mass Storage only (verhindert BadUSB mit HID-Payload)
+      # SICHERHEIT: with-interface beschränkt auf Mass Storage Klasse (08:*:*)
       # Seriennummer ermitteln: lsusb -v -d 0781:55b0 | grep iSerial
-      # TODO: Seriennummer nach Ermittlung hier eintragen: allow id 0781:55b0 serial "SERIAL" ...
-      allow id 0781:55b0 with-connect-type "hotplug"
+      # Dann Regel verschärfen: allow id 0781:55b0 serial "XXXX" with-interface { 08:*:* } ...
+      allow id 0781:55b0 with-interface { 08:*:* } with-connect-type "hotplug"
 
       # Nitrokey 3C NFC
       allow id 20a0:42b2 name "Nitrokey 3" with-connect-type "hotplug"
@@ -365,9 +365,8 @@
     # NixOS Konfiguration (Flake-basiert)
     /home/achim/nixos-config CONTENT
 
-    # Nix Store (Package binaries - hash verification only)
-    # Note: Nix manages permissions, only verify content integrity
-    /nix/store CONTENT
+    # Nix Store wird NICHT durch AIDE überwacht (zu viele Änderungen bei Updates)
+    # Stattdessen: nix-store --verify --check-contents (prüft Nix-eigene Hashes)
 
     # Ausnahmen (häufig ändernde Verzeichnisse)
     !/var/log

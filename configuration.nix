@@ -95,22 +95,23 @@
     "fido2-device=auto"
   ];
 
-  # Swap: Keyfile-basierte Entsperrung (für Hibernate/Resume ohne FIDO2-Interaktion)
+  # Swap: TPM2-basierte Entsperrung (für Hibernate/Resume ohne FIDO2-Interaktion)
   # Swap-Verschlüsselung explizit verifiziert (LUKS2)
-  # Keyfile in /root/crypto_keyfile.bin, wird in initrd eingebettet
-  # Keine separaten swapDevices nötig - bereits in hardware-configuration.nix definiert
+  # MIGRATION: Von Keyfile auf TPM2 umgestellt (Keyfile auf unverschlüsselter /boot war extrahierbar)
+  # MANUELLE SCHRITTE VOR REBUILD:
+  #   1. sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7 \
+  #        /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
+  #   2. sudo nixos-rebuild switch
+  #   3. Reboot testen
+  #   4. Nach 2-3 erfolgreichen Reboots: alten Keyfile-Slot entfernen + Keyfile shredden
+  #      sudo systemd-cryptenroll --wipe-slot=password /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
+  #      sudo shred -vfz -n 5 /root/crypto_keyfile.bin && sudo rm /root/crypto_keyfile.bin
   boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b" = {
     device = "/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b";
-    keyFile = "/crypto_keyfile.bin";
+    crypttabExtraOpts = [ "tpm2-device=auto" ];
     # SICHERHEIT: allowDiscards deaktiviert (verhindert Metadata-Leaks)
     # Trade-off: Minimal schlechtere SSD-Performance, deutlich bessere Sicherheit
     allowDiscards = false;
-    # FIDO2 wurde durch Keyfile ersetzt - Root bleibt auf FIDO2!
-  };
-
-  # Keyfile in initrd einbetten (wird beim Boot verfügbar)
-  boot.initrd.secrets = {
-    "/crypto_keyfile.bin" = "/root/crypto_keyfile.bin";
   };
 
   # ==========================================
