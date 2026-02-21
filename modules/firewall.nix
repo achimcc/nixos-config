@@ -117,6 +117,14 @@ in
       # IPv4 FIREWALL TABLE
       # ==========================================
       table inet filter {
+        # ProtonVPN API IP ranges (für VPN-Authentifizierung auf physischen Interfaces)
+        # ASN AS209103 (Proton AG) + ASN AS62371 (Proton Technologies)
+        set proton_api {
+          type ipv4_addr
+          flags constant, interval
+          elements = { 185.159.157.0/24, 185.159.159.0/24, 185.70.40.0/22, 79.135.104.0/24, 62.169.136.0/24, 62.169.137.0/24 }
+        }
+
         # Port scan detection set
         set portscan {
           type ipv4_addr
@@ -159,11 +167,12 @@ in
           iifname "tun*" udp dport ${toString syncthingPorts.quic} accept
           iifname "wg*" udp dport ${toString syncthingPorts.quic} accept
 
-          # 8. Second local network (server network) - allow all traffic
-          ip saddr ${secondLocalNetwork.subnet} accept
+          # 8. Second local network (server network) - restricted ports
+          ip saddr ${secondLocalNetwork.subnet} tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
+          ip saddr ${secondLocalNetwork.subnet} udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
 
-          # 9. reMarkable 2 USB network
-          ip saddr ${remarkableNetwork.subnet} accept
+          # 9. reMarkable 2 USB network - SSH and Web only
+          ip saddr ${remarkableNetwork.subnet} tcp dport { 22, 80 } accept
 
           # 10. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
           meta nfproto ipv6 icmpv6 type { nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept
@@ -199,13 +208,11 @@ in
           # ProtonVPN WireGuard nutzt: UDP 443, 88, 1224, 51820, 500, 4500
           oifname != { "proton-cli", "proton0" } udp dport { ${toString vpnPorts.https}, ${toString vpnPorts.wireguard}, ${toString vpnPorts.wireguardAlt1}, ${toString vpnPorts.wireguardAlt2}, ${toString vpnPorts.ikev2}, ${toString vpnPorts.ikev2Nat} } accept
 
-          # 4b. ProtonVPN GUI API-Zugriff (TCP HTTPS auf physischen Interfaces)
+          # 4b. ProtonVPN GUI API-Zugriff (TCP HTTPS nur zu Proton-IPs)
           # ERFORDERLICH: GUI braucht HTTPS zu api.protonvpn.ch für Authentifizierung
           # BEVOR WireGuard-Tunnel aufgebaut werden kann.
-          # Ohne TCP 443: GUI kann nicht authentifizieren → kein VPN → kein Internet
-          # Risiko: HTTPS-Verbindungen möglich wenn VPN nicht aktiv (Kill Switch Ausnahme)
-          # Akzeptabel: HTTPS ist verschlüsselt, DNS-over-TLS aktiv, Fenster ist kurz
-          oifname != { "proton-cli", "proton0" } tcp dport ${toString vpnPorts.https} accept
+          # SICHERHEIT: Auf Proton-eigene IP-Ranges beschränkt (verhindert HTTPS-Bypass am VPN)
+          oifname != { "proton-cli", "proton0" } ip daddr @proton_api tcp dport ${toString vpnPorts.https} accept
 
           # 5. DHCP requests (client:68 -> broadcast:67)
           udp sport 68 udp dport 67 accept
@@ -249,11 +256,12 @@ in
           oifname { "proton-cli", "proton0" } tcp dport ${toString syncthingPorts.tcp} limit rate over 10 mbytes/second drop
           oifname { "proton-cli", "proton0" } udp dport ${toString syncthingPorts.quic} limit rate over 10 mbytes/second drop
 
-          # 15. Second local network (server network) - allow all traffic
-          ip daddr ${secondLocalNetwork.subnet} accept
+          # 15. Second local network (server network) - restricted ports
+          ip daddr ${secondLocalNetwork.subnet} tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
+          ip daddr ${secondLocalNetwork.subnet} udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
 
-          # 16. reMarkable 2 USB network (SSH, HTTP, etc.)
-          ip daddr ${remarkableNetwork.subnet} accept
+          # 16. reMarkable 2 USB network - SSH and Web only
+          ip daddr ${remarkableNetwork.subnet} tcp dport { 22, 80 } accept
 
           # 17. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
           meta nfproto ipv6 icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept
