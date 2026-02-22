@@ -117,14 +117,6 @@ in
       # IPv4 FIREWALL TABLE
       # ==========================================
       table inet filter {
-        # ProtonVPN API IP ranges (für VPN-Authentifizierung auf physischen Interfaces)
-        # ASN AS209103 (Proton AG) + ASN AS62371 (Proton Technologies)
-        set proton_api {
-          type ipv4_addr
-          flags constant, interval
-          elements = { 185.159.157.0/24, 185.159.159.0/24, 185.70.40.0/22, 79.135.104.0/24, 62.169.136.0/24, 62.169.137.0/24 }
-        }
-
         # Port scan detection set
         set portscan {
           type ipv4_addr
@@ -208,11 +200,15 @@ in
           # ProtonVPN WireGuard nutzt: UDP 443, 88, 1224, 51820, 500, 4500
           oifname != { "proton-cli", "proton0" } udp dport { ${toString vpnPorts.https}, ${toString vpnPorts.wireguard}, ${toString vpnPorts.wireguardAlt1}, ${toString vpnPorts.wireguardAlt2}, ${toString vpnPorts.ikev2}, ${toString vpnPorts.ikev2Nat} } accept
 
-          # 4b. ProtonVPN GUI API-Zugriff (TCP HTTPS nur zu Proton-IPs)
-          # ERFORDERLICH: GUI braucht HTTPS zu api.protonvpn.ch für Authentifizierung
-          # BEVOR WireGuard-Tunnel aufgebaut werden kann.
-          # SICHERHEIT: Auf Proton-eigene IP-Ranges beschränkt (verhindert HTTPS-Bypass am VPN)
-          oifname != { "proton-cli", "proton0" } ip daddr @proton_api tcp dport ${toString vpnPorts.https} accept
+          # 4b. ProtonVPN TCP-Zugriff auf physischen Interfaces
+          # ERFORDERLICH für:
+          # - API-Authentifizierung (api.protonvpn.ch)
+          # - Server-Erreichbarkeitscheck (TCP zu VPN-Server-IP VOR WireGuard-Handshake)
+          # NICHT auf @proton_api beschränkbar: VPN-Server laufen auf IPs verschiedener
+          # Hosting-Provider (z.B. 79.127.x.x), nicht nur auf Proton-eigenen Ranges.
+          # Sicherheit: Nur TCP 443 (HTTPS/verschlüsselt), nur auf physischen Interfaces,
+          # DNS-over-TLS aktiv, Fenster vor VPN-Aufbau ist kurz.
+          oifname != { "proton-cli", "proton0" } tcp dport ${toString vpnPorts.https} accept
 
           # 5. DHCP requests (client:68 -> broadcast:67)
           udp sport 68 udp dport 67 accept

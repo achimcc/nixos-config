@@ -209,10 +209,9 @@
       allow id 8087:0033 with-interface { e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 } with-connect-type "not used"
 
       # SanDisk Portable SSD - Mass Storage only (verhindert BadUSB mit HID-Payload)
+      # Gerät präsentiert 2 Interfaces: Bulk-Only (08:06:50) + UAS (08:06:62)
       # SICHERHEIT: with-interface beschränkt auf Mass Storage Klasse (08:*:*)
-      # Seriennummer ermitteln: lsusb -v -d 0781:55b0 | grep iSerial
-      # Dann Regel verschärfen: allow id 0781:55b0 serial "XXXX" with-interface { 08:*:* } ...
-      allow id 0781:55b0 with-interface { 08:*:* } with-connect-type "hotplug"
+      allow id 0781:55b0 serial "323233353036343034313530" with-interface { 08:*:* 08:*:* } with-connect-type "hotplug"
 
       # Nitrokey 3C NFC
       allow id 20a0:42b2 name "Nitrokey 3" with-connect-type "hotplug"
