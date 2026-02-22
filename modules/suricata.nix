@@ -13,18 +13,19 @@
       threshold-file = "/etc/suricata/threshold.config";
 
       # Netzwerkinterfaces für Paket-Capture (nur VPN)
-      # WiFi (wlp0s20f3) ENTFERNT: af-packet + tpacket-v3 + mmap auf iwlwifi (AX211)
-      # verursacht kernel BUG at highmem.h:263 bei WiFi-Zustandsänderungen
-      # (Roaming, missed beacons). 3 Crashes: 2026-02-15, 02-17, 02-20.
-      # Aller Internetverkehr geht durch VPN → proton0 deckt alles ab.
+      # WiFi (wlp0s20f3) ENTFERNT: siehe unten.
+      # tpacket-v3 + use-mmap DEAKTIVIERT: af-packet mmap Ring-Buffer löst
+      # kernel BUG at highmem.h:263 (kmap_local_page) auf Hardened Kernel aus.
+      # 5 Crashes: 02-16, 02-17, 02-20 (WiFi), 02-21, 02-22 (proton0).
+      # tpacket-v2 ohne mmap ist minimal langsamer, aber stabil.
       af-packet = [
         {
           interface = "proton0";  # VPN (ProtonVPN GUI WireGuard)
           cluster-id = 101;
           cluster-type = "cluster_flow";
           defrag = true;
-          use-mmap = true;
-          tpacket-v3 = true;
+          use-mmap = false;
+          tpacket-v3 = false;
         }
       ];
 
@@ -110,7 +111,6 @@
   };
 
   # Restart-Limiting: Verhindert Endlos-Restart-Loops bei fehlenden Interfaces
-  # Ohne diese Limits: 406 Restarts → 855MB×406 Memory-Churn → kernel BUG (2026-02-17)
   systemd.services.suricata = {
     serviceConfig.RestartSec = "30s";
     startLimitBurst = 5;

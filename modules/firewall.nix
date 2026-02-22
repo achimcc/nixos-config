@@ -124,6 +124,12 @@ in
           timeout 60s
         }
 
+        # ProtonVPN API server IPs - populated by proton-api-update.service
+        set proton_api {
+          type ipv4_addr
+          flags timeout
+        }
+
         # INPUT CHAIN
         chain input {
           type filter hook input priority filter; policy drop;
@@ -200,15 +206,12 @@ in
           # ProtonVPN WireGuard nutzt: UDP 443, 88, 1224, 51820, 500, 4500
           oifname != { "proton-cli", "proton0" } udp dport { ${toString vpnPorts.https}, ${toString vpnPorts.wireguard}, ${toString vpnPorts.wireguardAlt1}, ${toString vpnPorts.wireguardAlt2}, ${toString vpnPorts.ikev2}, ${toString vpnPorts.ikev2Nat} } accept
 
-          # 4b. ProtonVPN TCP-Zugriff auf physischen Interfaces
-          # ERFORDERLICH für:
-          # - API-Authentifizierung (api.protonvpn.ch)
-          # - Server-Erreichbarkeitscheck (TCP zu VPN-Server-IP VOR WireGuard-Handshake)
-          # NICHT auf @proton_api beschränkbar: VPN-Server laufen auf IPs verschiedener
-          # Hosting-Provider (z.B. 79.127.x.x), nicht nur auf Proton-eigenen Ranges.
-          # Sicherheit: Nur TCP 443 (HTTPS/verschlüsselt), nur auf physischen Interfaces,
-          # DNS-over-TLS aktiv, Fenster vor VPN-Aufbau ist kurz.
-          oifname != { "proton-cli", "proton0" } tcp dport ${toString vpnPorts.https} accept
+          # 4b. ProtonVPN API-Zugriff auf physischen Interfaces
+          # ERFORDERLICH für API-Authentifizierung (api.protonvpn.ch, vpn-api.proton.me)
+          # EINGESCHRÄNKT auf @proton_api Set (gefüllt von proton-api-update.service)
+          # RISIKO: VPN-Server TCP-Erreichbarkeitscheck wird blockiert (nicht im Set).
+          # ProtonVPN fällt auf UDP zurück oder Verbindung schlägt fehl → dann iterieren.
+          oifname != { "proton-cli", "proton0" } ip daddr @proton_api tcp dport ${toString vpnPorts.https} accept
 
           # 5. DHCP requests (client:68 -> broadcast:67)
           udp sport 68 udp dport 67 accept
@@ -350,5 +353,83 @@ in
       echo "  Physical interfaces (strict): $PHYSICAL_IFACES"
       echo "  VPN interfaces (loose): $VPN_IFACES"
     '';
+  };
+
+  # ==========================================
+  # PROTON API IP UPDATE SERVICE
+  # ==========================================
+  # Löst ProtonVPN-API-Domains auf und füllt das nftables Set proton_api.
+  # Ohne diesen Service ist TCP 443 auf physischen Interfaces komplett blockiert
+  # (Kill Switch), nur IPs im Set werden durchgelassen.
+  systemd.services.proton-api-update = {
+    description = "Update ProtonVPN API IPs in nftables set";
+    after = [ "nftables.service" "network-online.target" ];
+    wants = [ "network-online.target" ];
+    wantedBy = [ "multi-user.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = false;
+    };
+
+    path = [ pkgs.nftables pkgs.jq pkgs.gnugrep ];
+
+    script = ''
+      DOMAINS="api.protonvpn.ch account.protonvpn.ch vpn-api.proton.me account.proton.me"
+      TIMEOUT="2h"
+      RESOLVECTL="${pkgs.systemd}/bin/resolvectl"
+
+      # Phase 1: API-Domain-IPs auflösen (Bootstrap - damit curl zur API funktioniert)
+      echo "=== Phase 1: API-Domain-IPs ==="
+      for domain in $DOMAINS; do
+        # resolvectl: D-Bus zu systemd-resolved — funktioniert immer in systemd Services
+        IPS=$($RESOLVECTL query -4 "$domain" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u || true)
+
+        if [ -z "$IPS" ]; then
+          echo "⚠ Keine IPs für $domain gefunden"
+          continue
+        fi
+
+        for ip in $IPS; do
+          nft add element inet filter proton_api "{ $ip timeout $TIMEOUT }" 2>/dev/null || true
+          echo "✓ $domain → $ip"
+        done
+      done
+
+      # Phase 2: VPN-Server-IPs aus lokalem ProtonVPN-Cache laden
+      # API braucht Auth-Token → lokaler Cache ist zuverlässiger
+      echo ""
+      echo "=== Phase 2: VPN-Server-IPs aus Cache ==="
+      CACHE="/home/achim/.cache/Proton/VPN/serverlist.json"
+      if [ -f "$CACHE" ]; then
+        SERVER_IPS=$(jq -r '.LogicalServers[].Servers[].EntryIP' "$CACHE" 2>/dev/null | sort -u || true)
+        if [ -n "$SERVER_IPS" ]; then
+          COUNT=0
+          for ip in $SERVER_IPS; do
+            nft add element inet filter proton_api "{ $ip timeout $TIMEOUT }" 2>/dev/null || true
+            COUNT=$((COUNT + 1))
+          done
+          echo "✓ $COUNT VPN-Server-IPs aus Cache geladen"
+        else
+          echo "⚠ Keine Server-IPs im Cache gefunden"
+        fi
+      else
+        echo "⚠ Cache nicht gefunden: $CACHE"
+      fi
+
+      echo ""
+      TOTAL=$(nft list set inet filter proton_api | grep -c "timeout" || echo "0")
+      echo "=== Gesamt: $TOTAL IPs im proton_api Set ==="
+    '';
+  };
+
+  systemd.timers.proton-api-update = {
+    description = "Periodically update ProtonVPN API IPs";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "30s";
+      OnUnitActiveSec = "30min";
+      RandomizedDelaySec = "60s";
+    };
   };
 }
