@@ -66,12 +66,13 @@
 
     # Intel i915 Meteor Lake Stabilitätsfix (GPU device ID 7dd5)
     # PROBLEM 1: "Selective fetch area calculation failed in pipe A" → harter Crash
-    # PROBLEM 2: GPU HANG ecode 12:1 (Vulkan/Render) → System-Freeze → harter Reboot
-    # URSACHE: Mehrere PSR-Bugs auf Meteor Lake (Kernel 6.12+)
-    # - enable_psr2_sel_fetch=0 reichte nicht (Crash 2026-02-15 ~20:00)
-    # - enable_psr=0 deaktiviert PSR komplett (nächste Eskalationsstufe)
-    # CRASH-LOG: 2026-02-15 18:47 GPU HANG (nautilus/Vulkan) → 20:00 Freeze → Reboot
-    "i915.enable_psr=0"             # PSR komplett deaktivieren (GPU HANG + SF Crashes)
+    # PROBLEM 2: GPU HANG ecode 12:1 (Vulkan/Render) → i915 UAF → SLUB Korruption → Reboot
+    # URSACHE: Mehrere PSR-Bugs + Vulkan-Render-Bugs auf Meteor Lake (Kernel 6.12+)
+    # - enable_psr2_sel_fetch=0 reichte nicht (Crash 2026-02-15)
+    # - enable_psr=0 allein reicht nicht (Crash 2026-02-23: gnome-characters/Vulkan)
+    # - GSK_RENDERER=gl auf System-Ebene (desktop.nix) ist der primäre Fix
+    # CRASH-LOG: 2026-02-23 07:52 GPU HANG (.org.gnome.Char) → SLUB BUG → Reboot
+    "i915.enable_psr=0"             # PSR komplett deaktivieren (SF Crashes verhindern)
     # Falls weiterhin Crashes: "i915.enable_dc=0" als nächste Eskalation
   ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
