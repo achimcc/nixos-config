@@ -75,6 +75,13 @@
   # Electron-Apps nativ auf Wayland (global statt pro Firejail-Wrapper)
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
+  # Intel i915 Meteor Lake: Vulkan GPU HANG Workaround (SYSTEM-LEVEL)
+  # GTK4/GNOME Apps verwenden standardmäßig Vulkan auf Wayland (seit GNOME 47/GTK 4.16+)
+  # Vulkan löst GPU HANG ecode 12:1 aus → i915 UAF im Reset-Pfad → SLUB Korruption → Crash
+  # Crashes: 2026-02-15 (Nautilus), 2026-02-23 (gnome-characters)
+  # MUSS auf System-Ebene stehen — home.sessionVariables erreicht Desktop-gestartete Apps NICHT
+  environment.sessionVariables.GSK_RENDERER = "gl";
+
   environment.systemPackages = with pkgs; [
     wl-clipboard
     gnomeExtensions.appindicator # Tray-Icon Support (wichtig für ProtonVPN)
