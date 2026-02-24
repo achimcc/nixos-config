@@ -83,8 +83,8 @@ in
       # ProtonVPN Kill-Switch-Interfaces (pvpnksintrf*/ipv6leakintrf*) NICHT als
       # unmanaged markieren! Die GUI erstellt diese IMMER beim Verbinden (auch bei
       # killswitch=0) und NM muss sie aktivieren können, sonst: TimeoutError → Crash.
-      # DNS-Priorität der dummy-Interfaces (-1400) wird von systemd-resolved korrekt
-      # gehandhabt: VPN-Interface hat Vorrang wenn verbunden.
+      # ACHTUNG: pvpnksintrf0 setzt DNS=100.85.0.1 + DefaultRoute=yes + Domains=~.
+      # → Kapert DNS BEVOR VPN steht → Fix: NM-Dispatcher (fix-pvpn-killswitch-dns).
       unmanaged = [ "type:gsm" "interface-name:cdc-wdm*" "interface-name:wwp*" ];
       # NetworkManager nutzt systemd-resolved
       dns = "systemd-resolved";
@@ -99,6 +99,25 @@ in
             # Verhindert, dass Hostname im DHCP gesendet wird
             if [ "$2" = "dhcp4-change" ] || [ "$2" = "dhcp6-change" ]; then
               exit 0
+            fi
+          '';
+          type = "basic";
+        }
+        {
+          source = pkgs.writeText "fix-pvpn-killswitch-dns" ''
+            # ProtonVPN GUI Kill-Switch DNS-Fix
+            #
+            # PROBLEM: ProtonVPN GUI erstellt pvpnksintrf0 beim Login und setzt:
+            #   DNS=100.85.0.1, DefaultRoute=yes, Domains=~.
+            # → Kapert ALLEN DNS zu einer IP die nur über VPN erreichbar ist
+            # → DNS bricht → GUI kann API nicht erreichen → Henne-Ei-Problem
+            #
+            # FIX: DNS-Konfiguration von pvpnksintrf0 zurücksetzen,
+            # damit resolved weiterhin globale DNS-Server (Quad9) nutzt.
+            # Das Interface selbst bleibt aktiv (GUI crasht sonst).
+            if [ "$1" = "pvpnksintrf0" ] && [ "$2" = "up" ]; then
+              ${pkgs.systemd}/bin/resolvectl revert "$1" 2>/dev/null || true
+              logger -t pvpn-dns-fix "pvpnksintrf0 DNS-Hijack neutralisiert"
             fi
           '';
           type = "basic";
