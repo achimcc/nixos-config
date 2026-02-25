@@ -26,7 +26,7 @@ $BODY
 
 ---
 Generated: $(${pkgs.coreutils}/bin/date)
-System: NixOS $(${pkgs.nix}/bin/nixos-version)
+System: NixOS $(/run/current-system/sw/bin/nixos-version 2>/dev/null || echo "unknown")
 EOF
   '';
 
@@ -67,13 +67,15 @@ in {
   ];
 
   # AIDE: Email bei Integritätsverletzungen
+  # Hinweis: $EXIT_CODE ist nur in ExecStopPost verfügbar, NICHT in ExecStartPost.
+  # Daher prüfen wir den Journal-Output von AIDE statt den Exit-Code.
   systemd.services.aide-check = {
     serviceConfig = {
       ExecStartPost = pkgs.writeShellScript "aide-alert" ''
-        if [ $EXIT_CODE -ne 0 ]; then
+        if journalctl -u aide-check --since "5 minutes ago" | grep -q "AIDE found differences"; then
           ${sendSecurityAlert} \
             "AIDE Integrity Violation Detected" \
-            "AIDE file integrity check FAILED.
+            "AIDE detected unexpected file changes between rebuilds.
 
             Critical system files have been modified.
             Check logs: journalctl -u aide-check
