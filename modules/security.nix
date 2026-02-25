@@ -334,8 +334,8 @@
   # ==========================================
 
   # AIDE überwacht kritische Systemdateien auf Änderungen
-  # Nach Rebuild: sudo aideinit && sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
-  # Prüfung: sudo aide --check
+  # DB wird automatisch nach jedem nixos-rebuild switch re-initialisiert (siehe unten)
+  # Manuelle Prüfung: sudo aide --check --config=/etc/aide.conf
   environment.etc."aide.conf".text = ''
     # AIDE Konfiguration für NixOS
     database_in=file:/var/lib/aide/aide.db
@@ -358,8 +358,10 @@
     /etc/sudoers NORMAL
     /etc/ssh NORMAL
 
-    # Boot-Verzeichnis
-    /boot NORMAL
+    # Boot-Verzeichnis: NICHT überwacht
+    # Secure Boot (secureboot.nix) verifiziert Boot-Integrität kryptografisch.
+    # AIDE produziert hier nur False Positives, weil aide-reinit VOR der
+    # Bootloader-Installation läuft (neue Generationen werden danach geschrieben).
 
     # NixOS Konfiguration (Flake-basiert)
     /home/achim/nixos-config CONTENT
@@ -380,6 +382,9 @@
     !/nix/store
     !/nix/var
     !/home/achim/nixos-config/.git
+    !/home/achim/nixos-config/.claude
+    !/home/achim/nixos-config/.crush
+    !/home/achim/nixos-config/flake.lock
     !/home/achim/nixos-config/result
   '';
 
@@ -392,7 +397,26 @@
       ExecStart = "${pkgs.aide}/bin/aide --check --config=/etc/aide.conf";
       StandardOutput = "journal";
       StandardError = "journal";
+      # AIDE Exit-Codes 1-7 = Änderungen erkannt (Bitmap: 1=added, 2=removed, 4=changed)
+      # Das ist kein Fehler, sondern erwartetes Verhalten → ExecStartPost (Alert) läuft
+      # Echte Fehler haben Exit-Code >7 (z.B. 14=IO-Error, 15=Config-Error)
+      SuccessExitStatus = "1 2 3 4 5 6 7";
     };
+  };
+
+  # AIDE DB nach jedem nixos-rebuild switch re-initialisieren
+  # Damit erkennt AIDE nur Änderungen ZWISCHEN Rebuilds (z.B. unautorisierte Modifikationen)
+  system.activationScripts.aide-reinit = {
+    text = ''
+      echo "Re-initializing AIDE database..."
+      mkdir -p /var/lib/aide
+      ${pkgs.aide}/bin/aide --init --config=/etc/aide.conf 2>/dev/null || true
+      if [ -f /var/lib/aide/aide.db.new ]; then
+        mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+        echo "AIDE database re-initialized."
+      fi
+    '';
+    deps = [ "etc" ];
   };
 
   systemd.timers.aide-check = {
@@ -417,7 +441,8 @@
     serviceConfig = {
       Type = "oneshot";
       # Prüfe auf versteckte Prozesse mit verschiedenen Techniken
-      ExecStart = "${pkgs.unhide}/bin/unhide sys procall";
+      # Binary heißt "unhide-linux" (Linux-spezifische Checks), nicht "unhide"
+      ExecStart = "${pkgs.unhide}/bin/unhide-linux sys procall";
       StandardOutput = "journal";
       StandardError = "journal";
     };
