@@ -75,11 +75,11 @@ in
   home.sessionVariables = {
     SSH_AUTH_SOCK = "$XDG_RUNTIME_DIR/ssh-agent.socket";
 
-    # Intel i915 Vulkan GPU Hang Workaround — BACKUP (primärer Fix in desktop.nix)
+    # Intel i915 Render Engine Bug — BACKUP (primärer Fix in desktop.nix)
     # home.sessionVariables erreicht Desktop-gestartete Apps nicht zuverlässig!
     # System-Level-Fix: environment.sessionVariables.GSK_RENDERER in modules/desktop.nix
     # Dieses hier bleibt als Fallback für Terminal-gestartete Apps
-    GSK_RENDERER = "gl";
+    GSK_RENDERER = "cairo";
   };
 
   # User-spezifische Pakete
@@ -100,7 +100,7 @@ in
     libfido2 # CLI: fido2-token (Low-Level FIDO2-Verwaltung)
 
     # --- SPIELE ---
-    zeroad # 0 A.D. - Echtzeit-Strategiespiel
+    # zeroad # 0 A.D. — temporär deaktiviert (nixpkgs-Build-Fehler: 0ad-0.27.1)
 
     # --- GNOME ERWEITERUNGEN ---
     gnomeExtensions.pano
@@ -187,7 +187,7 @@ in
     # --- PDF VIEWER & E-BOOKS ---
     evince # GNOME Document Viewer (via Firejail in modules/network.nix)
     foliate # E-Book-Reader (GNOME/libadwaita)
-    calibre # E-Book-Management & -Konvertierung
+    # calibre # E-Book-Management — temporär deaktiviert (nixpkgs-Bug: qmake fehlt im Qt6-Hook)
 
     # --- MEDIA PLAYER ---
     vlc # VLC Media Player (exzellentes SW-Decoding, wichtig mit nomodeset)
@@ -238,11 +238,11 @@ in
 
     # --- OPENBB (Investment Research Platform) ---
     # FHS-kompatible Umgebung für OpenBB (pip-basiert)
-    # Python 3.11 für Kompatibilität mit älteren OpenBB-Versionen
+    # Python 3.12: python311 + sphinx 9.1.0 inkompatibel in nixpkgs (seit ~2026-02-25)
     (pkgs.buildFHSEnv {
       name = "openbb";
       targetPkgs = pkgs: with pkgs; [
-        (python311.withPackages (ps: with ps; [
+        (python312.withPackages (ps: with ps; [
           pip
           virtualenv
           numpy
@@ -265,7 +265,6 @@ in
           echo "Erstelle OpenBB venv..."
           python -m venv "$VENV_DIR"
           "$VENV_DIR/bin/pip" install --upgrade pip
-          # Stabile Version ohne commodity-Bug (benötigt Python <3.12)
           "$VENV_DIR/bin/pip" install "openbb==4.2.0" "openbb-cli==1.0.0" openbb-charting
         fi
         exec "$VENV_DIR/bin/openbb" "$@"
