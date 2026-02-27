@@ -53,10 +53,11 @@
     gnome-tour     # Willkommens-Tour
     totem          # Video Player
     yelp           # Hilfe-Viewer
-    gnome-contacts # Kontakte
-    gnome-maps     # Karten
-    gnome-weather  # Wetter
-    simple-scan    # Scanner
+    gnome-contacts    # Kontakte
+    gnome-maps        # Karten
+    gnome-weather     # Wetter
+    gnome-characters  # Zeichentabelle — löst GPU HANG (ecode 12:1) → SLUB crash aus
+    simple-scan       # Scanner
   ];
 
   # GNOME Dienste
@@ -75,12 +76,14 @@
   # Electron-Apps nativ auf Wayland (global statt pro Firejail-Wrapper)
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
-  # Intel i915 Meteor Lake: Vulkan GPU HANG Workaround (SYSTEM-LEVEL)
-  # GTK4/GNOME Apps verwenden standardmäßig Vulkan auf Wayland (seit GNOME 47/GTK 4.16+)
-  # Vulkan löst GPU HANG ecode 12:1 aus → i915 UAF im Reset-Pfad → SLUB Korruption → Crash
-  # Crashes: 2026-02-15 (Nautilus), 2026-02-23 (gnome-characters)
+  # Intel i915 Meteor Lake: GPU HANG Workaround (SYSTEM-LEVEL)
+  # i915 Render Engine Bug (ecode 12:1) auf Meteor Lake — triggerbar durch jede GPU-Nutzung
+  # GSK_RENDERER=gl reicht NICHT: OpenGL nutzt dieselbe Render Engine wie Vulkan
+  # Crashes: 2026-02-15 (Nautilus/Vulkan), 2026-02-23 (gnome-characters/Vulkan),
+  #          2026-02-27 (gnome-characters/GL, nach Suspend/Resume)
+  # cairo = reines CPU-Rendering für GTK4-Widgets. Nicht betroffen: VA-API, Mutter, Browser
   # MUSS auf System-Ebene stehen — home.sessionVariables erreicht Desktop-gestartete Apps NICHT
-  environment.sessionVariables.GSK_RENDERER = "gl";
+  environment.sessionVariables.GSK_RENDERER = "cairo";
 
   environment.systemPackages = with pkgs; [
     wl-clipboard
