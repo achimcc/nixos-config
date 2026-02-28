@@ -82,7 +82,7 @@
   systemd.services.disable-wakeup-sources = {
     description = "Disable spurious ACPI wakeup sources for s2idle";
     wantedBy = [ "multi-user.target" ];
-    after = [ "multi-user.target" ];
+    after = [ "sysinit.target" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
