@@ -120,6 +120,10 @@
     # Nicht blacklisted wegen USB-C Monitor Hub (USBGuard: 05e3:0608)
     # Falls kein externer Monitor genutzt wird: Zeile einkommentieren
     # "thunderbolt"
+
+    # DDR5 SPD Hub Temperatursensor — verursacht Resume-Fehler (ENXIO race condition)
+    # Nur hwmon-Temperaturanzeige für RAM, kein funktionaler Verlust
+    "spd5118"
   ];
 
   # Kernel-Module beim Boot laden (vor Kernel-Lockdown)

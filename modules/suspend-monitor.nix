@@ -26,8 +26,8 @@
         # Sammle Fehler seit letztem Boot
         ERRORS=$(${pkgs.systemd}/bin/journalctl -b -p err --since "5 minutes ago" --no-pager 2>/dev/null)
 
-        # Prüfe auf Suspend/Resume-spezifische Fehler
-        SUSPEND_ERRORS=$(echo "$ERRORS" | grep -iE "(suspend|resume|pm:|dpm_|spd5118|acpi.*power|sleep)" || echo "")
+        # Prüfe auf Suspend/Resume-spezifische Fehler (spd5118 ist blacklisted/harmlos → ignorieren)
+        SUSPEND_ERRORS=$(echo "$ERRORS" | grep -iE "(suspend|resume|pm:|dpm_|acpi.*power|sleep)" | grep -v "spd5118" || echo "")
 
         # Suspend-Statistiken
         SUSPEND_STATS=$(cat /sys/power/suspend_stats/fail 2>/dev/null || echo "0")
@@ -83,9 +83,20 @@
       echo "Erfolgreich: $(cat /sys/power/suspend_stats/success 2>/dev/null || echo '?')"
       echo "Letztes fehlerhaftes Gerät: $(cat /sys/power/suspend_stats/last_failed_dev 2>/dev/null || echo 'none')"
       echo ""
+      echo "Sleep-Modus:"
+      echo "------------------------------"
+      echo "Verfügbar: $(cat /sys/power/state 2>/dev/null)"
+      echo "mem_sleep: $(cat /sys/power/mem_sleep 2>/dev/null)"
+      echo "CPU-Idle-Driver: $(cat /sys/devices/system/cpu/cpuidle/current_driver 2>/dev/null)"
+      echo "Verfügbare C-States: $(ls /sys/devices/system/cpu/cpu0/cpuidle/ 2>/dev/null | tr '\n' ' ')"
+      echo ""
+      echo "Wakeup-Quellen (aktiv):"
+      echo "------------------------------"
+      grep "enabled" /proc/acpi/wakeup 2>/dev/null
+      echo ""
       echo "Letzte Fehler seit Boot:"
       echo "------------------------------"
-      journalctl -b -p err --no-pager | grep -iE "(suspend|resume|pm:|dpm_)" | tail -10
+      journalctl -b -p err --no-pager | grep -iE "(suspend|resume|pm:|dpm_)" | grep -v spd5118 | tail -10
       echo ""
       echo "Monitoring-Log (letzte 20 Zeilen):"
       echo "------------------------------"
