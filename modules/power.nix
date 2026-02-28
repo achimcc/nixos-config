@@ -72,4 +72,31 @@
 
   # Powertop Auto-Tune (optional, zusätzliche Optimierungen)
   powerManagement.powertop.enable = true;
+
+  # ==========================================
+  # SUSPEND WAKEUP-QUELLEN DEAKTIVIEREN
+  # ==========================================
+  # Problem: XHCI (USB) und Thunderbolt wecken den Laptop im s2idle-Suspend
+  # → Häufige Micro-Wakeups → Akku leer über Nacht
+  # LID und SLPB (Sleep Button) bleiben aktiv für normales Aufwachen
+  systemd.services.disable-wakeup-sources = {
+    description = "Disable spurious ACPI wakeup sources for s2idle";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      # Deaktiviere Wakeup-Quellen die spurious Wakeups im s2idle verursachen
+      for dev in XHCI TXHC TDM0 TDM1 TRP0 TRP2 RP01 RP09 RP10; do
+        if grep -q "$dev.*enabled" /proc/acpi/wakeup 2>/dev/null; then
+          echo "$dev" > /proc/acpi/wakeup
+          echo "Wakeup-Quelle $dev deaktiviert"
+        fi
+      done
+      echo "Aktive Wakeup-Quellen:"
+      grep enabled /proc/acpi/wakeup
+    '';
+  };
 }

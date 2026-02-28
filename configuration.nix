@@ -59,10 +59,13 @@
     # CPU Mitigations (Spectre/Meltdown)
     "mitigations=auto,nosmt"       # Alle CPU-Mitigations, SMT deaktivieren (Performance-Hit)
 
-    # Suspend/Resume-Stabilität (ThinkPad T14 Gen 5 / Intel Lunar Lake)
-    # Fix für spontane Reboots nach Resume (siehe Debugging 2026-02-07)
-    "mem_sleep_default=deep"       # S3 Suspend statt S0ix (zuverlässiger auf neuer HW)
-    "intel_idle.max_cstate=1"      # Limitiere CPU C-States (verhindert Resume-Freeze)
+    # Suspend/Resume (ThinkPad T14 Gen 5 / Intel Meteor Lake)
+    # BIOS unterstützt NUR s2idle (Modern Standby), KEIN S3 Deep Sleep
+    # s2idle braucht tiefe CPU C-States (C6-C10) für Stromsparen
+    # ENTFERNT 2026-02-28: mem_sleep_default=deep (wurde ignoriert, Firmware nur s2idle)
+    # ENTFERNT 2026-02-28: intel_idle.max_cstate=1 (verhinderte tiefe C-States →
+    #   Akku leer über Nacht im Suspend, da CPU in C1 blieb statt C6+)
+    # Die "Resume-Freezes" von 2026-02-07 waren GPU-Crashes (jetzt via cairo/PSR=0 behoben)
 
     # Intel i915 Meteor Lake Stabilitätsfix (GPU device ID 7dd5)
     # PROBLEM 1: "Selective fetch area calculation failed in pipe A" → harter Crash
