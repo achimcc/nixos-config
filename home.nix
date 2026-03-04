@@ -560,13 +560,13 @@ PYEOF
           echo "Phase 1: Versuche Sanitisierung der Keyring-Datei..."
 
           # Daemon beenden für Reparatur
-          ${pkgs.procps}/bin/pkill -9 -f gnome-keyring-daemon || true
+          ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
           sleep 1
           for i in 1 2 3 4 5; do
-            if ! ${pkgs.procps}/bin/pgrep -f gnome-keyring-daemon >/dev/null 2>&1; then
+            if ! ${pkgs.procps}/bin/pgrep -u $(id -u) -f gnome-keyring-daemon >/dev/null 2>&1; then
               break
             fi
-            ${pkgs.procps}/bin/pkill -9 -f gnome-keyring-daemon || true
+            ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
             sleep 1
           done
           rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
@@ -586,7 +586,7 @@ PYEOF
               SANITIZED=true
               # Golden Backup aktualisieren mit sauberer Version
               ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
-                -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
+                -C "$KEYRING_DIR" default Default_keyring.keyring login.keyring user.keystore 2>/dev/null || true
               echo "Golden Backup mit sauberer Version aktualisiert."
             else
               echo "Sanitisierung reicht nicht aus. Fahre mit Restore fort."
@@ -604,7 +604,7 @@ PYEOF
               echo "Phase 2: Stelle Golden Backup wieder her..."
 
               # Daemon sicher beenden (falls durch Sanitisierungstest neugestartet)
-              ${pkgs.procps}/bin/pkill -9 -f gnome-keyring-daemon || true
+              ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
               sleep 1
               rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
 
@@ -634,7 +634,7 @@ PYEOF
                 echo "Phase 3: Versuche tägliches Backup..."
                 LATEST_DAILY=$(ls -t "$BACKUP_DIR"/keyring-backup-*.tar.gz 2>/dev/null | head -1)
                 if [ -n "$LATEST_DAILY" ]; then
-                  ${pkgs.procps}/bin/pkill -9 -f gnome-keyring-daemon || true
+                  ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
                   sleep 1
                   rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
                   rm -f "$KEYRING_DIR"/*.keyring "$KEYRING_DIR"/default "$KEYRING_DIR"/login.keyring
@@ -651,7 +651,7 @@ PYEOF
                      grep -q "invalid or unrecognized format"; then
                     echo "Tägliches Backup $(basename "$LATEST_DAILY") erfolgreich wiederhergestellt!"
                     ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
-                      -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
+                      -C "$KEYRING_DIR" default Default_keyring.keyring login.keyring user.keystore 2>/dev/null || true
                   else
                     echo "FEHLER: Auch tägliches Backup korrupt. Manueller Eingriff nötig."
                     exit 1
@@ -676,7 +676,7 @@ PYEOF
           if sanitize_keyring "$KEYRING_FILE"; then
             echo "Präventive Sanitisierung: Problematische Einträge entfernt."
             # Daemon muss neu laden
-            ${pkgs.procps}/bin/pkill -9 -f gnome-keyring-daemon || true
+            ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
             sleep 1
             rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
             ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
@@ -699,7 +699,7 @@ PYEOF
             # Golden Backup erstellen/aktualisieren (VOR posteo-keyring-sync Schreibvorgängen!)
             echo "Erstelle Golden Backup..."
             ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
-              -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
+              -C "$KEYRING_DIR" default Default_keyring.keyring login.keyring user.keystore 2>/dev/null || true
             echo "Golden Backup aktualisiert."
           fi
         fi
@@ -807,11 +807,16 @@ PYEOF
 
         TIMESTAMP=$(${pkgs.coreutils}/bin/date +%Y-%m-%d_%H-%M-%S)
 
+        # Nur sichern wenn default auf Default_keyring zeigt
+        CURRENT_DEFAULT=$(cat "$KEYRING_DIR/default" 2>/dev/null || echo "")
+        if [ "$CURRENT_DEFAULT" != "Default_keyring" ]; then
+          echo "SKIP: Keyring nicht im erwarteten Zustand (default='$CURRENT_DEFAULT')"
+          exit 0
+        fi
+
         echo "Erstelle Keyring-Backup: $TIMESTAMP"
         ${pkgs.gnutar}/bin/tar -czf "$BACKUP_DIR/keyring-backup-$TIMESTAMP.tar.gz" \
-          -C "$KEYRING_DIR" \
-          --exclude="backups" \
-          . 2>/dev/null || true
+          -C "$KEYRING_DIR" default Default_keyring.keyring login.keyring user.keystore 2>/dev/null || true
 
         # Alte Backups löschen (behalte nur die letzten 7)
         cd "$BACKUP_DIR"
