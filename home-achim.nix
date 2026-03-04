@@ -905,6 +905,14 @@ PYEOF
         identityFile = "~/.ssh/hetzner-vps";
         identitiesOnly = true;
       };
+      "remarkable" = {
+        hostname = "10.11.99.1";
+        user = "root";
+        extraOptions = {
+          PreferredAuthentications = "password";
+          PubkeyAuthentication = "no";
+        };
+      };
     };
   };
 
