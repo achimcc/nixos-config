@@ -40,7 +40,7 @@ let
   localNetwork = {
     subnet = "192.168.178.0/24";
     gateway = "192.168.178.1";
-    printerIP = "192.168.178.28";
+    printerIP = "192.168.178.156";
   };
 
   # Second local network (server network)
