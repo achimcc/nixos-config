@@ -1122,6 +1122,10 @@ PYEOF
     enable = true;
     package = null; # Paket kommt via Firejail-Wrapper aus network.nix
     settings = {
+      # Drucken: System-Dialog nutzen (interne Preview hängt bei "Preparing preview...")
+      # Siehe: https://github.com/NixOS/nixpkgs/issues/272907
+      "print.prefer_system_dialog" = true;
+
       # Privacy & Fingerprinting-Schutz
       "privacy.clearOnShutdown.history" = false;
       "privacy.clearOnShutdown.cookies" = false;
