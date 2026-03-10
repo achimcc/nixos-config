@@ -120,6 +120,7 @@
   # Automatische Regel-Updates (täglich)
   systemd.services.suricata-update = {
     description = "Update Suricata Rules";
+    restartIfChanged = false; # Kein Neustart bei nixos-rebuild (läuft via Timer)
 
     serviceConfig = {
       Type = "oneshot";
