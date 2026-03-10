@@ -573,6 +573,12 @@ in
         ];
       };
 
+      # Google Chrome - Streaming-Browser (Netflix, etc.) mit Widevine DRM
+      google-chrome = {
+        executable = "${pkgs.google-chrome}/bin/google-chrome-stable";
+        profile = "${pkgs.firejail}/etc/firejail/google-chrome.profile";
+      };
+
       # LibreWolf - Privacy Browser mit AppArmor + Firejail
       # AppArmor-Profil siehe modules/apparmor-profiles.nix
       # CUSTOM: Eigenes minimalistisches Profil wegen Download-Ordner Problemen
@@ -655,6 +661,7 @@ in
     tor-browser
     mullvad-browser  # Maximum Anti-Fingerprinting (Firejail-wrapped)
     librewolf
+    google-chrome  # Streaming (Netflix, etc.) — Widevine DRM (Firejail-wrapped)
     freetube
     logseq
     discord
