@@ -363,6 +363,7 @@ in
   # (Kill Switch), nur IPs im Set werden durchgelassen.
   systemd.services.proton-api-update = {
     description = "Update ProtonVPN API IPs in nftables set";
+    restartIfChanged = false; # Kein Neustart bei nixos-rebuild (läuft via Timer)
     after = [ "nftables.service" "network-online.target" ];
     wants = [ "network-online.target" ];
     wantedBy = [ "multi-user.target" ];
