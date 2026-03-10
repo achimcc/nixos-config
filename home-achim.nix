@@ -113,7 +113,7 @@ in
     czkawka-full # Duplikate-Finder mit GUI (ähnliche Bilder, leere Ordner etc.)
 
     # --- AUDIO ---
-    helvum # GTK Patchbay für PipeWire
+    crosspipe # PipeWire Patchbay (Ersatz für helvum)
     easyeffects # Equalizer & Audio-Effekte für PipeWire
     lsp-plugins # Audio-Plugins (Abhängigkeit für EasyEffects-Presets)
 
