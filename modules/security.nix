@@ -441,6 +441,7 @@
   # Scan-Service für versteckte Prozesse
   systemd.services.unhide-check = {
     description = "Unhide Hidden Process Scanner";
+    restartIfChanged = false; # Kein Neustart bei nixos-rebuild (läuft via Timer)
     path = [ pkgs.unhide pkgs.procps ];
     serviceConfig = {
       Type = "oneshot";
@@ -455,6 +456,7 @@
   # Scan-Service für versteckte TCP/UDP Ports
   systemd.services.unhide-tcp-check = {
     description = "Unhide Hidden TCP/UDP Port Scanner";
+    restartIfChanged = false; # Kein Neustart bei nixos-rebuild (läuft via Timer)
     path = [ pkgs.unhide pkgs.nettools pkgs.iproute2 ];
     serviceConfig = {
       Type = "oneshot";
@@ -530,6 +532,9 @@
     };
   };
 
+  # clamdscan nicht bei nixos-rebuild neu starten (läuft via Timer)
+  systemd.services.clamdscan.restartIfChanged = false;
+
   # Log-Verzeichnisse erstellen
   systemd.tmpfiles.rules = [
     "d /var/log/clamav 0750 clamav clamav -"
@@ -539,6 +544,7 @@
   # clamonacc Service für Echtzeit-Scanning
   systemd.services.clamonacc = {
     description = "ClamAV On-Access Scanner";
+    restartIfChanged = false; # Kein Neustart bei nixos-rebuild (Echtzeit-Scanner)
     after = [ "clamav-daemon.service" "systemd-tmpfiles-setup.service" ];
     requires = [ "clamav-daemon.service" ];
     wantedBy = [ "multi-user.target" ];
