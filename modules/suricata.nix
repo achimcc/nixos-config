@@ -169,7 +169,7 @@
     timerConfig = {
       OnCalendar = "daily";
       RandomizedDelaySec = "2h";
-      Persistent = true;
+      Persistent = lib.mkForce false; # true triggert sofort bei nixos-rebuild wenn Timer überfällig
     };
   };
 

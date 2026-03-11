@@ -366,7 +366,8 @@ in
     restartIfChanged = false; # Kein Neustart bei nixos-rebuild (läuft via Timer)
     after = [ "nftables.service" "network-online.target" ];
     wants = [ "network-online.target" ];
-    wantedBy = [ "multi-user.target" ];
+    # KEIN wantedBy multi-user.target — blockiert sonst nixos-rebuild switch!
+    # Timer mit OnBootSec=30s startet den Service nach dem Boot automatisch.
 
     serviceConfig = {
       Type = "oneshot";
