@@ -649,6 +649,15 @@ in
         executable = "${pkgs.spotify}/bin/spotify";
         profile = "${pkgs.firejail}/etc/firejail/spotify.profile";
       };
+
+      # LibreOffice - Office-Suite mit Sandbox
+      libreoffice = {
+        executable = "${pkgs.libreoffice-fresh}/bin/libreoffice";
+        profile = "${pkgs.firejail}/etc/firejail/libreoffice.profile";
+        extraArgs = [
+          "--whitelist=/home/achim/Downloads"
+        ];
+      };
     };
   };
 
@@ -669,5 +678,6 @@ in
     thunderbird
     signal-desktop  # Messenger (Firejail-wrapped)
     pkgs-unstable.vscodium  # VSCodium aus unstable (für aktuelle Version)
+    libreoffice-fresh  # Office-Suite (Firejail-wrapped)
   ];
 }
