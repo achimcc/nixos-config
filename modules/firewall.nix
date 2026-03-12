@@ -94,17 +94,7 @@ in
   #
   # Service-Name ist "nftables.service" (NixOS-managed)!
 
-  # Override nftables.service to start AFTER network-online.target
-  systemd.services.nftables = {
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    # KRITISCH: mkForce überschreibt NixOS-Default (before=network-pre.target)
-    # um systemd ordering cycle zu vermeiden. Ohne mkForce: ordering cycle
-    # → systemd entfernt NetworkManager aus Boot → kein Netzwerk!
-    # KRITISCH: mkForce überschreibt NixOS-Default (before=network-pre.target)
-    # um systemd ordering cycle zu vermeiden. Leere Liste = kein before-Constraint.
-    before = lib.mkForce [ ];
-  };
+  # Override nftables.service: NACH network-online starten + API-IPs sofort seeden
 
   networking.nftables = {
     enable = true;
@@ -361,13 +351,35 @@ in
   # Löst ProtonVPN-API-Domains auf und füllt das nftables Set proton_api.
   # Ohne diesen Service ist TCP 443 auf physischen Interfaces komplett blockiert
   # (Kill Switch), nur IPs im Set werden durchgelassen.
+  # Beim nftables-Start: gespeicherte API-IPs sofort laden (kein DNS nötig).
+  # Verhindert Race Condition: VPN-GUI versucht Verbindung bevor proton-api-update läuft.
+  systemd.services.nftables = {
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    before = lib.mkForce [ ];
+    serviceConfig.ExecStartPost = pkgs.writeShellScript "proton-api-seed" ''
+      SEED_FILE="/var/lib/proton-api-seed"
+      if [ -f "$SEED_FILE" ]; then
+        COUNT=0
+        while IFS= read -r ip; do
+          [ -z "$ip" ] && continue
+          ${pkgs.nftables}/bin/nft add element inet filter proton_api \
+            "{ $ip timeout 2h }" 2>/dev/null && COUNT=$((COUNT + 1)) || true
+        done < "$SEED_FILE"
+        echo "✓ proton-api-seed: $COUNT API-IPs aus Seed-Datei geladen"
+      else
+        echo "⚠ proton-api-seed: Keine Seed-Datei gefunden (erster Boot?)"
+      fi
+    '';
+  };
+
   systemd.services.proton-api-update = {
     description = "Update ProtonVPN API IPs in nftables set";
     restartIfChanged = false; # Kein Neustart bei nixos-rebuild (läuft via Timer)
     after = [ "nftables.service" "network-online.target" ];
     wants = [ "network-online.target" ];
     # KEIN wantedBy multi-user.target — blockiert sonst nixos-rebuild switch!
-    # Timer mit OnBootSec=30s startet den Service nach dem Boot automatisch.
+    # Timer mit OnBootSec=15s startet den Service nach dem Boot automatisch.
 
     serviceConfig = {
       Type = "oneshot";
@@ -380,12 +392,15 @@ in
       DOMAINS="api.protonvpn.ch account.protonvpn.ch vpn-api.proton.me account.proton.me"
       TIMEOUT="2h"
       RESOLVECTL="${pkgs.systemd}/bin/resolvectl"
+      SEED_FILE="/var/lib/proton-api-seed"
+      API_IPS_COLLECTED=""
 
       # Phase 1: API-Domain-IPs auflösen (Bootstrap - damit curl zur API funktioniert)
+      # timeout 5: verhindert 60s-Wartezeit bei nicht auflösbaren Domains
       echo "=== Phase 1: API-Domain-IPs ==="
       for domain in $DOMAINS; do
-        # resolvectl: D-Bus zu systemd-resolved — funktioniert immer in systemd Services
-        IPS=$($RESOLVECTL query -4 "$domain" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u || true)
+        IPS=$(timeout 5 $RESOLVECTL query -4 "$domain" 2>/dev/null \
+          | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u || true)
 
         if [ -z "$IPS" ]; then
           echo "⚠ Keine IPs für $domain gefunden"
@@ -395,8 +410,16 @@ in
         for ip in $IPS; do
           nft add element inet filter proton_api "{ $ip timeout $TIMEOUT }" 2>/dev/null || true
           echo "✓ $domain → $ip"
+          API_IPS_COLLECTED="$API_IPS_COLLECTED
+$ip"
         done
       done
+
+      # API-IPs persistent speichern (für schnelles Seeden beim nächsten Boot)
+      if [ -n "$API_IPS_COLLECTED" ]; then
+        echo "$API_IPS_COLLECTED" | grep -v '^$' | sort -u > "$SEED_FILE"
+        echo "✓ $(wc -l < "$SEED_FILE") API-IPs in $SEED_FILE gespeichert"
+      fi
 
       # Phase 2: VPN-Server-IPs aus lokalem ProtonVPN-Cache laden
       # API braucht Auth-Token → lokaler Cache ist zuverlässiger
@@ -429,9 +452,9 @@ in
     description = "Periodically update ProtonVPN API IPs";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnBootSec = "30s";
+      OnBootSec = "15s";       # war 30s – früher starten
       OnUnitActiveSec = "30min";
-      RandomizedDelaySec = "60s";
+      # Kein RandomizedDelaySec – Script nutzt lokalen Cache, kein API-Hammering
     };
   };
 }
