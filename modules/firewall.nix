@@ -353,24 +353,36 @@ in
   # (Kill Switch), nur IPs im Set werden durchgelassen.
   # Beim nftables-Start: gespeicherte API-IPs sofort laden (kein DNS nötig).
   # Verhindert Race Condition: VPN-GUI versucht Verbindung bevor proton-api-update läuft.
+  # Separater Service statt ExecStartPost (NixOS nftables.nix belegt ExecStartPost bereits).
   systemd.services.nftables = {
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
     before = lib.mkForce [ ];
-    serviceConfig.ExecStartPost = pkgs.writeShellScript "proton-api-seed" ''
-      SEED_FILE="/var/lib/proton-api-seed"
-      if [ -f "$SEED_FILE" ]; then
-        COUNT=0
-        while IFS= read -r ip; do
-          [ -z "$ip" ] && continue
-          ${pkgs.nftables}/bin/nft add element inet filter proton_api \
-            "{ $ip timeout 2h }" 2>/dev/null && COUNT=$((COUNT + 1)) || true
-        done < "$SEED_FILE"
-        echo "✓ proton-api-seed: $COUNT API-IPs aus Seed-Datei geladen"
-      else
-        echo "⚠ proton-api-seed: Keine Seed-Datei gefunden (erster Boot?)"
-      fi
-    '';
+  };
+
+  systemd.services.proton-api-seed = {
+    description = "Seed ProtonVPN API IPs into nftables set from persistent cache";
+    after = [ "nftables.service" ];
+    requires = [ "nftables.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = false;
+      ExecStart = pkgs.writeShellScript "proton-api-seed" ''
+        SEED_FILE="/var/lib/proton-api-seed"
+        if [ -f "$SEED_FILE" ]; then
+          COUNT=0
+          while IFS= read -r ip; do
+            [ -z "$ip" ] && continue
+            ${pkgs.nftables}/bin/nft add element inet filter proton_api \
+              "{ $ip timeout 2h }" 2>/dev/null && COUNT=$((COUNT + 1)) || true
+          done < "$SEED_FILE"
+          echo "✓ proton-api-seed: $COUNT API-IPs geladen"
+        else
+          echo "⚠ proton-api-seed: Keine Seed-Datei (erster Boot?)"
+        fi
+      '';
+    };
   };
 
   systemd.services.proton-api-update = {
