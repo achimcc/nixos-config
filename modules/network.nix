@@ -522,6 +522,10 @@ in
     noblacklist /run/user/1000/gnupg
     whitelist /run/user/1000/gnupg
 
+    # GPG Keyring + Konfiguration (gpg-Prozess braucht ~/.gnupg auch mit keyboxd)
+    noblacklist ''${HOME}/.gnupg
+    whitelist ''${HOME}/.gnupg
+
     # GPG Public Key Import (dedizierter Ordner für Key-Austausch)
     noblacklist ''${HOME}/.config/thunderbird-gpg
     whitelist ''${HOME}/.config/thunderbird-gpg
