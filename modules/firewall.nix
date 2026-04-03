@@ -68,11 +68,15 @@ in
   # Note: counter functionality is built into nf_tables, not a separate module
   boot.kernelModules = [
     "nf_tables"
+    "nf_nat"
+    "nf_conntrack"
     "nft_ct"
     "nft_limit"
     "nft_nat"
     "nft_reject"
     "nft_reject_inet"
+    "tun"       # Tailscale (und andere userspace VPNs) brauchen TUN-Devices
+    "xt_connmark"  # Tailscale Policy-Routing
   ];
 
   # ==========================================
@@ -120,6 +124,12 @@ in
           flags timeout
         }
 
+        # Tailscale coordination server IPs - populated by tailscale-api-update.service
+        set tailscale_api {
+          type ipv4_addr
+          flags timeout
+        }
+
         # INPUT CHAIN
         chain input {
           type filter hook input priority filter; policy drop;
@@ -129,6 +139,9 @@ in
 
           # 2. Established/Related connections
           ct state established,related accept
+
+          # 2b. Tailscale - eingehender Traffic
+          iifname "tailscale0" accept
 
           # 3. DHCP responses (server:67 -> client:68) - only from gateway
           ip saddr ${localNetwork.gateway} udp sport 67 udp dport 68 accept
@@ -154,6 +167,9 @@ in
           iifname "proton0" udp dport ${toString syncthingPorts.quic} accept
           iifname "tun*" udp dport ${toString syncthingPorts.quic} accept
           iifname "wg*" udp dport ${toString syncthingPorts.quic} accept
+
+          # 7b. Rechner 192.168.178.51 - uneingeschränkter Zugriff
+          ip saddr 192.168.178.51 accept
 
           # 8. Second local network (server network) - restricted ports
           ip saddr ${secondLocalNetwork.subnet} tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
@@ -190,6 +206,10 @@ in
           oifname "proton0" accept
           oifname "tun*" accept
           oifname "wg*" accept
+          oifname "tailscale0" accept
+
+          # 4a-ts. Tailscale UDP-Handshake
+          udp dport 41641 accept
 
           # 4a. VPN WireGuard-Handshake (UDP auf physischen Interfaces)
           # WireGuard-Handshake ist verschlüsselt - kein Daten-Leak möglich
@@ -202,6 +222,12 @@ in
           # RISIKO: VPN-Server TCP-Erreichbarkeitscheck wird blockiert (nicht im Set).
           # ProtonVPN fällt auf UDP zurück oder Verbindung schlägt fehl → dann iterieren.
           oifname != { "proton-cli", "proton0" } ip daddr @proton_api tcp dport ${toString vpnPorts.https} accept
+
+          # 4c. Tailscale Coordination Server (controlplane.tailscale.com, login.tailscale.com)
+          # ERFORDERLICH vor tailscale0 existiert (Erstverbindung/Authentifizierung)
+          oifname != "tailscale0" ip daddr @tailscale_api tcp dport ${toString vpnPorts.https} accept
+          # STUN/DERP NAT-Traversal (UDP 3478)
+          oifname != "tailscale0" udp dport 3478 accept
 
           # 5. DHCP requests (client:68 -> broadcast:67)
           udp sport 68 udp dport 67 accept
@@ -230,6 +256,18 @@ in
           # 11. Printer access
           ip daddr ${localNetwork.printerIP} tcp dport 631 accept
           ip daddr ${localNetwork.printerIP} tcp dport 9100 accept
+
+          # 11a. Proxmox server
+          ip daddr 192.168.178.100 tcp dport { 22, 8006 } accept
+
+          # 11b. Jellyfin server (192.168.178.49)
+          ip daddr 192.168.178.49 tcp dport { 22, 8096, 8920 } accept
+
+          # 11d. ICMP ping für gesamtes Heimnetz (z.B. nmap -sn)
+          ip daddr ${localNetwork.subnet} icmp type echo-request accept
+
+          # 11c. Rechner 192.168.178.51 - uneingeschränkter Zugriff
+          ip daddr 192.168.178.51 accept
 
           # 12. Syncthing - Local network only
           ip daddr ${localNetwork.subnet} tcp dport ${toString syncthingPorts.tcp} accept
@@ -266,7 +304,23 @@ in
         chain forward {
           type filter hook forward priority filter; policy drop;
 
-          # Block all forwarding (logging temporarily disabled - this machine is not a router)
+          # Tailscale: Forward zwischen tailscale0 und anderen Interfaces
+          iifname "tailscale0" accept
+          oifname "tailscale0" accept
+        }
+      }
+
+      # ==========================================
+      # TAILSCALE NAT (ersetzt iptables ts-postrouting)
+      # ==========================================
+      # Tailscale versucht via iptables eine MASQUERADE-Regel zu setzen.
+      # Da wir reines nftables nutzen, replizieren wir die Regel hier.
+      # Betrifft: Exit Nodes und Subnet Routing.
+      table ip ts-nat {
+        chain ts-postrouting {
+          type nat hook postrouting priority srcnat; policy accept;
+          # Tailscale CGNAT-Range (100.64.0.0/10) über physische Interfaces maskieren
+          oifname != "tailscale0" ip saddr 100.64.0.0/10 masquerade
         }
       }
     '';
@@ -467,6 +521,125 @@ $ip"
       OnBootSec = "15s";       # war 30s – früher starten
       OnUnitActiveSec = "30min";
       # Kein RandomizedDelaySec – Script nutzt lokalen Cache, kein API-Hammering
+    };
+  };
+
+  # ==========================================
+  # TAILSCALE API IP UPDATE SERVICE
+  # ==========================================
+  # Löst Tailscale-Koordinationsserver-Domains auf und füllt das nftables Set tailscale_api.
+  # Ohne diesen Service kann tailscale up die Coordination Server nicht erreichen
+  # (TCP 443 auf physischen Interfaces blockiert durch Kill Switch).
+
+  systemd.services.tailscale-api-seed = {
+    description = "Seed Tailscale coordination server IPs into nftables set from persistent cache";
+    after = [ "nftables.service" ];
+    requires = [ "nftables.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = false;
+      ExecStart = pkgs.writeShellScript "tailscale-api-seed" ''
+        SEED_FILE="/var/lib/tailscale-api-seed"
+        if [ -f "$SEED_FILE" ]; then
+          COUNT=0
+          while IFS= read -r ip; do
+            [ -z "$ip" ] && continue
+            ${pkgs.nftables}/bin/nft add element inet filter tailscale_api \
+              "{ $ip timeout 2h }" 2>/dev/null && COUNT=$((COUNT + 1)) || true
+          done < "$SEED_FILE"
+          echo "✓ tailscale-api-seed: $COUNT IPs geladen"
+        else
+          echo "⚠ tailscale-api-seed: Keine Seed-Datei (erster Boot?)"
+        fi
+      '';
+    };
+  };
+
+  systemd.services.tailscale-api-update = {
+    description = "Update Tailscale coordination server IPs in nftables set";
+    restartIfChanged = false;
+    after = [ "nftables.service" "network-online.target" ];
+    wants = [ "network-online.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = false;
+    };
+
+    path = [ pkgs.nftables pkgs.gnugrep pkgs.curl pkgs.jq ];
+
+    script = ''
+      TIMEOUT="2h"
+      RESOLVECTL="${pkgs.systemd}/bin/resolvectl"
+      SEED_FILE="/var/lib/tailscale-api-seed"
+      IPS_COLLECTED=""
+
+      add_ip() {
+        local ip=$1 label=$2
+        ${pkgs.nftables}/bin/nft add element inet filter tailscale_api \
+          "{ $ip timeout $TIMEOUT }" 2>/dev/null || true
+        echo "✓ $label → $ip"
+        IPS_COLLECTED="$IPS_COLLECTED
+$ip"
+      }
+
+      resolve_domain() {
+        local domain=$1
+        local IPS
+        IPS=$(timeout 5 $RESOLVECTL query -4 "$domain" 2>/dev/null \
+          | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u || true)
+        if [ -z "$IPS" ]; then
+          echo "⚠ Keine IPs für $domain"
+          return
+        fi
+        for ip in $IPS; do add_ip "$ip" "$domain"; done
+      }
+
+      # Phase 1: Koordinations- und Log-Domains
+      echo "=== Phase 1: Koordinations-Domains ==="
+      for domain in controlplane.tailscale.com login.tailscale.com log.tailscale.com; do
+        resolve_domain "$domain"
+      done
+
+      # Phase 2: DERP Relay Server aus Tailscale DERP Map
+      echo ""
+      echo "=== Phase 2: DERP Relay Server ==="
+      DERP_MAP=$(curl -s --max-time 15 \
+        "https://controlplane.tailscale.com/derpmap/default" 2>/dev/null || true)
+      if [ -n "$DERP_MAP" ]; then
+        DERP_HOSTS=$(echo "$DERP_MAP" | jq -r '.Regions[].Nodes[].HostName' 2>/dev/null \
+          | sort -u || true)
+        COUNT=0
+        for host in $DERP_HOSTS; do
+          IPS=$(timeout 5 $RESOLVECTL query -4 "$host" 2>/dev/null \
+            | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u || true)
+          for ip in $IPS; do
+            add_ip "$ip" "$host"
+            COUNT=$((COUNT + 1))
+          done
+        done
+        echo "✓ $COUNT DERP-IPs aufgelöst"
+      else
+        echo "⚠ DERP Map nicht abrufbar (kein Netz?)"
+      fi
+
+      if [ -n "$IPS_COLLECTED" ]; then
+        echo "$IPS_COLLECTED" | grep -v '^$' | sort -u > "$SEED_FILE"
+        echo "✓ $(wc -l < "$SEED_FILE") IPs in $SEED_FILE gespeichert"
+      fi
+
+      TOTAL=$(${pkgs.nftables}/bin/nft list set inet filter tailscale_api | grep -c "timeout" || echo "0")
+      echo "=== Gesamt: $TOTAL IPs im tailscale_api Set ==="
+    '';
+  };
+
+  systemd.timers.tailscale-api-update = {
+    description = "Periodically update Tailscale coordination server IPs";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "15s";
+      OnUnitActiveSec = "30min";
     };
   };
 }
