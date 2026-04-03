@@ -244,6 +244,28 @@
   services.tor.client.enable = true;
 
   # ==========================================
+  # TAILSCALE VPN
+  # ==========================================
+  services.tailscale = {
+    enable = true;
+    useRoutingFeatures = "client";  # Erlaubt Exit Nodes von anderen Tailscale-Geräten zu nutzen
+  };
+
+  # Deaktiviert Tailscale's eigene iptables-Verwaltung (--nfmask nicht kompatibel mit iptables-nft).
+  # Equivalent nftables-Regeln sind in modules/firewall.nix (ts-nat + forward chain).
+  systemd.services.tailscale-netfilter-off = {
+    description = "Set Tailscale netfilter-mode to off";
+    after = [ "tailscaled.service" ];
+    requires = [ "tailscaled.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.tailscale}/bin/tailscale set --netfilter-mode=off";
+    };
+  };
+
+  # ==========================================
   # SSD OPTIMIERUNG
   # ==========================================
 
