@@ -174,15 +174,19 @@
   };
 
   # Log-Rotation für Suricata-Logs
+  # copytruncate: Datei wird in-place geleert — Suricata muss den File-Descriptor
+  # nicht neu öffnen. Ohne das ignoriert Suricata die rotierte Datei und schreibt
+  # weiter in den alten (jetzt rotierten) Descriptor → Log läuft unbegrenzt voll.
   services.logrotate.settings.suricata = {
     files = "/var/log/suricata/*.log /var/log/suricata/*.json";
     frequency = "daily";
-    rotate = 7;
+    size = "200M";    # Auch innerhalb eines Tages rotieren wenn > 200 MB
+    rotate = 5;
     compress = true;
     delaycompress = true;
     missingok = true;
     notifempty = true;
-    postrotate = "${pkgs.systemd}/bin/systemctl reload suricata.service";
+    copytruncate = true;
   };
 
   # Pakete für Suricata und Log-Analyse

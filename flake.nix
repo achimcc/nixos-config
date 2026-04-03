@@ -15,7 +15,7 @@
 
     # Sops-nix für verschlüsselte Secrets (gepinnt auf geprüften Commit)
     sops-nix = {
-      url = "github:Mic92/sops-nix/5e8fae80726b66e9fec023d21cd3b3e638597aa9";
+      url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

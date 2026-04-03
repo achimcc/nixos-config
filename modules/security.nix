@@ -588,4 +588,23 @@
   # GNOME Keyring bei Login automatisch entsperren (erstellt "login"-Collection)
   security.pam.services.login.enableGnomeKeyring = true;
   security.pam.services.gdm-password.enableGnomeKeyring = true;
+
+  # Journal-Größe begrenzen
+  services.journald.extraConfig = ''
+    SystemMaxUse=500M
+    SystemKeepFree=2G
+    MaxRetentionSec=30day
+  '';
+
+  # Log-Rotation für sudo.log
+  services.logrotate.settings.sudo = {
+    files = "/var/log/sudo.log";
+    frequency = "weekly";
+    rotate = 4;
+    compress = true;
+    delaycompress = true;
+    missingok = true;
+    notifempty = true;
+    copytruncate = true;
+  };
 }

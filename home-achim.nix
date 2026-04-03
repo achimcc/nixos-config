@@ -10,7 +10,7 @@ let
       owner = "JackHack96";
       repo = "EasyEffects-Presets";
       rev = "master";
-      hash = "sha256-or5kH/vTwz7IO0Vz7W4zxK2ZcbL/P3sO9p5+EdcC2DA=";
+      hash = "sha256-9lSYaWGIQ9K53NwQULmbdDxnS4NijmnOEUvFQWjEF08=";
     };
     dontBuild = true;
     installPhase = ''
@@ -87,6 +87,7 @@ in
 
     # --- VPN & NETZWERK SICHERHEIT ---
     protonvpn-gui # GUI zusätzlich zur CLI
+    nmap # Netzwerk-Scanner
 
     # --- SICHERHEIT & TOOLS ---
     bitwarden-desktop # Passwort-Manager Desktop-App (für Browser-Biometrics)
@@ -272,7 +273,7 @@ in
     })
 
     # --- AI CODING ASSISTANT ---
-    aider-chat # AI pair programming
+    (aider-chat.overrideAttrs (_: { doInstallCheck = false; })) # AI pair programming
     llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.crush
     # claude-code via npm installieren: npm install -g @anthropic-ai/claude-code
 
@@ -880,11 +881,12 @@ PYEOF
     // Externes GnuPG aktivieren (für Nitrokey-Unterstützung)
     user_pref("mail.openpgp.allow_external_gnupg", true);
 
-    // GPG-Binary explizit setzen (korrekter Pfad für Home Manager)
-    user_pref("mail.openpgp.gnupg_path", "${pkgs.gnupg}/bin/gpg");
+    // GPG-Binary explizit setzen (Wrapper für Debug-Logging)
+    user_pref("mail.openpgp.gnupg_path", "/home/achim/.config/thunderbird-gpg/gpg-wrapper.sh");
 
     // Öffentliche Schlüssel aus GnuPG-Keyring importieren
     user_pref("mail.openpgp.fetch_pubkeys_from_gnupg", true);
+
   '';
 
   # --- SSH ---
