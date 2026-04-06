@@ -88,6 +88,7 @@ in
     # --- VPN & NETZWERK SICHERHEIT ---
     protonvpn-gui # GUI zusätzlich zur CLI
     nmap # Netzwerk-Scanner
+    colmena # NixOS Deployment Tool
 
     # --- SICHERHEIT & TOOLS ---
     bitwarden-desktop # Passwort-Manager Desktop-App (für Browser-Biometrics)
@@ -893,6 +894,9 @@ PYEOF
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
+    extraConfig = ''
+      KexAlgorithms mlkem768x25519-sha256,curve25519-sha256,curve25519-sha256@libssh.org
+    '';
     matchBlocks = {
       # SSH-Keys automatisch zum Agent hinzufügen beim ersten Nutzen
       "*" = {
@@ -911,6 +915,40 @@ PYEOF
       "rusty-vault.de" = {
         identityFile = "~/.ssh/hetzner-vps";
         identitiesOnly = true;
+      };
+      "pve-host" = {
+        hostname = "100.72.129.125";
+        user = "admin";
+        identityFile = "~/.ssh/id_ed25519_sk";
+        identitiesOnly = true;
+        extraOptions.IdentityAgent = "none";
+      };
+      # Used by Colmena (connects via IP directly, uses agent with colmena key)
+      "100.72.129.125" = {
+        user = "admin";
+        identityFile = "~/.ssh/id_ed25519_colmena";
+        identitiesOnly = true;
+      };
+      # LXC Container (VLAN 20) — Colmena ProxyJump via pve-host
+      "10.10.20.*" = {
+        user = "admin";
+        identityFile = "~/.ssh/id_ed25519_colmena";
+        identitiesOnly = true;
+        proxyJump = "100.72.129.125";
+      };
+      # VMs (VLAN 30, DMZ) — proxy-01 ProxyJump via pve-host
+      "10.10.30.*" = {
+        user = "admin";
+        identityFile = "~/.ssh/id_ed25519_colmena";
+        identitiesOnly = true;
+        proxyJump = "100.72.129.125";
+      };
+      # LXC (VLAN 40, Media) — Colmena ProxyJump via pve-host
+      "10.10.40.*" = {
+        user = "admin";
+        identityFile = "~/.ssh/id_ed25519_colmena";
+        identitiesOnly = true;
+        proxyJump = "100.72.129.125";
       };
       "remarkable" = {
         hostname = "10.11.99.1";
@@ -1559,7 +1597,7 @@ PYEOF
     };
     extraConfig = ''
       $env.config.show_banner = false
-      $env.PATH = ($env.PATH | prepend $"($env.HOME)/.npm-global/bin")
+      $env.PATH = ($env.PATH | prepend $"($env.HOME)/.npm-global/bin" | prepend $"($env.HOME)/.cargo/bin")
 
       # Anthropic API Key aus sops Secret laden (für avante.nvim, crush, etc.)
       if ("/run/secrets/anthropic-api-key" | path exists) {
