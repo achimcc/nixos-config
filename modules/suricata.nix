@@ -12,16 +12,38 @@
       # Unterdrückt normale lokale Netzwerk-Discovery (MDNS, LLMNR)
       threshold-file = "/etc/suricata/threshold.config";
 
-      # Netzwerkinterfaces für Paket-Capture (nur VPN)
-      # WiFi (wlp0s20f3) ENTFERNT: siehe unten.
-      # tpacket-v3 + use-mmap DEAKTIVIERT: af-packet mmap Ring-Buffer löst
-      # kernel BUG at highmem.h:263 (kmap_local_page) auf Hardened Kernel aus.
-      # 5 Crashes: 02-16, 02-17, 02-20 (WiFi), 02-21, 02-22 (proton0).
-      # tpacket-v2 ohne mmap ist minimal langsamer, aber stabil.
+      # Netzwerkinterfaces für Paket-Capture
+      # tpacket-v3 + use-mmap DEAKTIVIERT auf allen Interfaces:
+      # af-packet mmap Ring-Buffer löst kernel BUG at highmem.h:263
+      # (kmap_local_page) auf Hardened Kernel aus. 5 Crashes waren dokumentiert
+      # (02-16, 02-17, 02-20 WiFi, 02-21, 02-22 proton0). tpacket-v2 ohne mmap
+      # ist minimal langsamer, aber stabil — gilt für VPN UND physische NICs.
+      #
+      # LAYERED DETECTION:
+      # - proton0: Entschlüsselter VPN-Traffic (nutzt Malware-Regelsatz voll)
+      # - wlp0s20f3 / enp0s31f6: Physischer Traffic (vor VPN-Tunnel) → erkennt
+      #   lokale Angriffe (ARP-Spoofing, DHCP-Rogue, MITM-Versuche, DNS-Hijack,
+      #   Scans im LAN) die am VPN vorbeilaufen würden.
       af-packet = [
         {
           interface = "proton0";  # VPN (ProtonVPN GUI WireGuard)
           cluster-id = 101;
+          cluster-type = "cluster_flow";
+          defrag = true;
+          use-mmap = false;
+          tpacket-v3 = false;
+        }
+        {
+          interface = "wlp0s20f3";  # WLAN (physisch)
+          cluster-id = 102;
+          cluster-type = "cluster_flow";
+          defrag = true;
+          use-mmap = false;
+          tpacket-v3 = false;
+        }
+        {
+          interface = "enp0s31f6";  # Ethernet (physisch)
+          cluster-id = 103;
           cluster-type = "cluster_flow";
           defrag = true;
           use-mmap = false;

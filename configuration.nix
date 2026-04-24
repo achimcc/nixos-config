@@ -30,10 +30,10 @@
   # BOOTLOADER (Secure Boot via Lanzaboote in modules/secureboot.nix)
   # ==========================================
 
-  # Kernel: Linux 6.12-hardened (Standard aus modules/security.nix)
-  # WICHTIG: Kernel 6.18 wurde getestet aber führt zu GuC init failure (-5)
-  # → System bootet nicht ohne nomodeset (siehe Debugging 2026-02-09)
-  # → Bleiben bei 6.12-hardened bis Kernel-Fix für Meteor Lake verfügbar
+  # Kernel: Linux 6.12 LTS (Standard aus modules/security.nix)
+  # linuxPackages_hardened wurde in nixpkgs-unstable entfernt → gewechselt auf linuxPackages_6_12
+  # WICHTIG: Kernel 6.18 führt zu GuC init failure (-5) → System bootet nicht ohne nomodeset
+  # → Bleiben bei 6.12 bis Kernel-Fix für Meteor Lake verfügbar
   # boot.kernelPackages = lib.mkForce pkgs.linuxPackages_latest;  # DEAKTIVIERT wegen GuC-Bug
 
   boot.kernelParams = [
@@ -42,22 +42,22 @@
     "iommu=force"
 
     # Memory Hardening (Exploit-Mitigation)
-    "init_on_alloc=1"              # Speicher bei Allokation nullen (verhindert Info-Leaks)
-    "init_on_free=1"               # Speicher bei Freigabe nullen (verhindert Use-After-Free)
-    "page_alloc.shuffle=1"         # Page-Allocator randomisieren (Anti-Exploit)
-    "randomize_kstack_offset=on"   # Kernel-Stack randomisieren (KASLR++)
-    "slab_nomerge"                 # Slab-Caches nicht mergen (verhindert Exploits)
+    "init_on_alloc=1" # Speicher bei Allokation nullen (verhindert Info-Leaks)
+    "init_on_free=1" # Speicher bei Freigabe nullen (verhindert Use-After-Free)
+    "page_alloc.shuffle=1" # Page-Allocator randomisieren (Anti-Exploit)
+    "randomize_kstack_offset=on" # Kernel-Stack randomisieren (KASLR++)
+    "slab_nomerge" # Slab-Caches nicht mergen (verhindert Exploits)
 
     # Kernel Lockdown
     # "integrity" erlaubt FIDO2-HID-Zugriff im Initrd (für Nitrokey LUKS-Entsperrung)
     # "confidentiality" würde USB-HID blockieren und FIDO2 verhindern
-    "lockdown=integrity"           # Kernel-Lockdown-Modus (verhindert unsigned Module)
+    "lockdown=integrity" # Kernel-Lockdown-Modus (verhindert unsigned Module)
 
     # Legacy-Features deaktivieren
-    "vsyscall=none"                # Vsyscall komplett deaktivieren (alt, unsicher)
+    "vsyscall=none" # Vsyscall komplett deaktivieren (alt, unsicher)
 
     # CPU Mitigations (Spectre/Meltdown)
-    "mitigations=auto,nosmt"       # Alle CPU-Mitigations, SMT deaktivieren (Performance-Hit)
+    "mitigations=auto,nosmt" # Alle CPU-Mitigations, SMT deaktivieren (Performance-Hit)
 
     # Suspend/Resume (ThinkPad T14 Gen 5 / Intel Meteor Lake)
     # BIOS unterstützt NUR s2idle (Modern Standby), KEIN S3 Deep Sleep
@@ -78,14 +78,14 @@
     #   2026-02-15: Nautilus/Vulkan → GPU HANG → Reboot
     #   2026-02-23: gnome-characters/Vulkan → GPU HANG → SLUB BUG → Reboot
     #   2026-02-27: gnome-characters/GL(!) → GPU HANG → SLUB BUG → Reboot (nach Resume)
-    "i915.enable_psr=0"             # PSR komplett deaktivieren (SF Crashes verhindern)
+    "i915.enable_psr=0" # PSR komplett deaktivieren (SF Crashes verhindern)
     # Falls weiterhin Crashes: "i915.enable_dc=0" als nächste Eskalation
   ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;
 
   # Dateisystem-Unterstützung (Kernel-Module)
-  boot.supportedFilesystems = [ "exfat" ];  # Für externe SSDs/USB-Sticks
+  boot.supportedFilesystems = [ "exfat" ]; # Für externe SSDs/USB-Sticks
 
   # ==========================================
   # LUKS Verschlüsselung mit FIDO2 (Nitrokey 3C NFC)
@@ -105,14 +105,25 @@
   # Swap: TPM2-basierte Entsperrung (für Hibernate/Resume ohne FIDO2-Interaktion)
   # Swap-Verschlüsselung explizit verifiziert (LUKS2)
   # MIGRATION: Von Keyfile auf TPM2 umgestellt (Keyfile auf unverschlüsselter /boot war extrahierbar)
-  # MANUELLE SCHRITTE VOR REBUILD:
-  #   1. sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7 \
-  #        /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
-  #   2. sudo nixos-rebuild switch
-  #   3. Reboot testen
-  #   4. Nach 2-3 erfolgreichen Reboots: alten Keyfile-Slot entfernen + Keyfile shredden
-  #      sudo systemd-cryptenroll --wipe-slot=password /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
-  #      sudo shred -vfz -n 5 /root/crypto_keyfile.bin && sudo rm /root/crypto_keyfile.bin
+  #
+  # PCR-POLICY: 0+7+11 (Firmware + Secure-Boot-State + UKI-Measurement)
+  # - PCR 0:  UEFI-Firmware (schützt gegen Firmware-Swap)
+  # - PCR 7:  Secure-Boot-Keys/State (db, dbx, PK, KEK)
+  # - PCR 11: Lanzaboote UKI-Hash (Kernel+Initrd+Cmdline signiert)
+  # → Angreifer kann keinen manipulierten Kernel/Initrd booten, der das TPM-Secret bekommt.
+  #
+  # TRADE-OFF: PCR 11 ändert sich bei jedem Kernel/Initrd-Update → Re-Enroll nötig.
+  # Der `tpm2-reenroll-swap`-Service (siehe unten) automatisiert das nach jedem Rebuild.
+  #
+  # ENROLLMENT (einmalig nach Umstellung auf 0+7+11):
+  #   sudo systemd-cryptenroll --wipe-slot=tpm2 \
+  #     /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
+  #   sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7+11 \
+  #     /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
+  #
+  # FUTURE: Public-Key-Policy (--tpm2-public-key) würde Re-Enroll überflüssig
+  # machen, erfordert aber UKI-Signatur-Einbettung, die Lanzaboote aktuell nicht
+  # automatisiert. Siehe docs/TPM-ENROLLMENT.md.
   boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b" = {
     device = "/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b";
     crypttabExtraOpts = [ "tpm2-device=auto" ];
@@ -156,8 +167,19 @@
   # ==========================================
 
   nixpkgs.config.allowUnfree = true;
+  # Bewusste Risiko-Akzeptanz (dokumentiert).
+  # Kein Platzhalter — wenn in Zukunft ein Paket hier ergänzt wird, MUSS dazu
+  # der konkrete Angriffsvektor und die Begründung der Akzeptanz stehen.
   nixpkgs.config.permittedInsecurePackages = [
-    "python3.12-ecdsa-0.19.1" # pynitrokey-Abhängigkeit, CVE-2024-23342 (Timing-Side-Channel, lokal irrelevant)
+    # python-ecdsa 0.19.1: CVE-2024-23342 (Minerva Timing-Side-Channel auf ECDSA-Signing)
+    # - Abhängigkeit: pynitrokey (nitropy CLI), genutzt für
+    #     (a) TOTP-Abfrage vom Nitrokey (HMAC-SHA1, KEIN ECDSA)
+    #     (b) gelegentliche Firmware-Updates / FIDO2-Verwaltung
+    # - Angriffsvoraussetzung: Lokaler unprivilegierter Angreifer kann Timing
+    #   von ECDSA-Signings messen. Auf Single-User-Laptop nicht gegeben.
+    # - Code-Pfad: ECDSA-Signing wird vom TOTP-Workflow nicht aufgerufen.
+    # - Upgrade-Watch: Fix seit python-ecdsa 0.20.0 → bei nächstem pynitrokey-Release entfernen.
+    "python3.12-ecdsa-0.19.1"
   ];
 
   environment.systemPackages = with pkgs; [
@@ -169,17 +191,20 @@
     python3
 
     # CLI Tools
-    ripgrep  # Schnelles grep (rg)
-    fd       # Schnelles find
-    fzf      # Fuzzy Finder
-    htop     # Interaktiver Process Viewer
+    ripgrep # Schnelles grep (rg)
+    fd # Schnelles find
+    fzf # Fuzzy Finder
+    htop # Interaktiver Process Viewer
     dnsutils # dig, nslookup, host (DNS-Tools)
 
     # Dateisystem-Unterstützung
-    exfatprogs  # exFAT für externe SSDs/USB-Sticks
+    exfatprogs # exFAT für externe SSDs/USB-Sticks
+
+    # Archiv-Manager
+    peazip # Multi-Format Archiv-Manager (ZIP, 7Z, RAR, etc.)
 
     # Monero Wallet
-    feather  # Feather Wallet (Monero)
+    feather # Feather Wallet (Monero)
   ];
 
   # ==========================================
@@ -208,6 +233,18 @@
     General = {
       Experimental = true;
     };
+  };
+
+
+  # ==========================================
+  # Hardware graphics für Video Transcoding
+  # ==========================================
+  hardware.graphics = {
+    enable = true;
+    extraPackages = with pkgs; [
+      intel-media-driver # Wichtig für Meteor Lake (iHD)
+      libvdpau-va-gl
+    ];
   };
 
   # Lade uhid-Modul für Bluetooth HID-Geräte (Mäuse, Tastaturen)
@@ -239,16 +276,18 @@
   # ==========================================
   # TOR
   # ==========================================
-
-  services.tor.enable = true;
-  services.tor.client.enable = true;
+  # Tor-Daemon abgeschaltet (nicht aktiv genutzt → Attack Surface).
+  # tor-browser bleibt verfügbar (startet eigenen Tor-Prozess pro Session).
+  services.tor.enable = false;
+  services.tor.client.enable = false;
 
   # ==========================================
   # TAILSCALE VPN
   # ==========================================
   services.tailscale = {
     enable = true;
-    useRoutingFeatures = "client";  # Erlaubt Exit Nodes von anderen Tailscale-Geräten zu nutzen
+    useRoutingFeatures = "client"; # Erlaubt Exit Nodes von anderen Tailscale-Geräten zu nutzen
+    extraUpFlags = [ "--accept-routes" ];
   };
 
   # Deaktiviert Tailscale's eigene iptables-Verwaltung (--nfmask nicht kompatibel mit iptables-nft).
@@ -354,4 +393,13 @@
   # ==========================================
 
   system.stateVersion = "24.11";
+
+
+  programs.nix-ld.enable = true;
+  programs.nix-ld.libraries = with pkgs; [
+    stdenv.cc.cc
+    zlib
+    openssl
+    curl
+  ];
 }

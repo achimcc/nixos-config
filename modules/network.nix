@@ -4,6 +4,16 @@
 { config, lib, pkgs, pkgs-unstable, ... }:
 
 let
+  # Chrome-Wrapper: --disable-gpu-compositing verhindert RCS-Nutzung
+  # Meteor Lake i915: GPU HANG (ecode 12:1) beim Render Command Streamer → Crash.
+  # GPU-Compositing → RCS (crasht). VA-API Video-Decode → VCS (stabil, bleibt aktiv).
+  # Netflix/Widevine: Hardware-Decode weiterhin aktiv, nur Browser-Rendering per CPU.
+  chromeGpuWorkaround = pkgs.writeShellScript "chrome-gpu-workaround" ''
+    exec ${pkgs.google-chrome}/bin/google-chrome-stable \
+      --disable-gpu-compositing \
+      "$@"
+  '';
+
   # Minimales Firejail-Profil für VSCodium (Electron-kompatibel)
   vscodiumProfile = pkgs.writeText "vscodium-minimal.profile" ''
     # Minimales Firejail-Profil für VSCodium
@@ -254,9 +264,13 @@ in
   '';
 
   # WORKAROUND: YouTube direkt mit IPv4 in /etc/hosts (umgeht IPv6-DNS-Problem)
+  # WORKAROUND: rusty-vault.de direkt zur Origin (umgeht ProtonVPN 10.2.0.1
+  # DNS-Resolver, der DNSSEC nicht sauber unterstützt → strict validation
+  # in resolved scheitert, solange proton0 mit Domain=~. alle Queries abfängt)
   networking.hosts = {
     "108.177.96.93" = [ "youtube.com" "www.youtube.com" "m.youtube.com" ];
     "142.250.185.46" = [ "googlevideo.com" ];
+    "77.42.71.141" = [ "rusty-vault.de" ];
   };
 
   # ==========================================
@@ -429,6 +443,41 @@ in
     dbus-user.talk org.freedesktop.portal.*
   '';
 
+  # Pan - Minimales aber sicheres Firejail-Profil für NNTP-Newsreader
+  # Pan speichert Config + Cache unter ~/.pan2 und lädt Attachments nach ~/Downloads
+  environment.etc."firejail/pan-custom.profile".text = ''
+    # Grundlegende Sicherheit
+    caps.drop all
+    nonewprivs
+    noroot
+    seccomp
+    protocol unix,inet,inet6
+
+    # Sensitive Verzeichnisse blockieren
+    blacklist ''${HOME}/.ssh
+    blacklist ''${HOME}/.gnupg
+    blacklist /var/lib/sops-nix
+    blacklist /boot
+    blacklist /root
+
+    # Pan-eigene Daten + Downloads erlauben
+    mkdir ''${HOME}/.pan2
+    mkdir ''${HOME}/Downloads
+    whitelist ''${HOME}/.pan2
+    whitelist ''${HOME}/Downloads
+    include whitelist-common.inc
+
+    # Hardening
+    private-dev
+    private-tmp
+    disable-mnt
+
+    # D-Bus für Benachrichtigungen
+    dbus-user filter
+    dbus-user.talk org.freedesktop.Notifications
+    dbus-system none
+  '';
+
   # Newsflash - Minimales aber sicheres Firejail-Profil
   environment.etc."firejail/newsflash-custom.profile".text = ''
     # Grundlegende Sicherheit
@@ -448,39 +497,8 @@ in
     dbus-user.talk org.freedesktop.secrets
   '';
 
-  # Signal Desktop-spezifische Firejail-Konfiguration
-  environment.etc."firejail/signal-desktop.local".text = ''
-    # Signal Desktop braucht vollständigen Zugriff auf eigene Daten
-    noblacklist ''${HOME}/.config/Signal
-    whitelist ''${HOME}/.config/Signal
-
-    # D-Bus für Benachrichtigungen und System-Integration
-    ignore dbus-user none
-    ignore dbus-system none
-    dbus-user filter
-    dbus-user.talk org.freedesktop.Notifications
-    dbus-user.talk org.freedesktop.secrets
-    dbus-user.own org.signal.*
-
-    # Wayland Display
-    noblacklist /run/user/1000
-    whitelist /run/user/1000/wayland-*
-
-    # GNOME Keyring Socket (für SQLCipher-Verschlüsselung)
-    whitelist /run/user/1000/keyring
-
-    # Make /run/user writable
-    writable-run-user
-
-    # Audio
-    ignore nosound
-
-    # Private /tmp kann Probleme verursachen
-    ignore private-tmp
-
-    # Kein private-dev (für Hardware-Zugriff)
-    ignore private-dev
-  '';
+  # Signal Desktop: Firejail-Konfiguration entfernt — läuft jetzt als Flatpak
+  # (org.signal.Signal) mit Bubblewrap-Sandbox. Siehe home.nix.
 
   # Thunderbird-spezifische Firejail-Konfiguration
   environment.etc."firejail/thunderbird.local".text = ''
@@ -562,24 +580,13 @@ in
         ];
       };
 
-      # Signal Desktop - Messenger mit Sandbox
-      signal-desktop = {
-        executable = "${pkgs.signal-desktop}/bin/signal-desktop --no-sandbox";
-        profile = "${pkgs.firejail}/etc/firejail/signal-desktop.profile";
-        # SQLCipher (DB-Verschlüsselung) braucht Syscalls die der
-        # Default-Seccomp-Filter blockiert. private-etc bricht Electron IPC.
-        # Ohne diese: "hmac check failed" → DB kann nicht geöffnet werden
-        extraArgs = [
-          "--ignore=seccomp"
-          "--ignore=private-tmp"
-          "--ignore=private-etc"
-          "--ignore=private-dev"
-        ];
-      };
+      # Signal Desktop: auf Flatpak umgestellt (siehe home.nix)
+      # Bubblewrap-Sandbox ohne --no-sandbox-Umgehung.
 
       # Google Chrome - Streaming-Browser (Netflix, etc.) mit Widevine DRM
+      # Wrapper deaktiviert GPU-Compositing (RCS), lässt VA-API Video-Decode (VCS) aktiv
       google-chrome = {
-        executable = "${pkgs.google-chrome}/bin/google-chrome-stable";
+        executable = "${chromeGpuWorkaround}";
         profile = "${pkgs.firejail}/etc/firejail/google-chrome.profile";
       };
 
@@ -613,6 +620,12 @@ in
       newsflash = {
         executable = "${pkgs.newsflash}/bin/io.gitlab.news_flash.NewsFlash";
         profile = "/etc/firejail/newsflash-custom.profile";
+      };
+
+      # Pan - NNTP-Newsreader mit Sandbox
+      pan = {
+        executable = "${pkgs.pan}/bin/pan";
+        profile = "/etc/firejail/pan-custom.profile";
       };
 
       # Logseq - Wissensmanagement (Electron-App)
@@ -680,8 +693,8 @@ in
     discord
     spotify
     thunderbird
-    signal-desktop  # Messenger (Firejail-wrapped)
     pkgs-unstable.vscodium  # VSCodium aus unstable (für aktuelle Version)
     libreoffice-fresh  # Office-Suite (Firejail-wrapped)
+    pan  # NNTP-Newsreader (Firejail-wrapped)
   ];
 }

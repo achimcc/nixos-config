@@ -2,7 +2,11 @@
   description = "NixOS Konfiguration für user";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Gepinnt auf Commit mit PR #511479 (apparmor/PAM include/substack fix,
+    # gemergt 2026-04-19). Der nixos-unstable channel stand zum Zeitpunkt des
+    # Pin noch auf b12141e (2026-04-18) und hatte den Fix noch nicht.
+    # Zurück auf "nixos-unstable" setzen, sobald der Channel über 70bcfff ist.
+    nixpkgs.url = "github:NixOS/nixpkgs/70bcfffcb16f04f40ca019a8ef4461bae9d198dd";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     home-manager = {

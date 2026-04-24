@@ -8,8 +8,10 @@
   # HARDENED KERNEL
   # ==========================================
 
-  # Gehärteter Kernel mit zusätzlichen Schutzmaßnahmen
-  boot.kernelPackages = pkgs.linuxPackages_hardened;
+  # Linux 6.12 LTS Kernel
+  # linuxPackages_hardened wurde in nixpkgs-unstable entfernt ("lack of maintenance")
+  # Sicherheitshärtung erfolgt weiterhin über boot.kernel.sysctl unten
+  boot.kernelPackages = pkgs.linuxPackages_6_12;
 
   # ==========================================
   # KERNEL HARDENING
@@ -235,6 +237,62 @@
     aide
     unhide      # Findet versteckte Prozesse/Ports (Rootkit-Erkennung)
 
+    # AIDE-Baseline-Verwaltung (siehe aide-baseline-init/update/check)
+    (writeShellScriptBin "aide-baseline-init" ''
+      set -eu
+      if [ "$(id -u)" -ne 0 ]; then
+        echo "Muss als root laufen." >&2
+        exit 1
+      fi
+      if [ -f /var/lib/aide/aide.db ]; then
+        echo "FEHLER: Baseline existiert bereits (/var/lib/aide/aide.db)." >&2
+        echo "Nutze 'aide-baseline-update' für ein Update nach Rebuild." >&2
+        exit 1
+      fi
+      mkdir -p /var/lib/aide
+      chmod 0700 /var/lib/aide
+      echo "Erstelle initiale AIDE-Baseline..."
+      ${pkgs.aide}/bin/aide --init --config=/etc/aide.conf
+      mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+      echo "✓ Baseline erstellt: /var/lib/aide/aide.db"
+    '')
+
+    (writeShellScriptBin "aide-baseline-update" ''
+      set -eu
+      if [ "$(id -u)" -ne 0 ]; then
+        echo "Muss als root laufen." >&2
+        exit 1
+      fi
+      if [ ! -f /var/lib/aide/aide.db ]; then
+        echo "FEHLER: Keine Baseline vorhanden. Zuerst 'aide-baseline-init'." >&2
+        exit 1
+      fi
+      echo "WARNUNG: Du bist dabei die AIDE-Baseline zu ÜBERSCHREIBEN."
+      echo "Hast du vorher 'aide-check' gelaufen und alle Änderungen verifiziert? (yes/no)"
+      read -r ANSWER
+      if [ "$ANSWER" != "yes" ]; then
+        echo "Abgebrochen."
+        exit 1
+      fi
+      ${pkgs.aide}/bin/aide --init --config=/etc/aide.conf
+      cp /var/lib/aide/aide.db "/var/lib/aide/aide.db.$(date +%Y%m%d-%H%M%S).bak"
+      mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+      echo "✓ Baseline aktualisiert. Alte DB als .bak gesichert."
+    '')
+
+    (writeShellScriptBin "aide-check" ''
+      set -eu
+      if [ "$(id -u)" -ne 0 ]; then
+        echo "Muss als root laufen." >&2
+        exit 1
+      fi
+      if [ ! -f /var/lib/aide/aide.db ]; then
+        echo "FEHLER: Keine Baseline vorhanden. Zuerst 'aide-baseline-init'." >&2
+        exit 1
+      fi
+      ${pkgs.aide}/bin/aide --check --config=/etc/aide.conf
+    '')
+
     # Bitwarden Desktop Polkit-Action (NixOS-Paketierung installiert diese nicht)
     (writeTextDir "share/polkit-1/actions/com.bitwarden.Bitwarden.policy" ''
       <?xml version="1.0" encoding="UTF-8"?>
@@ -246,8 +304,11 @@
           <description>Unlock Bitwarden</description>
           <message>Authenticate to unlock Bitwarden</message>
           <defaults>
-            <allow_any>auth_self</allow_any>
-            <allow_inactive>auth_self</allow_inactive>
+            <!-- allow_any: Ungesperrter Remote-User (SSH) → verboten (kein SSH aktiv, aber Defense-in-Depth) -->
+            <allow_any>no</allow_any>
+            <!-- allow_inactive: Gesperrter Screen / switched-away Session → verboten (verhindert Lock-Screen-Trigger) -->
+            <allow_inactive>no</allow_inactive>
+            <!-- allow_active: Eingeloggte aktive Session → nur mit PAM-Auth (Passwort oder FIDO2) -->
             <allow_active>auth_self</allow_active>
           </defaults>
         </action>
@@ -315,23 +376,15 @@
   };
 
   # ==========================================
-  # FAIL2BAN - Brute-Force Schutz
+  # FAIL2BAN - DEAKTIVIERT
   # ==========================================
-
-  services.fail2ban = {
-    enable = true;
-    maxretry = 5;
-    bantime = "1h";
-    bantime-increment = {
-      enable = true;
-      maxtime = "48h";
-      factor = "4";
-    };
-    ignoreIP = [
-      "127.0.0.0/8"
-      "192.168.0.0/16" # Lokales Netzwerk nicht sperren
-    ];
-  };
+  # Keine aktiven Log-Quellen: SSH aus, keine öffentlichen Web-Services, keine
+  # Netzwerk-Auth-Endpunkte. Fail2ban als root-Daemon ohne Schutzwirkung ist
+  # nur Attack Surface.
+  # Lokaler sudo-Brute-Force-Schutz läuft stattdessen über pam_faillock (siehe
+  # security.pam.services.sudo unten) und den sudo-fail-monitor-Service.
+  # Wird SSH oder ein Web-Service reaktiviert: Fail2ban hier wieder einschalten.
+  services.fail2ban.enable = false;
 
   # ==========================================
   # AIDE - File Integrity Monitoring
@@ -398,30 +451,42 @@
     path = [ pkgs.aide ];
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${pkgs.aide}/bin/aide --check --config=/etc/aide.conf";
       StandardOutput = "journal";
       StandardError = "journal";
       # AIDE Exit-Codes 1-7 = Änderungen erkannt (Bitmap: 1=added, 2=removed, 4=changed)
-      # Das ist kein Fehler, sondern erwartetes Verhalten → ExecStartPost (Alert) läuft
-      # Echte Fehler haben Exit-Code >7 (z.B. 14=IO-Error, 15=Config-Error)
+      # Exit-Code 0 = keine Änderungen. Exit-Code >7 = echter Fehler (IO/Config).
       SuccessExitStatus = "1 2 3 4 5 6 7";
     };
+    script = ''
+      if [ ! -f /var/lib/aide/aide.db ]; then
+        echo "aide-check: Keine Baseline (/var/lib/aide/aide.db fehlt)."
+        echo "aide-check: Führe 'sudo aide-baseline-init' aus, um eine initiale Baseline zu erstellen."
+        # Dies ist KEIN Fehler im Sinne des Timers — normaler Zustand nach Setup.
+        exit 0
+      fi
+      ${pkgs.aide}/bin/aide --check --config=/etc/aide.conf
+    '';
   };
 
-  # AIDE DB nach jedem nixos-rebuild switch re-initialisieren
-  # Damit erkennt AIDE nur Änderungen ZWISCHEN Rebuilds (z.B. unautorisierte Modifikationen)
-  system.activationScripts.aide-reinit = {
-    text = ''
-      echo "Re-initializing AIDE database..."
-      mkdir -p /var/lib/aide
-      ${pkgs.aide}/bin/aide --init --config=/etc/aide.conf 2>/dev/null || true
-      if [ -f /var/lib/aide/aide.db.new ]; then
-        mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
-        echo "AIDE database re-initialized."
-      fi
-    '';
-    deps = [ "etc" ];
-  };
+  # AIDE DB-Management — NICHT automatisch bei jedem Rebuild!
+  #
+  # THREAT MODEL:
+  # Automatischer Reinit bei jedem nixos-rebuild machte AIDE wirkungslos gegen
+  # einen Angreifer, der vor dem Rebuild Modifikationen einschleust — die
+  # Änderungen würden als neuer Baseline akzeptiert, ohne dass der User etwas
+  # merkt. Darum: Baseline-Update ist jetzt expliziter User-Akt.
+  #
+  # INITIALE DB (einmalig, beim ersten Setup oder nach Systemwechsel):
+  #   sudo aide-baseline-init
+  #
+  # NACH EINEM NIXOS-REBUILD:
+  #   1. sudo aide-check                     # prüft gegen alte Baseline
+  #   2. Änderungen inspizieren              # sind alle legitim?
+  #   3. sudo aide-baseline-update           # neue Baseline schreiben (bestätigt)
+  #
+  # Der tägliche systemd-Timer `aide-check.timer` läuft weiter und alarmiert
+  # bei Abweichungen gegen die aktuelle Baseline.
+  # Die Scripts aide-baseline-init/update/check sind oben in environment.systemPackages.
 
   systemd.timers.aide-check = {
     description = "Daily AIDE Integrity Check";
@@ -535,10 +600,11 @@
   # clamdscan nicht bei nixos-rebuild neu starten (läuft via Timer)
   systemd.services.clamdscan.restartIfChanged = false;
 
-  # Log-Verzeichnisse erstellen
+  # Log-Verzeichnisse erstellen (merged mit sudo-fail-monitor rules weiter unten)
   systemd.tmpfiles.rules = [
     "d /var/log/clamav 0750 clamav clamav -"
     "f /var/log/sudo.log 0600 root root -"  # Sudo audit log
+    "d /var/lib/sudo-fail-monitor 0700 root root -"
   ];
 
   # clamonacc Service für Echtzeit-Scanning
@@ -588,6 +654,100 @@
   # GNOME Keyring bei Login automatisch entsperren (erstellt "login"-Collection)
   security.pam.services.login.enableGnomeKeyring = true;
   security.pam.services.gdm-password.enableGnomeKeyring = true;
+
+  # ==========================================
+  # PAM FAILLOCK - sudo Brute-Force Schutz
+  # ==========================================
+  # Sperrt den User-Account nach 5 fehlgeschlagenen Auth-Versuchen für 15 Min.
+  # Greift für sudo, login, gdm-password (alles was den Standard-PAM-Stack nutzt).
+  # `deny=0` auf FIDO2-Pfad → Faillock zählt nur Passwort-Fails, nicht Key-Touch-Fehler.
+  # Status prüfen: `faillock --user user`; zurücksetzen: `sudo faillock --user user --reset`
+  security.pam.services.sudo.failDelay.delay = 4000000; # 4s Delay nach jedem Fehlversuch
+  security.pam.services.login.failDelay.delay = 4000000;
+
+  # Faillock-Konfiguration (/etc/security/faillock.conf wird vom pam_faillock gelesen)
+  environment.etc."security/faillock.conf".text = ''
+    # Lockout nach N fehlgeschlagenen Auth-Versuchen
+    deny = 5
+    # Lockout-Zeit in Sekunden (15 Minuten)
+    unlock_time = 900
+    # Zählzeitraum in Sekunden (Fehlversuche werden nach 15 Min vergessen)
+    fail_interval = 900
+    # Root-Account NICHT sperren (sonst könnte sich niemand mehr einloggen)
+    # Wir haben eh keinen Root-Login, aber zur Sicherheit
+    even_deny_root = no
+    # Audit-Logs: Ja
+    audit
+    # Silent: keine Meldung "Account locked" im Auth-Prompt (reduziert Info-Leak)
+    silent
+  '';
+
+  # ==========================================
+  # SUDO FAIL MONITOR
+  # ==========================================
+  # Beobachtet /var/log/sudo.log auf fehlgeschlagene Passwort-Versuche und
+  # sendet bei ≥3 Fehlversuchen innerhalb 10 Min eine Email-Alarmierung.
+  # Liefert Observability zusätzlich zum reinen Lockout durch faillock.
+  systemd.services.sudo-fail-monitor = {
+    description = "Monitor sudo.log for failed auth attempts and alert";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "multi-user.target" ];
+
+    serviceConfig = {
+      Type = "simple";
+      Restart = "on-failure";
+      RestartSec = "30s";
+      # Minimale Privilegien
+      ProtectSystem = "strict";
+      ProtectHome = "read-only";
+      PrivateTmp = true;
+      NoNewPrivileges = true;
+      ReadOnlyPaths = [ "/var/log/sudo.log" ];
+      ReadWritePaths = [ "/var/lib/sudo-fail-monitor" ];
+      CapabilityBoundingSet = [ "CAP_DAC_READ_SEARCH" ];
+    };
+
+    script = ''
+      set -eu
+      STATE_DIR="/var/lib/sudo-fail-monitor"
+      mkdir -p "$STATE_DIR"
+      STATE_FILE="$STATE_DIR/last-alert"
+
+      # Tail sudo.log inkrementell, filtere auf Fehlversuche
+      ${pkgs.coreutils}/bin/tail -n 0 -F /var/log/sudo.log 2>/dev/null | \
+      while IFS= read -r line; do
+        # Match: "N incorrect password attempts" oder "authentication failure"
+        case "$line" in
+          *"incorrect password attempts"*|*"authentication failure"*)
+            NOW=$(${pkgs.coreutils}/bin/date +%s)
+            # Rate-Limit: max 1 Alert pro 10 Minuten
+            if [ -f "$STATE_FILE" ]; then
+              LAST=$(${pkgs.coreutils}/bin/cat "$STATE_FILE")
+              DIFF=$((NOW - LAST))
+              if [ "$DIFF" -lt 600 ]; then
+                continue
+              fi
+            fi
+            echo "$NOW" > "$STATE_FILE"
+
+            # Email-Alert via msmtp
+            if [ -f /run/secrets/email/posteo ]; then
+              EMAIL=$(${pkgs.coreutils}/bin/cat /run/secrets/email/posteo)
+              ${pkgs.coreutils}/bin/printf 'Subject: [NixOS Security] sudo Fehlversuch auf %s\n\nSudo-Log-Eintrag:\n\n%s\n\nAlle Fehlversuche heute:\n%s\n' \
+                "$(${pkgs.inetutils}/bin/hostname)" \
+                "$line" \
+                "$(${pkgs.gnugrep}/bin/grep -E 'incorrect password|authentication failure' /var/log/sudo.log | ${pkgs.coreutils}/bin/tail -20)" \
+                | ${pkgs.msmtp}/bin/msmtp "$EMAIL" 2>&1 \
+                | ${pkgs.systemd}/bin/systemd-cat -t sudo-fail-monitor -p warning || true
+            fi
+
+            # Journal-Log als Primäralarm (Email ist best-effort)
+            echo "SUDO FAIL DETECTED: $line" | ${pkgs.systemd}/bin/systemd-cat -t sudo-fail-monitor -p crit
+            ;;
+        esac
+      done
+    '';
+  };
 
   # Journal-Größe begrenzen
   services.journald.extraConfig = ''

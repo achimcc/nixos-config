@@ -168,8 +168,10 @@ in
           iifname "tun*" udp dport ${toString syncthingPorts.quic} accept
           iifname "wg*" udp dport ${toString syncthingPorts.quic} accept
 
-          # 7b. Rechner 192.168.178.51 - uneingeschränkter Zugriff
-          ip saddr 192.168.178.51 accept
+          # 7b. Workstation 192.168.178.51 - nur benötigte Dienste
+          ip saddr 192.168.178.51 tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
+          ip saddr 192.168.178.51 udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
+          ip saddr 192.168.178.51 icmp type echo-request accept
 
           # 8. Second local network (server network) - restricted ports
           ip saddr ${secondLocalNetwork.subnet} tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
@@ -253,7 +255,10 @@ in
           udp dport 5355 drop comment "Block LLMNR (credential theft risk)"
           udp dport 5353 drop comment "Block mDNS (information leakage)"
 
-          # 11. Printer access
+          # 11. Fritz!Box Gateway (Webinterface)
+          ip daddr ${localNetwork.gateway} tcp dport { 80, 443 } accept
+
+          # 11a. Printer access
           ip daddr ${localNetwork.printerIP} tcp dport 631 accept
           ip daddr ${localNetwork.printerIP} tcp dport 9100 accept
 
@@ -266,8 +271,10 @@ in
           # 11d. ICMP ping für gesamtes Heimnetz (z.B. nmap -sn)
           ip daddr ${localNetwork.subnet} icmp type echo-request accept
 
-          # 11c. Rechner 192.168.178.51 - uneingeschränkter Zugriff
-          ip daddr 192.168.178.51 accept
+          # 11c. Workstation 192.168.178.51 - nur benötigte Dienste
+          ip daddr 192.168.178.51 tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
+          ip daddr 192.168.178.51 udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
+          ip daddr 192.168.178.51 icmp type echo-request accept
 
           # 12. Syncthing - Local network only
           ip daddr ${localNetwork.subnet} tcp dport ${toString syncthingPorts.tcp} accept
@@ -310,19 +317,6 @@ in
         }
       }
 
-      # ==========================================
-      # TAILSCALE NAT (ersetzt iptables ts-postrouting)
-      # ==========================================
-      # Tailscale versucht via iptables eine MASQUERADE-Regel zu setzen.
-      # Da wir reines nftables nutzen, replizieren wir die Regel hier.
-      # Betrifft: Exit Nodes und Subnet Routing.
-      table ip ts-nat {
-        chain ts-postrouting {
-          type nat hook postrouting priority srcnat; policy accept;
-          # Tailscale CGNAT-Range (100.64.0.0/10) über physische Interfaces maskieren
-          oifname != "tailscale0" ip saddr 100.64.0.0/10 masquerade
-        }
-      }
     '';
   };
 

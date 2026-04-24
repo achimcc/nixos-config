@@ -1,7 +1,7 @@
 # Home Manager Konfiguration für User "user"
 # Ausgelagert aus configuration.nix für bessere Übersichtlichkeit
 
-{ config, pkgs, pkgs-unstable, llm-agents, rcu, ... }:
+{ config, pkgs, pkgs-unstable, llm-agents, rcu, lib, ... }:
 
 let
   easyeffects-presets = pkgs.stdenv.mkDerivation {
@@ -48,14 +48,24 @@ in
       "org.jdownloader.JDownloader"
       "info.portfolio_performance.PortfolioPerformance"
       "org.nickvision.money" # Denaro - Persönliche Finanzverwaltung
+      "org.signal.Signal"    # Signal Desktop (Bubblewrap-Sandbox statt Firejail)
     ];
     overrides = {
       # JDownloader: Bekannt für aggressive Telemetrie
       # Flatpak-Sandbox beschränkt Zugriff, aber Netzwerk-Telemetrie bleibt
       "org.jdownloader.JDownloader" = {
         Context.filesystems = [
-          "!home"         # Kein Zugriff auf Home (nur Downloads via Portal)
-          "~/Downloads"   # Nur Downloads-Ordner
+          "!home" # Kein Zugriff auf Home (nur Downloads via Portal)
+          "~/Downloads" # Nur Downloads-Ordner
+        ];
+      };
+      # Signal: Flatpak nutzt eigene Bubblewrap-Sandbox (kein --no-sandbox nötig).
+      # Zugriff auf ~/.config/Signal bleibt (braucht es für die SQLCipher-DB).
+      # Kein pauschaler Home-Zugriff, keine Dev/Sys-Pfade.
+      "org.signal.Signal" = {
+        Context.filesystems = [
+          "!home"
+          "~/Downloads"
         ];
       };
     };
@@ -67,8 +77,8 @@ in
 
   # PATH-Erweiterungen (haben Priorität vor system/user defaults)
   home.sessionPath = [
-    "$HOME/.local/bin"  # Für Wrapper-Scripts (z.B. Firejail-Wrapper für codium)
-    "$HOME/.cargo/bin"  # Rust/Cargo binaries
+    "$HOME/.local/bin" # Für Wrapper-Scripts (z.B. Firejail-Wrapper für codium)
+    "$HOME/.cargo/bin" # Rust/Cargo binaries
   ];
 
   # SSH Agent Socket für FIDO2-Schlüssel
@@ -80,6 +90,27 @@ in
     # System-Level-Fix: environment.sessionVariables.GSK_RENDERER in modules/desktop.nix
     # Dieses hier bleibt als Fallback für Terminal-gestartete Apps
     GSK_RENDERER = "cairo";
+
+    LIBVA_DRIVER_NAME = "iHD"; # Erzwingt den modernen Intel Media Driver
+    VDPAU_DRIVER = "va_gl";
+    LD_LIBRARY_PATH = "/run/opengl-driver/lib:/run/opengl-driver-32/lib";
+  };
+
+  dconf.settings = {
+    "org/gnome/desktop/session" = {
+      # Wir erzwingen die 0 und sagen Nix, dass es eine Ganzzahl (Uint32) ist
+      idle-delay = lib.mkForce (lib.hm.gvariant.mkUint32 0);
+    };
+    "org/gnome/settings-daemon/plugins/power" = {
+      sleep-inactive-ac-type = "nothing";
+      sleep-inactive-ac-timeout = 0;
+    };
+    "org/gnome/shell" = {
+      enabled-extensions = [
+        "caffeine@patapon.info"
+        "media-controls@cliffniff.github.com"
+      ];
+    };
   };
 
   # User-spezifische Pakete
@@ -131,6 +162,9 @@ in
 
     # --- RSS READER ---
     newsflash # GTK RSS-Reader (mit Miniflux-Sync)
+
+    # --- NEWSREADER (USENET/NNTP) ---
+    # pan: System-Paket in modules/network.nix (Firejail-wrapped)
 
     # --- FINANZEN ---
     # portfolio - via Flatpak (siehe services.flatpak.packages)
@@ -191,10 +225,19 @@ in
     foliate # E-Book-Reader (GNOME/libadwaita)
     # calibre # E-Book-Management — temporär deaktiviert (nixpkgs-Bug: qmake fehlt im Qt6-Hook)
 
-    # --- MEDIA PLAYER ---
-    vlc # VLC Media Player (exzellentes SW-Decoding, wichtig mit nomodeset)
-    celluloid # GTK-Frontend für mpv
-    amberol # GNOME Musik-Player für lokale Dateien
+    # --- MEDIA PLAYER & JELLYFIN CLIENTS ---
+    vlc
+    celluloid
+    amberol
+    delfin # Vorhandener Jellyfin-Client
+    jellyfin-media-player # Neu hinzugefügt
+    moonfin # Erweiterter Jellyfin/Emby-Client (AppImage, pkgs/moonfin)
+    feishin # Neu hinzugefügt
+    kodi # Neu hinzugefügt (Plugin-Installation erfolgt in Kodi)
+    libva-utils
+    intel-gpu-tools
+    gnomeExtensions.caffeine
+    gnomeExtensions.media-controls
 
     # --- TERMINAL ---
     blackbox-terminal
@@ -223,7 +266,7 @@ in
     flutter
 
     # --- KOMMUNIKATION ---
-    # Signal Desktop via Firejail (siehe modules/network.nix)
+    # Signal Desktop via Flatpak (siehe services.flatpak oben)
 
     # --- NODE.JS ---
     nodejs_22 # Enthält npm für globale Pakete
@@ -288,6 +331,19 @@ in
     rcu.packages.${pkgs.stdenv.hostPlatform.system}.default # RCU - reMarkable Connection Utility
   ];
 
+  # --- MPV / CELLULOID GPU WORKAROUND ---
+  # Meteor Lake i915: Render Command Streamer (RCS, ecode 12:1:e75ffefe) hängt
+  # unter Last → kernel BUG at highmem.h:263 → sofortiger Reboot (panic=-1).
+  # vaapi-copy: VA-API dekodiert auf VCS (Video Engine, stabil), kopiert Frame
+  # in System-RAM, zeigt dann per CPU an → RCS wird NICHT benutzt → kein Crash.
+  # HD-Video-Qualität bleibt erhalten, nur marginaler CPU-Overhead beim Kopieren.
+  programs.mpv = {
+    enable = true;
+    config = {
+      hwdec = "vaapi-copy";
+    };
+  };
+
   # --- PGP KONFIGURATION ---
   programs.gpg.enable = true;
 
@@ -300,8 +356,8 @@ in
     '';
     enableSshSupport = false; # Deaktiviert - gpg-agent unterstützt FIDO2-Schlüssel nicht vollständig
     # Cache GPG-Passwort für 8 Stunden (verhindert ständige Passwort-Prompts)
-    defaultCacheTtl = 28800;  # 8 Stunden in Sekunden
-    maxCacheTtl = 28800;      # Maximale Cache-Zeit
+    defaultCacheTtl = 28800; # 8 Stunden in Sekunden
+    maxCacheTtl = 28800; # Maximale Cache-Zeit
   };
 
   # GPG-Agent Service: D-Bus Umgebung für Pinentry setzen
@@ -394,106 +450,81 @@ in
       # Warte bis gnome-keyring-daemon gestartet und Korruption ggf. erkannt hat
       ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
       ExecStart = pkgs.writeShellScript "gnome-keyring-guard" ''
-        set -e
+                set -e
 
-        KEYRING_DIR="$HOME/.local/share/keyrings"
-        BACKUP_DIR="$KEYRING_DIR/backups"
-        GOLDEN="$BACKUP_DIR/keyring-golden.tar.gz"
-        DEFAULT_FILE="$KEYRING_DIR/default"
-        KEYRING_FILE="$KEYRING_DIR/Default_keyring.keyring"
-        EXPECTED="Default_keyring"
-        MIN_KEYRING_SIZE=100  # Frische Keyring-Datei ist ~300 Bytes
+                KEYRING_DIR="$HOME/.local/share/keyrings"
+                BACKUP_DIR="$KEYRING_DIR/backups"
+                GOLDEN="$BACKUP_DIR/keyring-golden.tar.gz"
+                DEFAULT_FILE="$KEYRING_DIR/default"
+                KEYRING_FILE="$KEYRING_DIR/Default_keyring.keyring"
+                EXPECTED="Default_keyring"
+                MIN_KEYRING_SIZE=100  # Frische Keyring-Datei ist ~300 Bytes
 
-        ${pkgs.coreutils}/bin/mkdir -p "$BACKUP_DIR"
+                ${pkgs.coreutils}/bin/mkdir -p "$BACKUP_DIR"
 
-        # Hilfsfunktion: Verwaiste .keyring-Dateien entfernen
-        cleanup_orphans() {
-          for f in "$KEYRING_DIR"/*.keyring; do
-            [ -f "$f" ] || continue
-            local basename=$(${pkgs.coreutils}/bin/basename "$f")
-            case "$basename" in
-              Default_keyring.keyring|login.keyring) ;;  # Behalten
-              *) echo "Entferne verwaiste Datei: $basename"; rm -f "$f" ;;
-            esac
-          done
-        }
+                # Hilfsfunktion: Verwaiste .keyring-Dateien entfernen
+                cleanup_orphans() {
+                  for f in "$KEYRING_DIR"/*.keyring; do
+                    [ -f "$f" ] || continue
+                    local basename=$(${pkgs.coreutils}/bin/basename "$f")
+                    case "$basename" in
+                      Default_keyring.keyring|login.keyring) ;;  # Behalten
+                      *) echo "Entferne verwaiste Datei: $basename"; rm -f "$f" ;;
+                    esac
+                  done
+                }
 
-        # Hilfsfunktion: Multi-Line Secrets und binary-secret Einträge entfernen
-        # ROOT CAUSE: ProtonVPN speichert JSON mit PEM-Zertifikaten (Newlines)
-        # im Keyring. Das Text-Format ist zeilenbasiert → Parser bricht bei
-        # mehrzeiligen secret= Werten. binary-secret= wird ebenfalls nicht akzeptiert.
-        sanitize_keyring() {
-          local keyring="$1"
-          [ -f "$keyring" ] || return 1
+                # Hilfsfunktion: Multi-Line Secrets und binary-secret Einträge entfernen
+                # ROOT CAUSE: ProtonVPN speichert JSON mit PEM-Zertifikaten (Newlines)
+                # im Keyring. Das Text-Format ist zeilenbasiert → Parser bricht bei
+                # mehrzeiligen secret= Werten. binary-secret= wird ebenfalls nicht akzeptiert.
+                sanitize_keyring() {
+                  local keyring="$1"
+                  [ -f "$keyring" ] || return 1
 
-          ${pkgs.python3}/bin/python3 - "$keyring" << 'PYEOF'
-import sys, re, os
+                  ${pkgs.python3}/bin/python3 - "$keyring" << 'PYEOF'
+        import sys, re, os
 
-keyring_path = sys.argv[1]
-with open(keyring_path, "r", errors="replace") as f:
-    content = f.read()
+        keyring_path = sys.argv[1]
+        with open(keyring_path, "r", errors="replace") as f:
+            content = f.read()
 
-lines = content.split("\n")
-clean_lines = []
-skip_until_next_section = False
-removed_items = set()
-in_multiline_secret = False
-current_item = None
-
-i = 0
-while i < len(lines):
-    line = lines[i]
-
-    # Track current section
-    m = re.match(r"^\[(\d+)(:.*)?\]$", line)
-    if m:
-        item_num = m.group(1)
-        is_attr = m.group(2) is not None
+        lines = content.split("\n")
+        clean_lines = []
+        skip_until_next_section = False
+        removed_items = set()
         in_multiline_secret = False
+        current_item = None
 
-        if item_num in removed_items:
-            skip_until_next_section = True
-            i += 1
-            continue
-        else:
-            skip_until_next_section = False
-            if not is_attr:
-                current_item = item_num
+        i = 0
+        while i < len(lines):
+            line = lines[i]
 
-    if skip_until_next_section:
-        i += 1
-        continue
+            # Track current section
+            m = re.match(r"^\[(\d+)(:.*)?\]$", line)
+            if m:
+                item_num = m.group(1)
+                is_attr = m.group(2) is not None
+                in_multiline_secret = False
 
-    # Detect binary-secret (unsupported format)
-    if line.startswith("binary-secret="):
-        print(f"SANITIZE: Entferne Item [{current_item}] (binary-secret)", file=sys.stderr)
-        removed_items.add(current_item)
-        # Remove already-added lines for this item
-        while clean_lines and not clean_lines[-1].startswith("["):
-            clean_lines.pop()
-        if clean_lines and re.match(r"^\[\d+\]$", clean_lines[-1]):
-            clean_lines.pop()
-        skip_until_next_section = True
-        i += 1
-        continue
+                if item_num in removed_items:
+                    skip_until_next_section = True
+                    i += 1
+                    continue
+                else:
+                    skip_until_next_section = False
+                    if not is_attr:
+                        current_item = item_num
 
-    # Detect multi-line secret: a secret= line followed by a non-key=value line
-    if line.startswith("secret="):
-        secret_val = line[7:]
-        # Check if next non-empty line is NOT a valid key=value or section header
-        j = i + 1
-        while j < len(lines) and lines[j] == "":
-            j += 1
-        if j < len(lines):
-            next_line = lines[j]
-            # Valid next lines: empty, [section], key=value (mtime=, ctime=, etc.)
-            is_valid_next = (next_line == "" or
-                           next_line.startswith("[") or
-                           re.match(r"^[a-z]+=", next_line))
-            if not is_valid_next:
-                # Multi-line secret detected
-                print(f"SANITIZE: Entferne Item [{current_item}] (multi-line secret)", file=sys.stderr)
+            if skip_until_next_section:
+                i += 1
+                continue
+
+            # Detect binary-secret (unsupported format)
+            if line.startswith("binary-secret="):
+                print(f"SANITIZE: Entferne Item [{current_item}] (binary-secret)", file=sys.stderr)
                 removed_items.add(current_item)
+                # Remove already-added lines for this item
                 while clean_lines and not clean_lines[-1].startswith("["):
                     clean_lines.pop()
                 if clean_lines and re.match(r"^\[\d+\]$", clean_lines[-1]):
@@ -502,209 +533,238 @@ while i < len(lines):
                 i += 1
                 continue
 
-    clean_lines.append(line)
-    i += 1
+            # Detect multi-line secret: a secret= line followed by a non-key=value line
+            if line.startswith("secret="):
+                secret_val = line[7:]
+                # Check if next non-empty line is NOT a valid key=value or section header
+                j = i + 1
+                while j < len(lines) and lines[j] == "":
+                    j += 1
+                if j < len(lines):
+                    next_line = lines[j]
+                    # Valid next lines: empty, [section], key=value (mtime=, ctime=, etc.)
+                    is_valid_next = (next_line == "" or
+                                   next_line.startswith("[") or
+                                   re.match(r"^[a-z]+=", next_line))
+                    if not is_valid_next:
+                        # Multi-line secret detected
+                        print(f"SANITIZE: Entferne Item [{current_item}] (multi-line secret)", file=sys.stderr)
+                        removed_items.add(current_item)
+                        while clean_lines and not clean_lines[-1].startswith("["):
+                            clean_lines.pop()
+                        if clean_lines and re.match(r"^\[\d+\]$", clean_lines[-1]):
+                            clean_lines.pop()
+                        skip_until_next_section = True
+                        i += 1
+                        continue
 
-if removed_items:
-    clean_content = "\n".join(clean_lines).rstrip("\n") + "\n"
-    with open(keyring_path, "w") as f:
-        f.write(clean_content)
-    print(f"SANITIZE: {len(removed_items)} Items entfernt: {sorted(removed_items)}", file=sys.stderr)
-    sys.exit(0)
-else:
-    sys.exit(1)  # Nichts zu bereinigen
-PYEOF
-        }
+            clean_lines.append(line)
+            i += 1
 
-        # Hilfsfunktion: Journal-Polling auf Format-Fehler (5×2s)
-        check_journal_corruption() {
-          for attempt in 1 2 3 4 5; do
-            if journalctl --user -t gnome-keyring-daemon -b --no-pager 2>/dev/null | \
-               grep -q "invalid or unrecognized format"; then
-              return 0  # Korruption gefunden
-            fi
-            sleep 2
-          done
-          return 1  # Keine Korruption
-        }
+        if removed_items:
+            clean_content = "\n".join(clean_lines).rstrip("\n") + "\n"
+            with open(keyring_path, "w") as f:
+                f.write(clean_content)
+            print(f"SANITIZE: {len(removed_items)} Items entfernt: {sorted(removed_items)}", file=sys.stderr)
+            sys.exit(0)
+        else:
+            sys.exit(1)  # Nichts zu bereinigen
+        PYEOF
+                }
 
-        # Daemon triggern (socket activation), damit er Korruption ggf. erkennt
-        ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
+                # Hilfsfunktion: Journal-Polling auf Format-Fehler (5×2s)
+                check_journal_corruption() {
+                  for attempt in 1 2 3 4 5; do
+                    if journalctl --user -t gnome-keyring-daemon -b --no-pager 2>/dev/null | \
+                       grep -q "invalid or unrecognized format"; then
+                      return 0  # Korruption gefunden
+                    fi
+                    sleep 2
+                  done
+                  return 1  # Keine Korruption
+                }
 
-        # Korruptionsprüfung: 3 Kriterien
-        CORRUPT=false
-        CURRENT_DEFAULT=$(cat "$DEFAULT_FILE" 2>/dev/null || echo "")
-        KEYRING_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$KEYRING_FILE" 2>/dev/null || echo 0)
+                # Daemon triggern (socket activation), damit er Korruption ggf. erkennt
+                ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
 
-        # 1. default-Datei muss korrekten Inhalt haben
-        if [ "$CURRENT_DEFAULT" != "$EXPECTED" ]; then
-          echo "KORRUPT: default='$CURRENT_DEFAULT' statt '$EXPECTED'"
-          CORRUPT=true
-        fi
+                # Korruptionsprüfung: 3 Kriterien
+                CORRUPT=false
+                CURRENT_DEFAULT=$(cat "$DEFAULT_FILE" 2>/dev/null || echo "")
+                KEYRING_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$KEYRING_FILE" 2>/dev/null || echo 0)
 
-        # 2. Keyring-Datei muss existieren und Mindestgröße haben
-        if [ "$KEYRING_SIZE" -lt "$MIN_KEYRING_SIZE" ]; then
-          echo "KORRUPT: Keyring-Datei nur $KEYRING_SIZE Bytes (Minimum: $MIN_KEYRING_SIZE)"
-          CORRUPT=true
-        fi
+                # 1. default-Datei muss korrekten Inhalt haben
+                if [ "$CURRENT_DEFAULT" != "$EXPECTED" ]; then
+                  echo "KORRUPT: default='$CURRENT_DEFAULT' statt '$EXPECTED'"
+                  CORRUPT=true
+                fi
 
-        # 3. Journal-Polling: gnome-keyring-daemon darf keine Korruption melden
-        if check_journal_corruption; then
-          echo "KORRUPT: gnome-keyring-daemon meldet ungültiges Format"
-          CORRUPT=true
-        fi
+                # 2. Keyring-Datei muss existieren und Mindestgröße haben
+                if [ "$KEYRING_SIZE" -lt "$MIN_KEYRING_SIZE" ]; then
+                  echo "KORRUPT: Keyring-Datei nur $KEYRING_SIZE Bytes (Minimum: $MIN_KEYRING_SIZE)"
+                  CORRUPT=true
+                fi
 
-        if [ "$CORRUPT" = true ]; then
-          echo "WARNUNG: Keyring korrupt erkannt!"
+                # 3. Journal-Polling: gnome-keyring-daemon darf keine Korruption melden
+                if check_journal_corruption; then
+                  echo "KORRUPT: gnome-keyring-daemon meldet ungültiges Format"
+                  CORRUPT=true
+                fi
 
-          # PHASE 1: Sanitisierung versuchen (entfernt multi-line/binary secrets)
-          # ROOT CAUSE: ProtonVPN speichert JSON mit PEM-Newlines → Text-Format bricht
-          echo "Phase 1: Versuche Sanitisierung der Keyring-Datei..."
+                if [ "$CORRUPT" = true ]; then
+                  echo "WARNUNG: Keyring korrupt erkannt!"
 
-          # Daemon beenden für Reparatur
-          ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
-          sleep 1
-          for i in 1 2 3 4 5; do
-            if ! ${pkgs.procps}/bin/pgrep -u $(id -u) -f gnome-keyring-daemon >/dev/null 2>&1; then
-              break
-            fi
-            ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
-            sleep 1
-          done
-          rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
+                  # PHASE 1: Sanitisierung versuchen (entfernt multi-line/binary secrets)
+                  # ROOT CAUSE: ProtonVPN speichert JSON mit PEM-Newlines → Text-Format bricht
+                  echo "Phase 1: Versuche Sanitisierung der Keyring-Datei..."
 
-          SANITIZED=false
-          if [ -f "$KEYRING_FILE" ] && sanitize_keyring "$KEYRING_FILE"; then
-            echo "Keyring sanitisiert. Prüfe ob Daemon die Datei akzeptiert..."
-            sleep 1
-            ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
-            sleep 2
-
-            # Nur NEUE Journal-Meldungen prüfen (nach Sanitisierung)
-            SANITIZE_TS=$(${pkgs.coreutils}/bin/date +"%Y-%m-%d %H:%M:%S" -d "30 seconds ago")
-            if ! journalctl --user -t gnome-keyring-daemon --since "$SANITIZE_TS" --no-pager 2>/dev/null | \
-               grep -q "invalid or unrecognized format"; then
-              echo "Sanitisierung erfolgreich! Keyring ist wieder lesbar."
-              SANITIZED=true
-              # Golden Backup aktualisieren mit sauberer Version
-              ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
-                -C "$KEYRING_DIR" default Default_keyring.keyring login.keyring user.keystore 2>/dev/null || true
-              echo "Golden Backup mit sauberer Version aktualisiert."
-            else
-              echo "Sanitisierung reicht nicht aus. Fahre mit Restore fort."
-            fi
-          fi
-
-          if [ "$SANITIZED" = false ]; then
-            # PHASE 2: Golden Backup wiederherstellen
-            # Korrupten Zustand sichern (für Analyse)
-            TIMESTAMP=$(${pkgs.coreutils}/bin/date +%Y-%m-%d_%H-%M-%S)
-            ${pkgs.gnutar}/bin/tar -czf "$BACKUP_DIR/keyring-corrupt-$TIMESTAMP.tar.gz" \
-              -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
-
-            if [ -f "$GOLDEN" ]; then
-              echo "Phase 2: Stelle Golden Backup wieder her..."
-
-              # Daemon sicher beenden (falls durch Sanitisierungstest neugestartet)
-              ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
-              sleep 1
-              rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
-
-              # Alle Keyring-Dateien entfernen
-              rm -f "$KEYRING_DIR"/*.keyring "$KEYRING_DIR"/default "$KEYRING_DIR"/login.keyring
-
-              # Golden Backup wiederherstellen
-              ${pkgs.gnutar}/bin/tar -xzf "$GOLDEN" -C "$KEYRING_DIR"
-              sync
-
-              # Verwaiste Dateien entfernen
-              cleanup_orphans
-
-              # Daemon neu starten
-              sleep 2
-              ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
-              sleep 2
-
-              # Post-Restore-Validierung: NUR neue Meldungen prüfen
-              RESTORE_TS=$(${pkgs.coreutils}/bin/date +"%Y-%m-%d %H:%M:%S" -d "10 seconds ago")
-              if journalctl --user -t gnome-keyring-daemon --since "$RESTORE_TS" --no-pager 2>/dev/null | \
-                 grep -q "invalid or unrecognized format"; then
-                echo "WARNUNG: Golden Backup selbst korrupt! Lösche Golden Backup."
-                rm -f "$GOLDEN"
-
-                # PHASE 3: Fallback auf tägliches Backup
-                echo "Phase 3: Versuche tägliches Backup..."
-                LATEST_DAILY=$(ls -t "$BACKUP_DIR"/keyring-backup-*.tar.gz 2>/dev/null | head -1)
-                if [ -n "$LATEST_DAILY" ]; then
+                  # Daemon beenden für Reparatur
                   ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
                   sleep 1
+                  for i in 1 2 3 4 5; do
+                    if ! ${pkgs.procps}/bin/pgrep -u $(id -u) -f gnome-keyring-daemon >/dev/null 2>&1; then
+                      break
+                    fi
+                    ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
+                    sleep 1
+                  done
                   rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
-                  rm -f "$KEYRING_DIR"/*.keyring "$KEYRING_DIR"/default "$KEYRING_DIR"/login.keyring
-                  ${pkgs.gnutar}/bin/tar -xzf "$LATEST_DAILY" -C "$KEYRING_DIR" --strip-components=1
-                  sync
-                  # Sanitisieren (tägliches Backup kann gleiche Probleme haben)
-                  sanitize_keyring "$KEYRING_FILE" || true
-                  cleanup_orphans
-                  sleep 1
-                  ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
-                  sleep 2
-                  DAILY_TS=$(${pkgs.coreutils}/bin/date +"%Y-%m-%d %H:%M:%S" -d "10 seconds ago")
-                  if ! journalctl --user -t gnome-keyring-daemon --since "$DAILY_TS" --no-pager 2>/dev/null | \
-                     grep -q "invalid or unrecognized format"; then
-                    echo "Tägliches Backup $(basename "$LATEST_DAILY") erfolgreich wiederhergestellt!"
-                    ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
-                      -C "$KEYRING_DIR" default Default_keyring.keyring login.keyring user.keystore 2>/dev/null || true
-                  else
-                    echo "FEHLER: Auch tägliches Backup korrupt. Manueller Eingriff nötig."
-                    exit 1
+
+                  SANITIZED=false
+                  if [ -f "$KEYRING_FILE" ] && sanitize_keyring "$KEYRING_FILE"; then
+                    echo "Keyring sanitisiert. Prüfe ob Daemon die Datei akzeptiert..."
+                    sleep 1
+                    # Timestamp VOR dem Daemon-Neustart setzen, damit nur NEUE Meldungen geprüft werden.
+                    # WICHTIG: Nicht "30 seconds ago" verwenden – der originale Boot-Fehler liegt oft
+                    # innerhalb dieses Fensters und würde fälschlicherweise als "Sanitisierung fehlgeschlagen"
+                    # interpretiert. (Bug: Boot-Fehler @12:07:30, SANITIZE_TS @12:07:22 → false positive)
+                    SANITIZE_TS=$(${pkgs.coreutils}/bin/date +"%Y-%m-%d %H:%M:%S")
+                    ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
+                    sleep 2
+
+                    # Nur Journal-Meldungen NACH dem Daemon-Neustart prüfen
+                    if ! journalctl --user -t gnome-keyring-daemon --since "$SANITIZE_TS" --no-pager 2>/dev/null | \
+                       grep -q "invalid or unrecognized format"; then
+                      echo "Sanitisierung erfolgreich! Keyring ist wieder lesbar."
+                      SANITIZED=true
+                      # Golden Backup aktualisieren mit sauberer Version
+                      ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
+                        -C "$KEYRING_DIR" default Default_keyring.keyring login.keyring user.keystore 2>/dev/null || true
+                      echo "Golden Backup mit sauberer Version aktualisiert."
+                    else
+                      echo "Sanitisierung reicht nicht aus. Fahre mit Restore fort."
+                    fi
+                  fi
+
+                  if [ "$SANITIZED" = false ]; then
+                    # PHASE 2: Golden Backup wiederherstellen
+                    # Korrupten Zustand sichern (für Analyse)
+                    TIMESTAMP=$(${pkgs.coreutils}/bin/date +%Y-%m-%d_%H-%M-%S)
+                    ${pkgs.gnutar}/bin/tar -czf "$BACKUP_DIR/keyring-corrupt-$TIMESTAMP.tar.gz" \
+                      -C "$KEYRING_DIR" --exclude="backups" . 2>/dev/null || true
+
+                    if [ -f "$GOLDEN" ]; then
+                      echo "Phase 2: Stelle Golden Backup wieder her..."
+
+                      # Daemon sicher beenden (falls durch Sanitisierungstest neugestartet)
+                      ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
+                      sleep 1
+                      rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
+
+                      # Alle Keyring-Dateien entfernen
+                      rm -f "$KEYRING_DIR"/*.keyring "$KEYRING_DIR"/default "$KEYRING_DIR"/login.keyring
+
+                      # Golden Backup wiederherstellen
+                      ${pkgs.gnutar}/bin/tar -xzf "$GOLDEN" -C "$KEYRING_DIR"
+                      sync
+
+                      # Verwaiste Dateien entfernen
+                      cleanup_orphans
+
+                      # Daemon neu starten
+                      sleep 2
+                      ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
+                      sleep 2
+
+                      # Post-Restore-Validierung: NUR neue Meldungen prüfen
+                      RESTORE_TS=$(${pkgs.coreutils}/bin/date +"%Y-%m-%d %H:%M:%S" -d "10 seconds ago")
+                      if journalctl --user -t gnome-keyring-daemon --since "$RESTORE_TS" --no-pager 2>/dev/null | \
+                         grep -q "invalid or unrecognized format"; then
+                        echo "WARNUNG: Golden Backup selbst korrupt! Lösche Golden Backup."
+                        rm -f "$GOLDEN"
+
+                        # PHASE 3: Fallback auf tägliches Backup
+                        echo "Phase 3: Versuche tägliches Backup..."
+                        LATEST_DAILY=$(ls -t "$BACKUP_DIR"/keyring-backup-*.tar.gz 2>/dev/null | head -1)
+                        if [ -n "$LATEST_DAILY" ]; then
+                          ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
+                          sleep 1
+                          rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
+                          rm -f "$KEYRING_DIR"/*.keyring "$KEYRING_DIR"/default "$KEYRING_DIR"/login.keyring
+                          ${pkgs.gnutar}/bin/tar -xzf "$LATEST_DAILY" -C "$KEYRING_DIR" --strip-components=1
+                          sync
+                          # Sanitisieren (tägliches Backup kann gleiche Probleme haben)
+                          sanitize_keyring "$KEYRING_FILE" || true
+                          cleanup_orphans
+                          sleep 1
+                          ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
+                          sleep 2
+                          DAILY_TS=$(${pkgs.coreutils}/bin/date +"%Y-%m-%d %H:%M:%S" -d "10 seconds ago")
+                          if ! journalctl --user -t gnome-keyring-daemon --since "$DAILY_TS" --no-pager 2>/dev/null | \
+                             grep -q "invalid or unrecognized format"; then
+                            echo "Tägliches Backup $(basename "$LATEST_DAILY") erfolgreich wiederhergestellt!"
+                            ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
+                              -C "$KEYRING_DIR" default Default_keyring.keyring login.keyring user.keystore 2>/dev/null || true
+                          else
+                            echo "FEHLER: Auch tägliches Backup korrupt. Manueller Eingriff nötig."
+                            exit 1
+                          fi
+                        else
+                          echo "FEHLER: Kein tägliches Backup vorhanden! Manueller Eingriff nötig."
+                          exit 1
+                        fi
+                      else
+                        echo "Keyring erfolgreich aus Golden Backup wiederhergestellt!"
+                      fi
+                    else
+                      echo "FEHLER: Kein Golden Backup vorhanden! Manueller Eingriff nötig."
+                      echo "Verwende: restore-keyring"
+                      exit 1
+                    fi
                   fi
                 else
-                  echo "FEHLER: Kein tägliches Backup vorhanden! Manueller Eingriff nötig."
-                  exit 1
+                  echo "Keyring OK: default=$CURRENT_DEFAULT, size=$KEYRING_SIZE"
+
+                  # Präventive Sanitisierung: Multi-line Secrets entfernen BEVOR sie Probleme machen
+                  if sanitize_keyring "$KEYRING_FILE"; then
+                    echo "Präventive Sanitisierung: Problematische Einträge entfernt."
+                    # Daemon muss neu laden
+                    ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
+                    sleep 1
+                    rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
+                    ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
+                    sleep 1
+                  fi
+
+                  # Verwaiste Dateien aufräumen (auch im OK-Pfad)
+                  cleanup_orphans
+
+                  # Zweite Validierung: 10s warten, dann erneut Journal prüfen
+                  # (Daemon meldet Korruption oft erst verzögert nach Socket-Aktivierung)
+                  echo "Warte 10s für zweite Validierung..."
+                  BEFORE_WAIT=$(${pkgs.coreutils}/bin/date +"%Y-%m-%d %H:%M:%S")
+                  sleep 10
+
+                  if journalctl --user -t gnome-keyring-daemon --since "$BEFORE_WAIT" --no-pager 2>/dev/null | \
+                     grep -q "invalid or unrecognized format"; then
+                    echo "WARNUNG: Verzögerte Korruption erkannt! Golden Backup wird NICHT aktualisiert."
+                  else
+                    # Golden Backup erstellen/aktualisieren (VOR posteo-keyring-sync Schreibvorgängen!)
+                    echo "Erstelle Golden Backup..."
+                    ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
+                      -C "$KEYRING_DIR" default Default_keyring.keyring login.keyring user.keystore 2>/dev/null || true
+                    echo "Golden Backup aktualisiert."
+                  fi
                 fi
-              else
-                echo "Keyring erfolgreich aus Golden Backup wiederhergestellt!"
-              fi
-            else
-              echo "FEHLER: Kein Golden Backup vorhanden! Manueller Eingriff nötig."
-              echo "Verwende: restore-keyring"
-              exit 1
-            fi
-          fi
-        else
-          echo "Keyring OK: default=$CURRENT_DEFAULT, size=$KEYRING_SIZE"
-
-          # Präventive Sanitisierung: Multi-line Secrets entfernen BEVOR sie Probleme machen
-          if sanitize_keyring "$KEYRING_FILE"; then
-            echo "Präventive Sanitisierung: Problematische Einträge entfernt."
-            # Daemon muss neu laden
-            ${pkgs.procps}/bin/pkill -9 -u $(id -u) -f gnome-keyring-daemon || true
-            sleep 1
-            rm -f /run/user/$(id -u)/keyring/control 2>/dev/null || true
-            ${pkgs.libsecret}/bin/secret-tool lookup nonexistent test 2>/dev/null || true
-            sleep 1
-          fi
-
-          # Verwaiste Dateien aufräumen (auch im OK-Pfad)
-          cleanup_orphans
-
-          # Zweite Validierung: 10s warten, dann erneut Journal prüfen
-          # (Daemon meldet Korruption oft erst verzögert nach Socket-Aktivierung)
-          echo "Warte 10s für zweite Validierung..."
-          BEFORE_WAIT=$(${pkgs.coreutils}/bin/date +"%Y-%m-%d %H:%M:%S")
-          sleep 10
-
-          if journalctl --user -t gnome-keyring-daemon --since "$BEFORE_WAIT" --no-pager 2>/dev/null | \
-             grep -q "invalid or unrecognized format"; then
-            echo "WARNUNG: Verzögerte Korruption erkannt! Golden Backup wird NICHT aktualisiert."
-          else
-            # Golden Backup erstellen/aktualisieren (VOR posteo-keyring-sync Schreibvorgängen!)
-            echo "Erstelle Golden Backup..."
-            ${pkgs.gnutar}/bin/tar -czf "$GOLDEN" \
-              -C "$KEYRING_DIR" default Default_keyring.keyring login.keyring user.keystore 2>/dev/null || true
-            echo "Golden Backup aktualisiert."
-          fi
-        fi
       '';
     };
     Install = {
@@ -905,12 +965,17 @@ PYEOF
       "github.com" = {
         identityFile = "~/.ssh/id_ed25519_sk";
         identitiesOnly = true;
+        # Agent umgehen: FIDO2-Keys mit verify-required brauchen PIN-Prompt,
+        # den ssh-agent ohne askpass nicht liefern kann. ssh-Client via libfido2
+        # fragt PIN direkt im Terminal ab.
+        extraOptions.IdentityAgent = "none";
       };
       "gitlab.com" = {
         hostname = "altssh.gitlab.com";
         port = 443;
         identityFile = "~/.ssh/id_ed25519_sk";
         identitiesOnly = true;
+        extraOptions.IdentityAgent = "none";
       };
       "rusty-vault.de" = {
         identityFile = "~/.ssh/hetzner-vps";
@@ -945,6 +1010,13 @@ PYEOF
       };
       # LXC (VLAN 40, Media) — Colmena ProxyJump via pve-host
       "10.10.40.*" = {
+        user = "admin";
+        identityFile = "~/.ssh/id_ed25519_colmena";
+        identitiesOnly = true;
+        proxyJump = "100.72.129.125";
+      };
+      # VM (VLAN 50, Torrent) — Colmena ProxyJump via pve-host
+      "10.10.50.*" = {
         user = "admin";
         identityFile = "~/.ssh/id_ed25519_colmena";
         identitiesOnly = true;
@@ -1035,8 +1107,8 @@ PYEOF
           version = "0.0.8";
           sha256 = "09cd8ka4nrys1wcg09c20i65mxxl6mk6li8rxap60w8f2rn6gixq";
         }).overrideAttrs (old: {
-          nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ pkgs.autoPatchelfHook ];
-          buildInputs = (old.buildInputs or []) ++ [ pkgs.stdenv.cc.cc.lib ];
+          nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.autoPatchelfHook ];
+          buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.stdenv.cc.cc.lib ];
         }))
       ];
 

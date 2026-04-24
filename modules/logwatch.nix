@@ -21,7 +21,11 @@
       # Sicherheit: Private /tmp, ReadOnly /
       PrivateTmp = true;
       ProtectSystem = "strict";
-      ReadWritePaths = [ "/var/log/security-reports" ];
+      # LogsDirectory legt /var/log/security-reports automatisch an und
+      # setzt es als ReadWritePath. Fixt "status=226/NAMESPACE" wenn das
+      # Verzeichnis beim Service-Start noch nicht existiert (Bind-Mount scheitert).
+      LogsDirectory = "security-reports";
+      LogsDirectoryMode = "0750";
 
       # Minimale Capabilities
       CapabilityBoundingSet = [ "CAP_DAC_READ_SEARCH" ];

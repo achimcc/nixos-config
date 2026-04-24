@@ -229,6 +229,10 @@
     '';
 
     # VSCodium (code editor)
+    # HARDENED: Home-Zugriff bleibt (integriertes Terminal, git, build tools
+    # brauchen es durch Profil-Vererbung), aber sensitive Pfade werden explizit
+    # gedenied — App-Daten anderer Programme (Browser, Thunderbird, Signal,
+    # Bitwarden, Password-Store) sowie Private-Key-Material (SSH, GPG).
     vscodium.profile = ''
       #include <tunables/global>
 
@@ -252,19 +256,12 @@
         /nix/store/** rix,
         /nix/store/** m,
 
-        # VSCodium config and extensions
-        owner @{HOME}/.config/VSCodium/** rwk,
-        owner @{HOME}/.vscode-oss/** rwk,
-        owner @{HOME}/.cache/vscode-oss/** rwk,
-        owner @{HOME}/.cache/mesa_shader_cache/** rwk,
-
-        # Workspace (full access to home for development)
-        # k = lock, m = mmap exec (needed for proc-macro .so loading by rust-analyzer)
+        # Broader Home-Zugriff (integriertes Terminal erbt Profil → git, build
+        # tools, shell muss funktionieren). Sensitive Pfade werden weiter unten
+        # explizit gedenied.
         owner @{HOME}/** rwkm,
-        owner @{HOME}/nixos-config/** rwkm,
-        owner @{HOME}/Projects/** rwkm,
 
-        # Temporary files (m = mmap exec for rust-analyzer target dir in /tmp)
+        # Temporary files (m = mmap exec für rust-analyzer target dir in /tmp)
         owner /tmp/** rwm,
 
         # Full access to user runtime directory
@@ -273,12 +270,6 @@
 
         /dev/shm/ r,
         /dev/shm/** rw,
-
-        # Config files
-        owner @{HOME}/.config/dconf/user rw,
-        owner @{HOME}/.config/pulse/ rw,
-        owner @{HOME}/.config/pulse/** rwk,
-        owner @{HOME}/.config/ibus/** r,
 
         # System files
         /etc/** r,
@@ -302,11 +293,47 @@
         # Pseudo-terminal devices (for integrated terminal)
         /dev/pts/* rw,
 
-        # Deny secrets even with broad home access
-        deny /var/lib/sops-nix/** r,
-        deny /run/secrets/** r,
-        deny @{HOME}/.gnupg/private-keys-v1.d/** r,
-        deny /etc/shadow r,
+        # ======================================
+        # SENSITIVE-PFAD DENIES (Defense-in-Depth gegen kompromittierte Extensions)
+        # ======================================
+        deny /var/lib/sops-nix/** rwkm,
+        deny /run/secrets/** rwkm,
+        deny /etc/shadow rwkm,
+
+        # SSH: Private Keys/Agent verbieten, aber config/known_hosts erlauben
+        # (git push/clone via SSH funktioniert damit weiter)
+        deny @{HOME}/.ssh/id_* rwkm,
+        deny @{HOME}/.ssh/*_id_* rwkm,
+        deny @{HOME}/.ssh/agent.* rwkm,
+        deny @{HOME}/.ssh/hetzner-vps rwkm,
+
+        # GPG: Private Keyring verbieten, aber pubring lesbar lassen
+        deny @{HOME}/.gnupg/private-keys-v1.d/** rwkm,
+        deny @{HOME}/.gnupg/openpgp-revocs.d/** rwkm,
+
+        # Browser/Mail-Profile (Cookies, gespeicherte Passwörter, Sessions)
+        deny @{HOME}/.mozilla/** rwkm,
+        deny @{HOME}/.librewolf/** rwkm,
+        deny @{HOME}/.cache/mozilla/** rwkm,
+        deny @{HOME}/.cache/librewolf/** rwkm,
+        deny @{HOME}/.thunderbird/** rwkm,
+        deny @{HOME}/.cache/thunderbird/** rwkm,
+
+        # Passwort-Manager
+        deny @{HOME}/.config/Bitwarden/** rwkm,
+        deny @{HOME}/.config/Bitwarden-CLI/** rwkm,
+        deny @{HOME}/.password-store/** rwkm,
+        deny @{HOME}/**.kdbx rwkm,
+        deny @{HOME}/**.kdbx.lock rwkm,
+
+        # Messenger-Daten (SQLCipher-DBs, Schlüssel)
+        deny @{HOME}/.config/Signal/** rwkm,
+        deny @{HOME}/.var/app/org.signal.Signal/** rwkm,
+
+        # Wallet / Crypto
+        deny @{HOME}/.bitmonero/** rwkm,
+        deny @{HOME}/.config/feather/** rwkm,
+        deny @{HOME}/.cache/Proton/** rwkm,
 
         # Network (for extensions)
         network inet stream,
