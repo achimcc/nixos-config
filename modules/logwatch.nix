@@ -97,15 +97,19 @@
       } >> "$REPORT_FILE"
 
       # ==========================================
-      # FAIL2BAN (BRUTE FORCE PROTECTION)
+      # SUDO FAIL MONITOR (fail2ban-Ersatz für lokale Auth)
       # ==========================================
 
       {
         echo "=========================================="
-        echo "FAIL2BAN - Brute Force Protection"
+        echo "SUDO FAIL MONITOR - Local Brute Force Protection"
         echo "=========================================="
-        ${pkgs.systemd}/bin/journalctl -u fail2ban --since yesterday --no-pager | \
-          grep -E "(Ban|Unban)" | tail -n 50 || echo "No Fail2ban activity yesterday"
+        ${pkgs.systemd}/bin/journalctl -u sudo-fail-monitor --since yesterday --no-pager | \
+          grep -E "SUDO FAIL DETECTED|authentication failure" | tail -n 50 \
+          || echo "No sudo failures yesterday"
+        echo ""
+        echo "-- PAM faillock state --"
+        ${pkgs.pam}/bin/faillock --user user 2>/dev/null || echo "faillock not available"
         echo ""
       } >> "$REPORT_FILE"
 
@@ -165,26 +169,15 @@
       } >> "$REPORT_FILE"
 
       # ==========================================
-      # ROOTKIT SCANNERS
+      # ROOTKIT DETECTION (unhide)
       # ==========================================
 
       {
         echo "=========================================="
-        echo "ROOTKIT SCANNERS - Last Scan Results"
+        echo "UNHIDE - Hidden Processes/Ports"
         echo "=========================================="
-
-        # Chkrootkit
-        if [[ -f /var/log/chkrootkit.log ]]; then
-          echo "--- Chkrootkit ---"
-          tail -n 20 /var/log/chkrootkit.log || echo "No chkrootkit log"
-        fi
-
-        # Rkhunter
-        if [[ -f /var/log/rkhunter.log ]]; then
-          echo "--- Rkhunter ---"
-          grep -E "(Warning|Found)" /var/log/rkhunter.log | tail -n 20 || echo "No rkhunter warnings"
-        fi
-
+        ${pkgs.systemd}/bin/journalctl -u unhide-check -u unhide-tcp-check \
+          --since yesterday --no-pager | tail -n 30 || echo "No unhide scans yesterday"
         echo ""
       } >> "$REPORT_FILE"
 
@@ -202,15 +195,21 @@
       } >> "$REPORT_FILE"
 
       # ==========================================
-      # FAILED LOGIN ATTEMPTS
+      # FAILED LOGINS (GDM / PAM)
       # ==========================================
 
       {
         echo "=========================================="
-        echo "FAILED LOGINS - Authentication Failures"
+        echo "FAILED LOGINS - GDM/PAM Authentication"
         echo "=========================================="
+        ${pkgs.systemd}/bin/journalctl -u gdm --since yesterday --no-pager | \
+          grep -iE "authentication failure|auth.*failed|failed.*auth" | tail -n 50 \
+          || echo "No GDM auth failures yesterday"
+        echo ""
+        echo "-- PAM auth failures from all units --"
         ${pkgs.systemd}/bin/journalctl --since yesterday --no-pager | \
-          grep -E "(Failed password|authentication failure)" | tail -n 50 || echo "No failed login attempts yesterday"
+          grep -iE "pam_unix.*authentication failure|pam_faillock" | tail -n 30 \
+          || echo "No PAM auth failures yesterday"
         echo ""
       } >> "$REPORT_FILE"
 
@@ -300,21 +299,19 @@
       }
 
       # ==========================================
-      # ROOTKIT DETECTION
+      # ROOTKIT DETECTION (unhide)
       # ==========================================
 
-      # Chkrootkit
-      if [[ -f /var/log/chkrootkit.log ]]; then
-        if grep -qi "INFECTED\|vulnerable" /var/log/chkrootkit.log; then
-          send_notification "ROOTKIT DETECTED" "Chkrootkit found suspicious activity. Check /var/log/chkrootkit.log"
-        fi
+      # unhide sys/procall Findings der letzten 5 Minuten
+      if ${pkgs.systemd}/bin/journalctl -u unhide-check --since "5 minutes ago" --no-pager | \
+         grep -qiE "found|hidden"; then
+        send_notification "ROOTKIT DETECTED" "unhide found hidden processes. Check: journalctl -u unhide-check"
       fi
 
-      # Rkhunter
-      if [[ -f /var/log/rkhunter.log ]]; then
-        if grep -qi "warning\|rootkit" /var/log/rkhunter.log; then
-          send_notification "ROOTKIT DETECTED" "Rkhunter found warnings. Check /var/log/rkhunter.log"
-        fi
+      # unhide-tcp Findings
+      if ${pkgs.systemd}/bin/journalctl -u unhide-tcp-check --since "5 minutes ago" --no-pager | \
+         grep -qiE "found|hidden"; then
+        send_notification "ROOTKIT DETECTED" "unhide found hidden TCP/UDP ports. Check: journalctl -u unhide-tcp-check"
       fi
 
       # ==========================================
@@ -360,12 +357,21 @@
       fi
 
       # ==========================================
-      # FAILED ROOT LOGIN ATTEMPTS
+      # SUDO FAIL MONITOR (lokale Brute-Force auf sudo)
+      # ==========================================
+
+      if ${pkgs.systemd}/bin/journalctl -u sudo-fail-monitor --since "5 minutes ago" --no-pager | \
+         grep -q "SUDO FAIL DETECTED"; then
+        send_notification "SUDO BRUTE-FORCE" "Failed sudo attempts detected. Check: journalctl -u sudo-fail-monitor"
+      fi
+
+      # ==========================================
+      # PAM FAILLOCK (Account-Lockout ausgelöst)
       # ==========================================
 
       if ${pkgs.systemd}/bin/journalctl --since "5 minutes ago" --no-pager | \
-         grep -E "Failed password.*root"; then
-        send_notification "ROOT LOGIN ATTEMPT" "Failed root login detected. Possible attack!"
+         grep -iE "pam_faillock.*locking account|faillock.*too many"; then
+        send_notification "ACCOUNT LOCKED" "PAM faillock hat Account gesperrt. Reset: sudo faillock --user user --reset"
       fi
     '';
   };

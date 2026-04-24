@@ -18,8 +18,23 @@
   # ==========================================
 
   boot.kernel.sysctl = {
-    # User Namespaces erlauben (benötigt für Electron-Apps wie VSCodium, Signal)
-    # Der hardened Kernel deaktiviert dies standardmäßig
+    # User Namespaces erlauben — bewusste Risiko-Akzeptanz.
+    #
+    # THREAT MODEL:
+    # - userns=1 öffnet Kernel-namespace-API für unprivilegierte User.
+    #   Historische Exploits: CVE-2022-0185 (cgroup v1), CVE-2023-0386 (overlayfs),
+    #   CVE-2023-4911 (Looney Tunables). Alle bereits gepatcht in Kernel 6.12.
+    # - userns=0 würde die Angriffsfläche schließen, aber Electron-Apps
+    #   (VSCodium, Chrome, Signal, Discord) deaktivieren dann ihre interne
+    #   Chromium-Sandbox → Browser-/Chat-Rendering läuft ungepuffert, was
+    #   PRAKTISCH eine deutlich größere Angriffsfläche eröffnet (Renderer
+    #   kompromittiert → direkter User-Code-Exec).
+    #
+    # TRADE-OFF:
+    # Electron-Sandbox > theoretischer Kernel-namespace-Bug bei gepatchtem
+    # Kernel. Mitigation liegt in: (a) aktueller Kernel (6.12 LTS, CVE-Watch
+    # via vulnix), (b) AppArmor-Profile für Electron-Apps, (c) Lockdown-Modus,
+    # (d) SMT-Off, init_on_alloc/free für Memory-Exploit-Härte.
     "kernel.unprivileged_userns_clone" = 1;
 
     # Kernel Pointer verstecken (erschwert Exploits)
@@ -219,7 +234,13 @@
       # SICHERHEIT: with-interface beschränkt auf Mass Storage Klasse (08:*:*)
       allow id 0781:55b0 serial "323233353036343034313530" with-interface { 08:*:* 08:*:* } with-connect-type "hotplug"
 
-      # Nitrokey 3C NFC
+      # Nitrokey 3C NFC — bevorzugt Serial-Match (Klone mit gleicher VID/PID werden geblockt)
+      # Serial aus `nitropy nk3 list`. Nach Rebuild verifizieren mit:
+      #   sudo usbguard list-devices | grep -i nitrokey
+      # Falls USBGuard eine andere iSerial anzeigt: Wert unten anpassen.
+      allow id 20a0:42b2 serial "FBB05172A161F45090A2AA9E355E0789" name "Nitrokey 3" with-connect-type "hotplug"
+      # Fallback ohne Serial — greift nur wenn obige Regel NICHT matched (z.B. weil
+      # iSerial-USB-Descriptor nicht die nitropy-Serial ist). TODO: nach Verifikation entfernen.
       allow id 20a0:42b2 name "Nitrokey 3" with-connect-type "hotplug"
 
       # reMarkable 2 Tablet
@@ -749,11 +770,20 @@
     '';
   };
 
-  # Journal-Größe begrenzen
+  # Journal-Größe — großzügig dimensioniert wegen Suricata (jetzt 3 Interfaces:
+  # proton0, wlp0s20f3, enp0s31f6) + auditd + sudo-fail-monitor. 2G ist sicher
+  # erreichbar bei hohem Netzwerkverkehr.
   services.journald.extraConfig = ''
-    SystemMaxUse=500M
-    SystemKeepFree=2G
+    SystemMaxUse=2G
+    SystemKeepFree=4G
     MaxRetentionSec=30day
+    # Pro-Service-Rate-Limit: Verhindert dass eine Log-Flut anderer Services
+    # Platz stiehlt. 10000 Messages pro 30s pro Unit sollten Malware-Scan und
+    # Brute-Force-Alerts abdecken ohne dass andere Services hungern.
+    RateLimitIntervalSec=30s
+    RateLimitBurst=10000
+    # Forward to kmsg NICHT (default), spart Memory-Ring-Buffer-Overhead
+    ForwardToKMsg=no
   '';
 
   # Log-Rotation für sudo.log

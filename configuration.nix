@@ -8,7 +8,6 @@
     ./hardware-configuration.nix
     ./modules/network.nix
     ./modules/firewall.nix
-    ./modules/firewall-zones.nix
     ./modules/protonvpn.nix
     ./modules/dns-watchdog.nix
     ./modules/desktop.nix
@@ -228,10 +227,18 @@
   hardware.nitrokey.enable = true;
 
   hardware.bluetooth.enable = true;
-  hardware.bluetooth.powerOnBoot = true;
+  # SICHERHEIT: powerOnBoot=false → BT ist bei Systemstart AUS, manuell
+  # einschalten via GNOME Settings oder `bluetoothctl power on`. Reduziert
+  # Angriffsfläche (BlueFrag/KNOB/BrakTooth) wenn BT nicht gebraucht wird.
+  hardware.bluetooth.powerOnBoot = false;
   hardware.bluetooth.settings = {
     General = {
-      Experimental = true;
+      # Experimental=true schaltete experimentelle BlueZ-Features frei (u.a.
+      # LE-Advertisements, Battery-Profile). Nicht benötigt → off.
+      Experimental = false;
+      # Privacy: Nicht als Discoverable-Default
+      DiscoverableTimeout = 30;
+      PairableTimeout = 30;
     };
   };
 
@@ -377,6 +384,14 @@
       RandomizedDelaySec = "1h";
     };
   };
+
+  # ==========================================
+  # SSH-ASKPASS für FIDO2-Signing
+  # ==========================================
+  # openssh-10.2p1 braucht ssh-askpass für PIN-Eingabe bei FIDO2-Keys
+  # (Nitrokey resident SSH-Key für git commit signing).
+  # x11_ssh_askpass = minimal (~100 KB, kein Qt/GTK), funktioniert unter Wayland via XWayland.
+  programs.ssh.askPassword = "${pkgs.x11_ssh_askpass}/libexec/x11-ssh-askpass";
 
   # ==========================================
   # ZUSÄTZLICHE CA-ZERTIFIKATE

@@ -483,23 +483,41 @@ $ip"
 
       # Phase 2: VPN-Server-IPs aus lokalem ProtonVPN-Cache laden
       # API braucht Auth-Token → lokaler Cache ist zuverlässiger
+      #
+      # SECURITY: Cache liegt im User-Home und wird als root gelesen.
+      # Kompromittierter User-Prozess dürfte sonst beliebige IPs in nftables-Set
+      # einschleusen (Bypass des VPN Kill-Switch). Darum:
+      #   1. Datei-Owner muss user sein (kein root/andere User)
+      #   2. Kein Symlink (TOCTOU-Risiko)
+      #   3. Strikte IPv4-Regex (verhindert nft-Syntax-Injection)
+      #   4. Cap bei 200 IPs (verhindert Set-Bloat / DoS)
       echo ""
       echo "=== Phase 2: VPN-Server-IPs aus Cache ==="
       CACHE="/home/user/.cache/Proton/VPN/serverlist.json"
-      if [ -f "$CACHE" ]; then
-        SERVER_IPS=$(jq -r '.LogicalServers[].Servers[].EntryIP' "$CACHE" 2>/dev/null | sort -u || true)
-        if [ -n "$SERVER_IPS" ]; then
-          COUNT=0
-          for ip in $SERVER_IPS; do
-            nft add element inet filter proton_api "{ $ip timeout $TIMEOUT }" 2>/dev/null || true
-            COUNT=$((COUNT + 1))
-          done
-          echo "✓ $COUNT VPN-Server-IPs aus Cache geladen"
-        else
-          echo "⚠ Keine Server-IPs im Cache gefunden"
-        fi
-      else
+      if [ ! -f "$CACHE" ]; then
         echo "⚠ Cache nicht gefunden: $CACHE"
+      elif [ -L "$CACHE" ]; then
+        echo "⚠ Cache ist ein Symlink → abgelehnt (TOCTOU-Risiko)"
+      else
+        CACHE_OWNER=$(${pkgs.coreutils}/bin/stat -c '%U' "$CACHE" 2>/dev/null || echo "")
+        if [ "$CACHE_OWNER" != "user" ]; then
+          echo "⚠ Cache-Datei gehört $CACHE_OWNER (erwartet: user) → abgelehnt"
+        else
+          # Strikte IPv4-Regex — filtert alles aus was keine saubere Dot-Quad-IP ist
+          SERVER_IPS=$(jq -r '.LogicalServers[].Servers[].EntryIP' "$CACHE" 2>/dev/null \
+            | ${pkgs.gnugrep}/bin/grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' \
+            | sort -u | ${pkgs.coreutils}/bin/head -200 || true)
+          if [ -n "$SERVER_IPS" ]; then
+            COUNT=0
+            for ip in $SERVER_IPS; do
+              nft add element inet filter proton_api "{ $ip timeout $TIMEOUT }" 2>/dev/null || true
+              COUNT=$((COUNT + 1))
+            done
+            echo "✓ $COUNT VPN-Server-IPs aus Cache geladen (cap: 200)"
+          else
+            echo "⚠ Keine gültigen IPs im Cache gefunden"
+          fi
+        fi
       fi
 
       echo ""

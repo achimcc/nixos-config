@@ -4,30 +4,45 @@
 
 let
   # Helper-Script für Email-Versand
+  # SECURITY: Subject/Body werden strikt sanitiert gegen Header-Injection,
+  # da Aufrufer dynamische Inhalte aus Suricata/ClamAV/AIDE einbetten (die
+  # potentiell attacker-kontrollierten Content enthalten können — z.B.
+  # Dateinamen, Alert-Signatures, Pfade).
   sendSecurityAlert = pkgs.writeShellScript "send-security-alert" ''
     #!/usr/bin/env bash
+    set -eu
     # Usage: send-security-alert "Subject" "Body"
 
-    SUBJECT="$1"
-    BODY="$2"
+    # Sanitize Subject: entferne CR/LF (Header-Injection), limitiere auf 200 Zeichen
+    SUBJECT=$(${pkgs.coreutils}/bin/printf '%s' "$1" \
+      | ${pkgs.coreutils}/bin/tr -d '\r\n' \
+      | ${pkgs.coreutils}/bin/head -c 200)
+
+    # Sanitize Body: entferne NUR \r (CRLF-Injection), \n im Body ist OK
+    BODY=$(${pkgs.coreutils}/bin/printf '%s' "$2" \
+      | ${pkgs.coreutils}/bin/tr -d '\r')
+
     TO="user@posteo.de"  # Hardcoded, da sops placeholder in script nicht funktioniert
     FROM="user@posteo.de"
-    HOSTNAME="$(${pkgs.hostname}/bin/hostname)"
+    HOSTNAME="$(${pkgs.hostname}/bin/hostname | ${pkgs.coreutils}/bin/tr -d '\r\n')"
+    DATE_RFC="$(${pkgs.coreutils}/bin/date -R)"
+    DATE_LONG="$(${pkgs.coreutils}/bin/date)"
+    NIXOS_VER="$(/run/current-system/sw/bin/nixos-version 2>/dev/null || echo unknown)"
 
-    ${pkgs.msmtp}/bin/msmtp "$TO" <<EOF
-From: $FROM
-To: $TO
-Subject: [NixOS Security Alert] $SUBJECT
-Date: $(${pkgs.coreutils}/bin/date -R)
-
-Security Alert from $HOSTNAME
-
-$BODY
-
----
-Generated: $(${pkgs.coreutils}/bin/date)
-System: NixOS $(/run/current-system/sw/bin/nixos-version 2>/dev/null || echo "unknown")
-EOF
+    # Email via printf (kein HEREDOC mit unkontrollierter Variablen-Expansion)
+    {
+      ${pkgs.coreutils}/bin/printf 'From: %s\n' "$FROM"
+      ${pkgs.coreutils}/bin/printf 'To: %s\n' "$TO"
+      ${pkgs.coreutils}/bin/printf 'Subject: [NixOS Security Alert] %s\n' "$SUBJECT"
+      ${pkgs.coreutils}/bin/printf 'Date: %s\n' "$DATE_RFC"
+      ${pkgs.coreutils}/bin/printf 'Content-Type: text/plain; charset=UTF-8\n'
+      ${pkgs.coreutils}/bin/printf '\n'
+      ${pkgs.coreutils}/bin/printf 'Security Alert from %s\n\n' "$HOSTNAME"
+      ${pkgs.coreutils}/bin/printf '%s\n\n' "$BODY"
+      ${pkgs.coreutils}/bin/printf -- '---\n'
+      ${pkgs.coreutils}/bin/printf 'Generated: %s\n' "$DATE_LONG"
+      ${pkgs.coreutils}/bin/printf 'System: NixOS %s\n' "$NIXOS_VER"
+    } | ${pkgs.msmtp}/bin/msmtp --read-recipients -- "$TO"
   '';
 
 in {
