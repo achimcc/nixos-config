@@ -62,11 +62,20 @@ in
       # Signal: Flatpak nutzt eigene Bubblewrap-Sandbox (kein --no-sandbox nötig).
       # Zugriff auf ~/.config/Signal bleibt (braucht es für die SQLCipher-DB).
       # Kein pauschaler Home-Zugriff, keine Dev/Sys-Pfade.
+      #
+      # SIGNAL_PASSWORD_STORE=gnome-libsecret: DB-Key wird im GNOME-Keyring
+      # (SQLCipher-Backend) verschlüsselt gespeichert statt in plaintext in
+      # ~/.var/app/.../config.json. Trade-off: Signal flaggt das als
+      # "experimental" — bei Keyring-Korruption droht DB-Verlust. gnome-keyring-
+      # guard (oben) sollte das abfangen, täglicher Backup-Timer schützt zusätzlich.
       "org.signal.Signal" = {
         Context.filesystems = [
           "!home"
           "~/Downloads"
         ];
+        Environment = {
+          SIGNAL_PASSWORD_STORE = "gnome-libsecret";
+        };
       };
     };
     update.auto = {
