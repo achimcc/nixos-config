@@ -159,9 +159,6 @@
     "e1000e"
   ];
 
-  # FIDO2/Nitrokey Module werden bereits in hardware-configuration.nix geladen
-  # Keine Doppelung nötig - boot.initrd.kernelModules werden automatisch zusammengeführt
-
   # ==========================================
   # ZUSÄTZLICHE SICHERHEIT
   # ==========================================
@@ -217,8 +214,6 @@
     implicitPolicyTarget = "block";
 
     # Bereits angeschlossene Geräte beim Boot erlauben
-    # WICHTIG: presentDevicePolicy auf "allow" verhindert nicht das FIDO2-Problem im Initrd,
-    # da USBGuard erst NACH dem Initrd startet. Das Problem liegt woanders.
     presentDevicePolicy = "allow";
 
     # Eingefügte Geräte: Regeln vor Blockierung anwenden (verhindert Timing-Probleme)
@@ -233,15 +228,6 @@
       # Gerät präsentiert 2 Interfaces: Bulk-Only (08:06:50) + UAS (08:06:62)
       # SICHERHEIT: with-interface beschränkt auf Mass Storage Klasse (08:*:*)
       allow id 0781:55b0 serial "323233353036343034313530" with-interface { 08:*:* 08:*:* } with-connect-type "hotplug"
-
-      # Nitrokey 3C NFC — bevorzugt Serial-Match (Klone mit gleicher VID/PID werden geblockt)
-      # Serial aus `nitropy nk3 list`. Nach Rebuild verifizieren mit:
-      #   sudo usbguard list-devices | grep -i nitrokey
-      # Falls USBGuard eine andere iSerial anzeigt: Wert unten anpassen.
-      allow id 20a0:42b2 serial "FBB05172A161F45090A2AA9E355E0789" name "Nitrokey 3" with-connect-type "hotplug"
-      # Fallback ohne Serial — greift nur wenn obige Regel NICHT matched (z.B. weil
-      # iSerial-USB-Descriptor nicht die nitropy-Serial ist). TODO: nach Verifikation entfernen.
-      allow id 20a0:42b2 name "Nitrokey 3" with-connect-type "hotplug"
 
       # reMarkable 2 Tablet
       allow id 04b3:4010 with-connect-type "hotplug"
@@ -329,7 +315,7 @@
             <allow_any>no</allow_any>
             <!-- allow_inactive: Gesperrter Screen / switched-away Session → verboten (verhindert Lock-Screen-Trigger) -->
             <allow_inactive>no</allow_inactive>
-            <!-- allow_active: Eingeloggte aktive Session → nur mit PAM-Auth (Passwort oder FIDO2) -->
+            <!-- allow_active: Eingeloggte aktive Session → nur mit PAM-Auth (Passwort) -->
             <allow_active>auth_self</allow_active>
           </defaults>
         </action>
@@ -645,33 +631,6 @@
     };
   };
 
-  # ==========================================
-  # FIDO2/NITROKEY PAM-AUTHENTIFIZIERUNG
-  # ==========================================
-
-  # FIDO2 mit PIN + Touch als Alternative zum Passwort
-  # Nitrokey eingesteckt → PIN eingeben + Key berühren → authentifiziert
-  # Kein Nitrokey → normales Passwort als Fallback
-  security.pam.u2f = {
-    enable = true;
-    control = "sufficient";
-    settings = {
-      cue = true;
-      pinverification = 1;
-      # nouserok: Erlaubt Fallback zu Passwort wenn:
-      # - Nitrokey nicht eingesteckt ist
-      # - PIN-Dialog fehlschlägt (kein Terminal verfügbar)
-      # - u2f_keys Datei fehlt
-      # Ohne diesen Parameter würde "conversation failed" die Authentifizierung blockieren
-      nouserok = true;
-    };
-  };
-
-  # PAM-Services für FIDO2 aktivieren
-  security.pam.services.sudo.u2fAuth = true;
-  security.pam.services.login.u2fAuth = true;
-  security.pam.services.gdm-password.u2fAuth = true;
-
   # GNOME Keyring bei Login automatisch entsperren (erstellt "login"-Collection)
   security.pam.services.login.enableGnomeKeyring = true;
   security.pam.services.gdm-password.enableGnomeKeyring = true;
@@ -681,7 +640,6 @@
   # ==========================================
   # Sperrt den User-Account nach 5 fehlgeschlagenen Auth-Versuchen für 15 Min.
   # Greift für sudo, login, gdm-password (alles was den Standard-PAM-Stack nutzt).
-  # `deny=0` auf FIDO2-Pfad → Faillock zählt nur Passwort-Fails, nicht Key-Touch-Fehler.
   # Status prüfen: `faillock --user user`; zurücksetzen: `sudo faillock --user user --reset`
   security.pam.services.sudo.failDelay.delay = 4000000; # 4s Delay nach jedem Fehlversuch
   security.pam.services.login.failDelay.delay = 4000000;

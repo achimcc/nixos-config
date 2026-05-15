@@ -48,8 +48,6 @@
     "slab_nomerge" # Slab-Caches nicht mergen (verhindert Exploits)
 
     # Kernel Lockdown
-    # "integrity" erlaubt FIDO2-HID-Zugriff im Initrd (für Nitrokey LUKS-Entsperrung)
-    # "confidentiality" würde USB-HID blockieren und FIDO2 verhindern
     "lockdown=integrity" # Kernel-Lockdown-Modus (verhindert unsigned Module)
 
     # Legacy-Features deaktivieren
@@ -87,21 +85,20 @@
   boot.supportedFilesystems = [ "exfat" ]; # Für externe SSDs/USB-Sticks
 
   # ==========================================
-  # LUKS Verschlüsselung mit FIDO2 (Nitrokey 3C NFC)
+  # LUKS Verschlüsselung
   # ==========================================
 
-  # Systemd in Initrd für FIDO2 LUKS-Entsperrung
+  # Systemd in Initrd (für TPM2-LUKS-Entsperrung)
   boot.initrd.systemd.enable = true;
 
   # TPM 2.0 für zusätzliche Boot-Sicherheit
   boot.initrd.systemd.tpm2.enable = true;
 
-  # Root-Partition: FIDO2 mit Passwort-Fallback
-  boot.initrd.luks.devices."luks-fcef0557-8a09-4f30-b78e-aecc458a975a".crypttabExtraOpts = [
-    "fido2-device=auto"
-  ];
+  # Root-Partition: Passphrase-Entsperrung (FIDO2-Slot ENTFERNT — Hardware-Token nicht mehr genutzt)
+  # Falls der Slot in cryptsetup luksDump noch existiert, manuell entfernen:
+  #   sudo systemd-cryptenroll --wipe-slot=fido2 /dev/disk/by-uuid/fcef0557-...
 
-  # Swap: TPM2-basierte Entsperrung (für Hibernate/Resume ohne FIDO2-Interaktion)
+  # Swap: TPM2-basierte Entsperrung (für Hibernate/Resume ohne Interaktion)
   # Swap-Verschlüsselung explizit verifiziert (LUKS2)
   # MIGRATION: Von Keyfile auf TPM2 umgestellt (Keyfile auf unverschlüsselter /boot war extrahierbar)
   #
@@ -166,20 +163,6 @@
   # ==========================================
 
   nixpkgs.config.allowUnfree = true;
-  # Bewusste Risiko-Akzeptanz (dokumentiert).
-  # Kein Platzhalter — wenn in Zukunft ein Paket hier ergänzt wird, MUSS dazu
-  # der konkrete Angriffsvektor und die Begründung der Akzeptanz stehen.
-  nixpkgs.config.permittedInsecurePackages = [
-    # python-ecdsa 0.19.1: CVE-2024-23342 (Minerva Timing-Side-Channel auf ECDSA-Signing)
-    # - Abhängigkeit: pynitrokey (nitropy CLI), genutzt für
-    #     (a) TOTP-Abfrage vom Nitrokey (HMAC-SHA1, KEIN ECDSA)
-    #     (b) gelegentliche Firmware-Updates / FIDO2-Verwaltung
-    # - Angriffsvoraussetzung: Lokaler unprivilegierter Angreifer kann Timing
-    #   von ECDSA-Signings messen. Auf Single-User-Laptop nicht gegeben.
-    # - Code-Pfad: ECDSA-Signing wird vom TOTP-Workflow nicht aufgerufen.
-    # - Upgrade-Watch: Fix seit python-ecdsa 0.20.0 → bei nächstem pynitrokey-Release entfernen.
-    "python3.12-ecdsa-0.19.1"
-  ];
 
   environment.systemPackages = with pkgs; [
     git
@@ -219,12 +202,6 @@
   # ==========================================
   # BLUETOOTH
   # ==========================================
-
-  # ==========================================
-  # NITROKEY 3C NFC
-  # ==========================================
-
-  hardware.nitrokey.enable = true;
 
   hardware.bluetooth.enable = true;
   # SICHERHEIT: powerOnBoot=false → BT ist bei Systemstart AUS, manuell
@@ -384,14 +361,6 @@
       RandomizedDelaySec = "1h";
     };
   };
-
-  # ==========================================
-  # SSH-ASKPASS für FIDO2-Signing
-  # ==========================================
-  # openssh-10.2p1 braucht ssh-askpass für PIN-Eingabe bei FIDO2-Keys
-  # (Nitrokey resident SSH-Key für git commit signing).
-  # x11_ssh_askpass = minimal (~100 KB, kein Qt/GTK), funktioniert unter Wayland via XWayland.
-  programs.ssh.askPassword = "${pkgs.x11_ssh_askpass}/libexec/x11-ssh-askpass";
 
   # ==========================================
   # ZUSÄTZLICHE CA-ZERTIFIKATE

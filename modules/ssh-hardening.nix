@@ -20,7 +20,7 @@
       ChallengeResponseAuthentication = false;
       KbdInteractiveAuthentication = false;
       PermitEmptyPasswords = false;
-      UsePAM = true;                       # PAM für FIDO2-Keys
+      UsePAM = true;                       # PAM-Stack nutzen
 
       # Forwarding & Features
       X11Forwarding = false;               # X11 deaktiviert

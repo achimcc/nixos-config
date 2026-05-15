@@ -48,7 +48,7 @@ in
       "org.jdownloader.JDownloader"
       "info.portfolio_performance.PortfolioPerformance"
       "org.nickvision.money" # Denaro - Persönliche Finanzverwaltung
-      "org.signal.Signal"    # Signal Desktop (Bubblewrap-Sandbox statt Firejail)
+      "org.signal.Signal" # Signal Desktop (Bubblewrap-Sandbox statt Firejail)
     ];
     overrides = {
       # JDownloader: Bekannt für aggressive Telemetrie
@@ -90,7 +90,7 @@ in
     "$HOME/.cargo/bin" # Rust/Cargo binaries
   ];
 
-  # SSH Agent Socket für FIDO2-Schlüssel
+  # SSH Agent Socket
   home.sessionVariables = {
     SSH_AUTH_SOCK = "$XDG_RUNTIME_DIR/ssh-agent.socket";
 
@@ -135,11 +135,6 @@ in
     kdePackages.kleopatra
     usbguard-notifier # Desktop-Benachrichtigungen für blockierte USB-Geräte
     raider # Sicheres Löschen von Dateien (GNOME/libadwaita)
-
-    # --- NITROKEY 3C NFC ---
-    nitrokey-app2 # GUI-Verwaltung (FIDO2 PIN, Firmware-Update, OpenPGP)
-    pkgs-unstable.pynitrokey # CLI-Tool: nitropy fido2/openpgp (Firmware-Updates, FIDO2-Verwaltung)
-    libfido2 # CLI: fido2-token (Low-Level FIDO2-Verwaltung)
 
     # --- SPIELE ---
     # zeroad # 0 A.D. — temporär deaktiviert (nixpkgs-Build-Fehler: 0ad-0.27.1)
@@ -363,7 +358,7 @@ in
       export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
       exec ${pkgs.pinentry-gnome3}/bin/pinentry "$@"
     '';
-    enableSshSupport = false; # Deaktiviert - gpg-agent unterstützt FIDO2-Schlüssel nicht vollständig
+    enableSshSupport = false; # ssh-agent läuft als eigener systemd user service
     # Cache GPG-Passwort für 8 Stunden (verhindert ständige Passwort-Prompts)
     defaultCacheTtl = 28800; # 8 Stunden in Sekunden
     maxCacheTtl = 28800; # Maximale Cache-Zeit
@@ -374,10 +369,10 @@ in
     "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
   ];
 
-  # SSH-Agent als systemd user service (für FIDO2/Nitrokey-Unterstützung)
+  # SSH-Agent als systemd user service
   systemd.user.services.ssh-agent = {
     Unit = {
-      Description = "SSH Agent (for FIDO2 keys)";
+      Description = "SSH Agent";
     };
     Service = {
       Type = "simple";
@@ -948,7 +943,7 @@ in
   # Thunderbird user.js - Deklarative Konfiguration für externes GnuPG
   # Verwendet das tatsächliche Thunderbird-Profil (urcekwf0.default)
   home.file.".thunderbird/urcekwf0.default/user.js".text = ''
-    // Externes GnuPG aktivieren (für Nitrokey-Unterstützung)
+    // Externes GnuPG aktivieren
     user_pref("mail.openpgp.allow_external_gnupg", true);
 
     // GPG-Binary explizit setzen (Wrapper für Debug-Logging)
@@ -972,19 +967,14 @@ in
         addKeysToAgent = "yes";
       };
       "github.com" = {
-        identityFile = "~/.ssh/id_ed25519_sk";
+        identityFile = "~/.ssh/id_ed25519";
         identitiesOnly = true;
-        # Agent umgehen: FIDO2-Keys mit verify-required brauchen PIN-Prompt,
-        # den ssh-agent ohne askpass nicht liefern kann. ssh-Client via libfido2
-        # fragt PIN direkt im Terminal ab.
-        extraOptions.IdentityAgent = "none";
       };
       "gitlab.com" = {
         hostname = "altssh.gitlab.com";
         port = 443;
-        identityFile = "~/.ssh/id_ed25519_sk";
+        identityFile = "~/.ssh/id_ed25519";
         identitiesOnly = true;
-        extraOptions.IdentityAgent = "none";
       };
       "rusty-vault.de" = {
         identityFile = "~/.ssh/hetzner-vps";
@@ -993,9 +983,8 @@ in
       "pve-host" = {
         hostname = "100.72.129.125";
         user = "admin";
-        identityFile = "~/.ssh/id_ed25519_sk";
+        identityFile = "~/.ssh/id_ed25519";
         identitiesOnly = true;
-        extraOptions.IdentityAgent = "none";
       };
       # Used by Colmena (connects via IP directly, uses agent with colmena key)
       "100.72.129.125" = {
@@ -1003,33 +992,29 @@ in
         identityFile = "~/.ssh/id_ed25519_colmena";
         identitiesOnly = true;
       };
-      # LXC Container (VLAN 20) — Colmena ProxyJump via pve-host
+      # LXC Container (VLAN 20) — Direkt via Tailscale-Subnet (§37)
       "10.10.20.*" = {
         user = "admin";
         identityFile = "~/.ssh/id_ed25519_colmena";
         identitiesOnly = true;
-        proxyJump = "100.72.129.125";
       };
-      # VMs (VLAN 30, DMZ) — proxy-01 ProxyJump via pve-host
+      # VMs (VLAN 30, DMZ) — Direkt via Tailscale-Subnet (§37)
       "10.10.30.*" = {
         user = "admin";
         identityFile = "~/.ssh/id_ed25519_colmena";
         identitiesOnly = true;
-        proxyJump = "100.72.129.125";
       };
-      # LXC (VLAN 40, Media) — Colmena ProxyJump via pve-host
+      # LXC (VLAN 40, Media) — Direkt via Tailscale-Subnet (§37)
       "10.10.40.*" = {
         user = "admin";
         identityFile = "~/.ssh/id_ed25519_colmena";
         identitiesOnly = true;
-        proxyJump = "100.72.129.125";
       };
-      # VM (VLAN 50, Torrent) — Colmena ProxyJump via pve-host
+      # VM (VLAN 50, Torrent) — Direkt via Tailscale-Subnet (§37)
       "10.10.50.*" = {
         user = "admin";
         identityFile = "~/.ssh/id_ed25519_colmena";
         identitiesOnly = true;
-        proxyJump = "100.72.129.125";
       };
       "remarkable" = {
         hostname = "10.11.99.1";
@@ -1046,7 +1031,7 @@ in
   programs.git = {
     enable = true;
     signing = {
-      key = "~/.ssh/id_ed25519_sk.pub";
+      key = "~/.ssh/id_ed25519.pub";
       signByDefault = true;
     };
     settings = {
@@ -1071,8 +1056,10 @@ in
   };
 
   # Allowed Signers für SSH-Commit-Verifizierung
+  # Nach Erstellung des neuen ed25519-Keys: Public-Key-Inhalt hier eintragen.
+  # Erzeugung: ssh-keygen -t ed25519 -C "user@posteo.de"
   home.file.".ssh/allowed_signers".text = ''
-    user@posteo.de sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29tAAAAIJ/Bouatb6CsPRo6gbqTjZUBcZuBNlXu8LHh0cHnKyamAAAABHNzaDo= user@posteo.de
+    user@posteo.de namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICBEnBXC5ijeHaellXY2+SOUPN/JnmKuRfHDK1YGB2Mo user@posteo.de
   '';
 
   # --- GITHUB CLI ---
@@ -1256,13 +1243,9 @@ in
 
       # ANTI-FINGERPRINTING (Maximum Privacy Mode)
       # RFP aktiviert: Stärkster Anti-Fingerprinting-Schutz in Firefox/LibreWolf
-      # WebAuthn/FIDO2 via exemptedDomains freigeschaltet (Firefox 116+ verbessert)
-      # FALLS FIDO2 BRICHT: "privacy.resistFingerprinting" = false setzen
       "privacy.resistFingerprinting" = true;
       "privacy.resistFingerprinting.letterboxing" = true; # Fenster-Größe normalisieren
       "privacy.resistFingerprinting.block_mozAddonManager" = true;
-      # FIDO2/WebAuthn-Domains von RFP ausnehmen (Nitrokey-Kompatibilität)
-      "privacy.resistFingerprinting.exemptedDomains" = "*.gitlab.com,*.github.com,*.posteo.de,*.bitwarden.com,*.webauthn.io";
       "privacy.spoof_english" = 2; # Englisch vortäuschen (häufigste Sprache)
       "privacy.firstparty.isolate" = true; # Strikte Cookie-Isolation
       "privacy.trackingprotection.fingerprinting.enabled" = true;
@@ -1329,13 +1312,12 @@ in
       # "dom.storage.enabled" = false würde Extensions brechen
       "network.cookie.cookieBehavior" = 5; # Total Cookie Protection (dFPI)
 
-      # WebAuthn/FIDO2 für Nitrokey (GitLab, GitHub, etc.)
-      # WICHTIG: Muss explizit aktiviert werden trotz Privacy-Einstellungen
-      "security.webauthn.enable" = true; # WebAuthn aktivieren
-      "security.webauthn.u2f" = true; # U2F-Kompatibilität (ältere FIDO2)
-      "security.webauthn.webauthn_enable_usbtoken" = true; # USB-Token erlauben
-      "security.webauthn.webauthn_enable_softtoken" = false; # Nur Hardware-Token
-      "security.webauthn.ctap2" = true; # CTAP2-Protokoll (modern FIDO2)
+      # WebAuthn/U2F deaktiviert — kein Hardware-Token vorhanden
+      "security.webauthn.enable" = false;
+      "security.webauthn.u2f" = false;
+      "security.webauthn.webauthn_enable_usbtoken" = false;
+      "security.webauthn.webauthn_enable_softtoken" = false;
+      "security.webauthn.ctap2" = false;
 
       # Telemetrie & Reporting komplett deaktivieren
       "browser.safebrowsing.malware.enabled" = false;
@@ -1525,30 +1507,6 @@ in
       echo ""
       echo "Keyring erfolgreich wiederhergestellt!"
       echo "Bitte neu einloggen (Logout/Login) damit der Keyring neu geladen wird."
-    '';
-  };
-
-  # --- TOTP SCRIPT (Nitrokey → Clipboard) ---
-  home.file.".local/bin/totp-posteo" = {
-    executable = true;
-    text = ''
-      #!/bin/sh
-      CODE=$(${pkgs-unstable.pynitrokey}/bin/nitropy nk3 secrets get-otp "posteo" 2>/dev/null)
-      if [ -n "$CODE" ]; then
-        # Code in Zwischenablage kopieren
-        echo -n "$CODE" | ${pkgs.wl-clipboard}/bin/wl-copy
-
-        # Kurzes Delay um sicherzustellen, dass wl-copy fertig ist
-        sleep 0.2
-
-        # Notification erst NACH erfolgreichem Copy
-        ${pkgs.libnotify}/bin/notify-send "Posteo TOTP" "Code in Zwischenablage kopiert (Strg+V)" --icon=dialog-password -t 5000
-
-        # Clipboard nach 30s leeren (Sicherheit)
-        (sleep 30 && echo -n "" | ${pkgs.wl-clipboard}/bin/wl-copy) &
-      else
-        ${pkgs.libnotify}/bin/notify-send "Posteo TOTP" "Fehler: Nitrokey nicht erreichbar oder Touch nicht bestaetigt" --icon=dialog-error -t 5000
-      fi
     '';
   };
 

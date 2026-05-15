@@ -69,8 +69,7 @@
   #
   # LUKS-Entsperrung Hierarchie (nach TPM-Enrollment):
   # 1. TPM2 (automatisch, falls PCRs übereinstimmen)
-  # 2. FIDO2 (Nitrokey 3C NFC + PIN + Touch)
-  # 3. Passphrase (Fallback)
+  # 2. Passphrase (Fallback)
   #
   # PCR-POLICY: 0+7+11
   # - PCR 0:  UEFI-Firmware
@@ -88,7 +87,7 @@
   #    sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7+11 /dev/nvme0n1p2
   #    sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7+11 /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
   #
-  # 3. Reboot testen. Bei Fehlschlag: FIDO2 oder Passphrase-Fallback nutzen.
+  # 3. Reboot testen. Bei Fehlschlag: Passphrase-Fallback nutzen.
   #
   # WICHTIG:
   # - PCR 11 ändert sich bei jedem Kernel/Initrd-Update → `tpm2-reenroll`-Service
@@ -104,7 +103,7 @@
   # ==========================================
   # PCR 11 ändert sich bei jedem Kernel/Initrd-Update (neues UKI).
   # Ohne Re-Enroll würde TPM beim nächsten Boot die Entsperrung verweigern
-  # → User fällt auf FIDO2/Passphrase zurück (funktioniert, aber nervig).
+  # → User fällt auf Passphrase zurück (funktioniert, aber nervig).
   #
   # Dieser Service läuft NACH nixos-rebuild switch und prüft ob die aktuellen
   # PCR-Werte mit dem gespeicherten Enrollment übereinstimmen. Wenn nicht:
@@ -123,7 +122,7 @@
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      # Markiere erfolgreich auch bei Exit 1 (TPM2 nicht verfügbar, FIDO2-only etc.)
+      # Markiere erfolgreich auch bei Exit 1 (TPM2 nicht verfügbar etc.)
       SuccessExitStatus = "0 1";
     };
 
@@ -171,7 +170,7 @@
              "$DEV"; then
           echo "  ✓ Re-enroll erfolgreich: $DEV"
         else
-          echo "  ⚠ Re-enroll FEHLGESCHLAGEN: $DEV (FIDO2/Passphrase-Fallback weiterhin aktiv)"
+          echo "  ⚠ Re-enroll FEHLGESCHLAGEN: $DEV (Passphrase-Fallback weiterhin aktiv)"
         fi
       done
 

@@ -336,12 +336,9 @@ in
     nonewprivs
     noroot
 
-    # CRITICAL: NO private-dev for FIDO2/WebAuthn support
-    # private-dev creates isolated /dev without proper ACLs for USB HID devices
-    # This breaks Nitrokey access (hidraw0 loses user:user:rw- ACL)
-    # LibreWolf has strong internal sandbox, so this is acceptable
-    # Still protected by: noroot, nogroups, nonewprivs, AppArmor, netfilter
-    ignore private-dev
+    # private-dev: Default-Verhalten beibehalten (Firejail isoliert /dev).
+    # LibreWolf hat starke interne Sandbox; zusätzlich abgesichert durch
+    # noroot, nogroups, nonewprivs, AppArmor, netfilter.
     keep-dev-shm
 
     # /tmp Isolation
@@ -418,10 +415,6 @@ in
     # System D-Bus für Polkit (Fingerprint-Authentifizierung)
     dbus-system filter
     dbus-system.talk org.freedesktop.PolicyKit1
-
-    # FIDO2/WebAuthn Zugriff für Nitrokey (braucht /dev/hidraw*)
-    ignore private-dev
-    ignore nou2f
 
     # Dateimanager-Zugriff für "Downloads-Ordner öffnen" Funktion
     # Erlaubt das Starten von GNOME Files (Nautilus) aus der Sandbox
@@ -522,15 +515,9 @@ in
     dbus-user.talk org.gtk.vfs.*
     dbus-user.own org.gnome.gcr.*
 
-    # System D-Bus für Polkit (Smartcard-PIN-Authentifizierung)
+    # System D-Bus für Polkit
     dbus-system filter
     dbus-system.talk org.freedesktop.PolicyKit1
-
-    # OpenPGP/Smartcard Zugriff für Nitrokey (E-Mail-Verschlüsselung)
-    # Thunderbird hat native OpenPGP-Unterstützung seit v78
-    # Smartcard-Zugriff braucht /dev/hidraw* für Nitrokey
-    ignore private-dev
-    ignore nou2f
 
     # Nix-Store Zugriff für GPG-Binary und Abhängigkeiten
     noblacklist /nix/store
