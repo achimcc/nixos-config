@@ -1169,6 +1169,34 @@ in
     };
   };
 
+  # Signal Desktop (Flatpak) — Chromium/Electron-Flags gegen i915 RCS-Hang.
+  # Meteor Lake i915 + Mesa Vulkan + Wayland → GPU HANG (ecode 12:1) im Render
+  # Command Streamer → Kernel Page Fault → Crash/Reboot. Crash am 2026-05-16
+  # 10:41:35 wurde durch signal-desktop[19395] ausgelöst (Vulkan-Warning + RCS-Hang
+  # + #PF). Gleiche Bug-Familie wie Chrome/mpv (siehe modules/network.nix:11
+  # chromeGpuWorkaround, home.nix mpv hwdec=vaapi-copy).
+  # --disable-features=Vulkan: adressiert die explizite Vulkan-Wayland-Incompat-Warnung
+  # --disable-gpu-compositing: erzwingt CPU-Compositing → RCS bleibt ungenutzt
+  #
+  # WICHTIG zum Pfad: xdg.desktopEntries würde nach /etc/profiles/per-user/.../share/
+  # applications/ schreiben, was im XDG_DATA_DIRS NACH ~/.local/share/flatpak/exports/
+  # share kommt → die flatpak-generierte Datei würde gewinnen. Daher direkt in
+  # $XDG_DATA_HOME (~/.local/share/applications/) — dieser Pfad hat per XDG-Spec
+  # höchste Priorität und shadowt zuverlässig die Flatpak-Variante.
+  home.file.".local/share/applications/org.signal.Signal.desktop".text = ''
+    [Desktop Entry]
+    Name=Signal
+    Comment=Private messaging from your desktop
+    Exec=flatpak run --branch=stable --arch=x86_64 --command=signal-desktop --file-forwarding org.signal.Signal --disable-features=Vulkan --disable-gpu-compositing @@u %U @@
+    Icon=org.signal.Signal
+    Terminal=false
+    Type=Application
+    MimeType=x-scheme-handler/sgnl;x-scheme-handler/signalcaptcha;
+    Categories=Network;InstantMessaging;Chat;
+    StartupWMClass=signal
+    X-Flatpak=org.signal.Signal
+  '';
+
   # VSCodium Desktop-Datei überschreiben, um Bubblewrap-Wrapper zu verwenden
   xdg.desktopEntries.codium = {
     name = "VSCodium";
