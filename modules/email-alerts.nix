@@ -160,13 +160,23 @@ in {
     script = ''
       # Prüfe auf kritische Suricata-Alerts (Priority 1), filtere bekannte False Positives
       if [ -f /var/log/suricata/eve.json ]; then
-        # Filtere bekannte False Positives:
+        # Zeit-Filter: nur Alerts der letzten 65 Min (Timer-Intervall 1h + 5min Puffer).
+        # OHNE diesen Filter zog `tail -5` immer die letzten matchenden Events aus der
+        # GANZEN eve.json — alte Hits wurden stundenlang gemailt obwohl die zugehörige
+        # Regel längst disabled war (2026-05-22 Go-HTTP-Spam-Schleife).
+        # String-Vergleich statt fromdateiso8601 weil jq die Microseconds + TZ-Offset
+        # von Suricata ("2026-05-22T08:20:01.172231+0200") nicht parst. Beide Seiten
+        # in lokaler TZ ohne TZ-Suffix → lexikographischer Vergleich = chronologisch.
+        CUTOFF=$(${pkgs.coreutils}/bin/date -d '65 minutes ago' +%Y-%m-%dT%H:%M:%S)
+
+        # Filtere bekannte False Positives auf Signatur-Ebene:
         # - Google Cast/mDNS (harmlose Chromecast-Discovery)
         # - LLMNR (harmlose Windows Name Resolution)
         # - NBT-NS (harmlose Windows NetBIOS-Broadcasts)
         # - SSL/TLS auf ungewöhnlichen Ports (oft legitim)
-        CRITICAL=$(${pkgs.jq}/bin/jq -r '
-          select(.event_type=="alert" and .alert.severity==1) |
+        CRITICAL=$(${pkgs.jq}/bin/jq -r --arg cutoff "$CUTOFF" '
+          select(.event_type=="alert" and .alert.severity==1
+                 and .timestamp[0:19] >= $cutoff) |
           select(.alert.signature | test("Google Cast|[Mm][Dd][Nn][Ss]|LLMNR|NBT-NS|NetBIOS|SSL/TLS.*unusual.*port"; "i") | not) |
           .alert.signature
         ' /var/log/suricata/eve.json 2>/dev/null | tail -5)
