@@ -4,13 +4,20 @@
 { config, lib, pkgs, pkgs-unstable, ... }:
 
 let
-  # Chrome-Wrapper: --disable-gpu-compositing verhindert RCS-Nutzung
-  # Meteor Lake i915: GPU HANG (ecode 12:1) beim Render Command Streamer → Crash.
-  # GPU-Compositing → RCS (crasht). VA-API Video-Decode → VCS (stabil, bleibt aktiv).
-  # Netflix/Widevine: Hardware-Decode weiterhin aktiv, nur Browser-Rendering per CPU.
+  # Chrome-Wrapper: GPU-Compositing + VA-API Hardware-Video-Decode (testweise reaktiviert 2026-05-23).
+  # Hintergrund: --disable-gpu-compositing (Anti-RCS-Crash-Workaround) zwang 1080p-Video in
+  # Software-Decode (CPU) → Ruckeln/Aussetzer (Video-Engine im Leerlauf, via intel_gpu_top belegt).
+  # VA-API-Decode läuft auf der VCS-Engine (stabil); der alte RCS-Crash kam vom Compositing.
+  # Wir aktivieren beides wieder und beobachten die Stabilität.
+  # --disable-features=Vulkan: Vulkan ist auf diesem i915 instabil (vgl. Signal-Fix) und unter
+  # ozone-wayland ohnehin inkompatibel → Compositing läuft über den stabilen GL-Pfad.
+  # Video-Decode (VA-API/VCS) ist davon unberührt, bleibt Hardware.
+  # ROLLBACK bei RCS-Crash: --disable-gpu-compositing wieder einfügen, VA-API-Flags entfernen.
   chromeGpuWorkaround = pkgs.writeShellScript "chrome-gpu-workaround" ''
     exec ${pkgs.google-chrome}/bin/google-chrome-stable \
-      --disable-gpu-compositing \
+      --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder \
+      --disable-features=Vulkan \
+      --ignore-gpu-blocklist \
       "$@"
   '';
 

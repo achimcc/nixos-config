@@ -126,7 +126,7 @@ in
   home.packages = with pkgs; [
 
     # --- VPN & NETZWERK SICHERHEIT ---
-    protonvpn-gui # GUI zusätzlich zur CLI
+    proton-vpn # GUI zusätzlich zur CLI (umbenannt von protonvpn-gui)
     nmap # Netzwerk-Scanner
     colmena # NixOS Deployment Tool
 
@@ -1075,7 +1075,8 @@ in
   # --- VS CODIUM (Open Source VSCode ohne Microsoft Telemetrie) ---
   # WICHTIG: VSCodium läuft via Bubblewrap-Wrapper in ~/.local/bin/codium
   # Der Wrapper isoliert VSCodium vom System und deaktiviert Electron-Sandbox
-  programs.vscode = {
+  # programs.vscodium schreibt in ~/.vscode-oss / "VSCodium" statt der VSCode-Pfade
+  programs.vscodium = {
     enable = true;
     package = pkgs-unstable.vscodium;
 
@@ -1261,6 +1262,18 @@ in
       # Drucken: System-Dialog nutzen (interne Preview hängt bei "Preparing preview...")
       # Siehe: https://github.com/NixOS/nixpkgs/issues/272907
       "print.prefer_system_dialog" = true;
+
+      # Hardware-Video-Decode (VA-API/iHD) — testweise aktiviert 2026-05-23 gegen 1080p-Ruckeln.
+      # Ohne diese Prefs dekodiert Librewolf 1080p in Software (CPU) → Aussetzer.
+      # Decode läuft auf der VCS-Engine; WebRender (GPU-Compositing) ist Voraussetzung.
+      # ROLLBACK bei RCS-Crash: diesen Block entfernen.
+      "media.ffmpeg.vaapi.enabled" = true;
+      "media.hardware-video-decoding.force-enabled" = true;
+      "gfx.webrender.all" = true;
+      "widget.dmabuf.force-enabled" = true; # nötig auf XWayland (kein MOZ_ENABLE_WAYLAND gesetzt)
+      # WebRender nutzt auf Linux OpenGL (kein Vulkan-Compositing). Einziger Vulkan-Pfad
+      # in Firefox ist WebGPU → explizit aus (i915-Vulkan instabil, vgl. Chrome-Wrapper).
+      "dom.webgpu.enabled" = false;
 
       # Privacy & Fingerprinting-Schutz
       "privacy.clearOnShutdown.history" = false;
@@ -1701,7 +1714,7 @@ in
     };
     Service = {
       Type = "simple";
-      ExecStart = "${pkgs.protonvpn-gui}/bin/protonvpn-app";
+      ExecStart = "${pkgs.proton-vpn}/bin/protonvpn-app";
       Restart = "on-failure";
       RestartSec = "5s";
     };
