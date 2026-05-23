@@ -37,9 +37,9 @@ appimageTools.wrapAppImage {
     p.libsoup_3
     p.libayatana-appindicator
     # X11/Video extensions – für Jellyfin-Playback essentiell
-    p.xorg.libXv               # X Video extension (HW video output)
-    p.xorg.libXScrnSaver       # Screensaver-Inhibit bei Playback
-    p.xorg.libXtst
+    p.libxv                    # X Video extension (HW video output)
+    p.libxscrnsaver            # Screensaver-Inhibit bei Playback
+    p.libxtst
     p.libvdpau                 # NVIDIA-artige VDPAU-Fallbacks
     # VA-API Stack – matcht dein hwdec="vaapi-copy" mpv-Setup
     p.libva
