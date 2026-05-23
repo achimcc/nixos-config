@@ -412,7 +412,13 @@ in
     description = "Seed ProtonVPN API IPs into nftables set from persistent cache";
     after = [ "nftables.service" ];
     requires = [ "nftables.service" ];
-    wantedBy = [ "multi-user.target" ];
+    # WICHTIG: An nftables.service binden, NICHT an multi-user.target!
+    # Grund: nftables-Restart (z.B. via nixos-rebuild switch) flusht das deklarative
+    # Ruleset → @proton_api Set ist leer. Mit wantedBy=nftables.service zieht systemd
+    # den Seed-Service bei JEDEM nftables-(Re)Start mit, sodass die API-IPs sofort
+    # wieder im Set sind. Ohne diesen Fix: ProtonVPN Login blockiert bis zum
+    # nächsten proton-api-update Timer-Trigger (bis zu 30min!).
+    wantedBy = [ "nftables.service" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = false;
@@ -438,8 +444,13 @@ in
     restartIfChanged = false; # Kein Neustart bei nixos-rebuild (läuft via Timer)
     after = [ "nftables.service" "network-online.target" ];
     wants = [ "network-online.target" ];
-    # KEIN wantedBy multi-user.target — blockiert sonst nixos-rebuild switch!
-    # Timer mit OnBootSec=15s startet den Service nach dem Boot automatisch.
+    # WICHTIG: An nftables.service binden (NICHT multi-user.target — das blockiert
+    # nixos-rebuild). Grund: nftables-Restart flusht das @proton_api Set komplett,
+    # auch die ~200 Server-IPs aus serverlist.json. Ohne diesen Trigger sind nur
+    # die 3 Seed-API-IPs im Set — VPN-Server-Connect schlägt fehl, weil der
+    # TCP-Reachability-Check zum Server (Port 443) geblockt wird.
+    # Wants= ist non-blocking → blockiert nixos-rebuild NICHT.
+    wantedBy = [ "nftables.service" ];
 
     serviceConfig = {
       Type = "oneshot";
@@ -490,7 +501,7 @@ $ip"
       #   1. Datei-Owner muss user sein (kein root/andere User)
       #   2. Kein Symlink (TOCTOU-Risiko)
       #   3. Strikte IPv4-Regex (verhindert nft-Syntax-Injection)
-      #   4. Cap bei 200 IPs (verhindert Set-Bloat / DoS)
+      #   4. Cap bei 2500 IPs (Sanity-Check gegen Cache-Korruption — Proton hat ~1500 Server)
       echo ""
       echo "=== Phase 2: VPN-Server-IPs aus Cache ==="
       CACHE="/home/user/.cache/Proton/VPN/serverlist.json"
@@ -504,16 +515,19 @@ $ip"
           echo "⚠ Cache-Datei gehört $CACHE_OWNER (erwartet: user) → abgelehnt"
         else
           # Strikte IPv4-Regex — filtert alles aus was keine saubere Dot-Quad-IP ist
+          # Cap bei 2500: Proton hat ~1500 Server. Cap = 200 (alt) hat User-sichtbare
+          # Connection-Failures verursacht, weil viele Server außerhalb der ersten 200
+          # (alphabetisch nach IP sortiert) blockiert wurden.
           SERVER_IPS=$(jq -r '.LogicalServers[].Servers[].EntryIP' "$CACHE" 2>/dev/null \
             | ${pkgs.gnugrep}/bin/grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' \
-            | sort -u | ${pkgs.coreutils}/bin/head -200 || true)
+            | sort -u | ${pkgs.coreutils}/bin/head -2500 || true)
           if [ -n "$SERVER_IPS" ]; then
             COUNT=0
             for ip in $SERVER_IPS; do
               nft add element inet filter proton_api "{ $ip timeout $TIMEOUT }" 2>/dev/null || true
               COUNT=$((COUNT + 1))
             done
-            echo "✓ $COUNT VPN-Server-IPs aus Cache geladen (cap: 200)"
+            echo "✓ $COUNT VPN-Server-IPs aus Cache geladen (cap: 2500)"
           else
             echo "⚠ Keine gültigen IPs im Cache gefunden"
           fi
