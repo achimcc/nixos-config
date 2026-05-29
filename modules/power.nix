@@ -61,6 +61,34 @@
   services.thermald.enable = false;
 
   # ==========================================
+  # SPEICHER-RESILIENZ (gegen Swap-Thrash-Freeze)
+  # ==========================================
+  # Problem (analysiert 2026-05-25): Ein leckender Librewolf-Tab wuchs auf ~26 GB
+  # RSS, füllte RAM + die komplette 33-GB-Disk-Swap → System erstarrte 40 min im
+  # Swap-Thrash, bis der Kernel-OOM den Tab killte. Symptom: 1080p-Video ruckelt
+  # "nach ca. 30 min" (= sobald RAM voll ist; betrifft mpv UND vlc, da systemweit).
+  #
+  # Zwei Hebel:
+  # 1) zram: komprimierter RAM-Swap (zstd) mit hoher Prio. Speicherdruck trifft
+  #    zuerst schnelles RAM statt NVMe → kein minutenlanges Einfrieren mehr.
+  #    Die 33-GB-LUKS-Disk-Swap (hardware-configuration.nix) bleibt unangetastet
+  #    für Hibernate/Resume (niedrigere Prio, wird erst nach zram genutzt).
+  zramSwap = {
+    enable = true;
+    algorithm = "zstd";
+    memoryPercent = 50;  # zram-Gerätegröße = 50 % RAM (~15 GB), komprimiert weniger
+  };
+
+  # 2) systemd-oomd auf die user.slice ausweiten. Per NixOS-Default überwacht oomd
+  #    nur Root-/System-Slices — den Browser (user@1000.service → app.slice) sah
+  #    niemand, daher zog erst der Kernel-OOM nach 40 min Totalstall. Mit
+  #    enableUserSlices killt oomd das leckende cgroup früh bei hohem Memory-Pressure.
+  systemd.oomd = {
+    enable = true;            # NixOS-Default, explizit zur Klarheit
+    enableUserSlices = true;  # user.slice überwachen → Leak wird früh gekillt
+  };
+
+  # ==========================================
   # WEITERE OPTIMIERUNGEN
   # ==========================================
 

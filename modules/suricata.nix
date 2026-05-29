@@ -226,6 +226,13 @@
     # (3300244/3300245) bleiben aktiv — die parsen echte ServerHello-Versionen.
     "3300246"
 
+    # Stamus trafficid sid:3300303 "Suspicious HTTP trafic on unusual HTTP port"
+    # Flaggt JEDEN HTTP-Verkehr auf Nicht-80/8080-Ports stateless, ignoriert
+    # Ziel-IP und Kontext. Feuerte 2026-05-29 wiederholt auf legitimen
+    # LAN-Traffic: FRITZ!Box TR-064 SOAP (192.168.178.1:49000) und Samsung
+    # Smart-View-Discovery (192.168.178.40:7676). Selbe Klasse wie 3300246.
+    "3300303"
+
     # Policy-violation "X in use" — Enterprise-DLP-Noise auf privatem Linux-Laptop.
     # Keine IOCs. Threat-Intel ("domain used by UNC2452/NOBELIUM" 3312621-3312642,
     # "Phishing in TLS SNI" 2048551ff, BeEF 2018090/2024415, Challack 2023140,
