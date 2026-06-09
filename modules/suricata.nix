@@ -147,6 +147,12 @@
   # Wir überschreiben nur das Timing — Default ist OnBootSec=30s, das stört
   # bei Boot/Rebuild. RandomizedDelaySec verteilt täglich.
   systemd.timers.suricata-update = {
+    # WICHTIG: NixOS' suricata-Modul erzeugt den Timer OHNE [Install]-Sektion,
+    # daher kein Symlink in timers.target.wants/ → Timer blieb inactive/dead und
+    # feuerte NIE. Die Updates liefen dadurch nur über WantedBy=multi-user.target
+    # des Service direkt beim Boot (und scheiterten dort an DNS, s.u.).
+    # wantedBy aktiviert den Timer beim Boot. (2026-06-08)
+    wantedBy = [ "timers.target" ];
     timerConfig = {
       OnBootSec = lib.mkForce "15min";
       OnUnitActiveSec = lib.mkForce "24h";
@@ -154,6 +160,14 @@
       Persistent = lib.mkForce false; # true triggert sofort bei nixos-rebuild wenn Timer überfällig
     };
   };
+
+  # Service NUR per Timer laufen lassen, nicht direkt beim Boot.
+  # NixOS-Modul setzt WantedBy=multi-user.target → Service startete ~26s nach
+  # Boot, BEVOR DNS-over-TLS/VPN bereit war → "Failed to download index:
+  # Temporary failure in name resolution". network-online.target garantiert nur
+  # eine IP, kein funktionierendes DNS. Der Timer (OnBootSec=15min) triggert den
+  # Service später, wenn DNS längst steht. (2026-06-08)
+  systemd.services.suricata-update.wantedBy = lib.mkForce [ ];
 
   # Suricata nach erfolgreichem Rule-Update neuladen (sonst bleibt der laufende
   # Prozess auf alten Regeln, neue disable-Liste wird nicht aktiv).
