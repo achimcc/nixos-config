@@ -164,6 +164,15 @@
 
   nixpkgs.config.allowUnfree = true;
 
+  # bitwarden-desktop 2026.5.0 pinnt Electron 39, das nixpkgs 26.11 als unsicher
+  # markiert (EOL/CVEs). Es ist die neueste Bitwarden-Version in beiden Channels;
+  # ein Update behebt es nicht. Browser-Biometrie-Bridge (desktop_proxy) braucht
+  # das Paket. Risiko via AppArmor/Firejail abgemildert. Bei Bitwarden-Bump auf
+  # Electron 40+ wieder entfernen.
+  nixpkgs.config.permittedInsecurePackages = [
+    "electron-39.8.10"
+  ];
+
   environment.systemPackages = with pkgs; [
     git
     nushell

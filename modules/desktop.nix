@@ -19,9 +19,10 @@
   };
 
   # Display Manager
+  # wayland-Option mit GNOME 50 (nixpkgs 26.11) entfernt — Wayland ist der
+  # einzige unterstützte Modus, das Setzen hat keinen Effekt mehr.
   services.displayManager.gdm = {
     enable = true;
-    wayland = true;
   };
 
   # Desktop Manager

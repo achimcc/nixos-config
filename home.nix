@@ -10,7 +10,7 @@ let
       owner = "JackHack96";
       repo = "EasyEffects-Presets";
       rev = "master";
-      hash = "sha256-9lSYaWGIQ9K53NwQULmbdDxnS4NijmnOEUvFQWjEF08=";
+      hash = "sha256-JpQVWuEokBRu01xkGA22dPeV5Jo8Xzvfrg5oQ8RtIrI=";
     };
     dontBuild = true;
     installPhase = ''
@@ -960,68 +960,69 @@ in
     extraConfig = ''
       KexAlgorithms mlkem768x25519-sha256,curve25519-sha256,curve25519-sha256@libssh.org
     '';
-    matchBlocks = {
+    # HM 26.11: matchBlocks → settings; Schlüssel = OpenSSH-Direktivnamen
+    # (PascalCase), extraOptions entfällt (Optionen direkt). Attributname wird
+    # als `Host <name>` geschrieben (außer er beginnt mit `Host `/`Match `).
+    settings = {
       # SSH-Keys automatisch zum Agent hinzufügen beim ersten Nutzen
       "*" = {
-        addKeysToAgent = "yes";
+        AddKeysToAgent = "yes";
       };
       "github.com" = {
-        identityFile = "~/.ssh/id_ed25519";
-        identitiesOnly = true;
+        IdentityFile = "~/.ssh/id_ed25519";
+        IdentitiesOnly = true;
       };
       "gitlab.com" = {
-        hostname = "altssh.gitlab.com";
-        port = 443;
-        identityFile = "~/.ssh/id_ed25519";
-        identitiesOnly = true;
+        HostName = "altssh.gitlab.com";
+        Port = 443;
+        IdentityFile = "~/.ssh/id_ed25519";
+        IdentitiesOnly = true;
       };
       "rusty-vault.de" = {
-        identityFile = "~/.ssh/hetzner-vps";
-        identitiesOnly = true;
+        IdentityFile = "~/.ssh/hetzner-vps";
+        IdentitiesOnly = true;
       };
       "pve-host" = {
-        hostname = "100.72.129.125";
-        user = "admin";
-        identityFile = "~/.ssh/id_ed25519";
-        identitiesOnly = true;
+        HostName = "100.72.129.125";
+        User = "admin";
+        IdentityFile = "~/.ssh/id_ed25519";
+        IdentitiesOnly = true;
       };
       # Used by Colmena (connects via IP directly, uses agent with colmena key)
       "100.72.129.125" = {
-        user = "admin";
-        identityFile = "~/.ssh/id_ed25519_colmena";
-        identitiesOnly = true;
+        User = "admin";
+        IdentityFile = "~/.ssh/id_ed25519_colmena";
+        IdentitiesOnly = true;
       };
       # LXC Container (VLAN 20) — Direkt via Tailscale-Subnet (§37)
       "10.10.20.*" = {
-        user = "admin";
-        identityFile = "~/.ssh/id_ed25519_colmena";
-        identitiesOnly = true;
+        User = "admin";
+        IdentityFile = "~/.ssh/id_ed25519_colmena";
+        IdentitiesOnly = true;
       };
       # VMs (VLAN 30, DMZ) — Direkt via Tailscale-Subnet (§37)
       "10.10.30.*" = {
-        user = "admin";
-        identityFile = "~/.ssh/id_ed25519_colmena";
-        identitiesOnly = true;
+        User = "admin";
+        IdentityFile = "~/.ssh/id_ed25519_colmena";
+        IdentitiesOnly = true;
       };
       # LXC (VLAN 40, Media) — Direkt via Tailscale-Subnet (§37)
       "10.10.40.*" = {
-        user = "admin";
-        identityFile = "~/.ssh/id_ed25519_colmena";
-        identitiesOnly = true;
+        User = "admin";
+        IdentityFile = "~/.ssh/id_ed25519_colmena";
+        IdentitiesOnly = true;
       };
       # VM (VLAN 50, Torrent) — Direkt via Tailscale-Subnet (§37)
       "10.10.50.*" = {
-        user = "admin";
-        identityFile = "~/.ssh/id_ed25519_colmena";
-        identitiesOnly = true;
+        User = "admin";
+        IdentityFile = "~/.ssh/id_ed25519_colmena";
+        IdentitiesOnly = true;
       };
       "remarkable" = {
-        hostname = "10.11.99.1";
-        user = "root";
-        extraOptions = {
-          PreferredAuthentications = "password";
-          PubkeyAuthentication = "no";
-        };
+        HostName = "10.11.99.1";
+        User = "root";
+        PreferredAuthentications = "password";
+        PubkeyAuthentication = "no";
       };
     };
   };

@@ -2,13 +2,16 @@
   description = "NixOS Konfiguration für user";
 
   inputs = {
-    # Gepinnt auf Commit mit PR #511479 (apparmor/PAM include/substack fix,
-    # gemergt 2026-04-19). Der nixos-unstable channel stand zum Zeitpunkt des
-    # Pin noch auf b12141e (2026-04-18) und hatte den Fix noch nicht.
-    # Zurück auf "nixos-unstable" setzen, sobald der Channel über 70bcfff ist.
-    nixpkgs.url = "github:NixOS/nixpkgs/70bcfffcb16f04f40ca019a8ef4461bae9d198dd";
+    # nixos-unstable-small Channel. (Früher temporär auf 70bcfff gepinnt für den
+    # apparmor/PAM-Fix PR #511479, gemergt 2026-04-19 — längst im Channel, Pin
+    # 2026-06-08 entfernt.) "-small" = gleicher Unstable-Channel, nur kleinere/
+    # schnellere Bumps mit weniger Rebuilds.
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
+    # master = neueste HM-Version (26.11), passend zur nixos-unstable-small
+    # nixpkgs (ebenfalls 26.11 seit dem Release-Bump). follows nixpkgs hält beide
+    # synchron → keine Versions-Mismatch-Warnung.
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
