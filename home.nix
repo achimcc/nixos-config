@@ -235,7 +235,6 @@ in
     amberol
     delfin # Vorhandener Jellyfin-Client
     jellyfin-media-player # Neu hinzugefügt
-    # moonfin: jetzt system-level mit Firejail-Wrapper (modules/network.nix)
     feishin # Neu hinzugefügt
     kodi # Neu hinzugefügt (Plugin-Installation erfolgt in Kodi)
     libva-utils

@@ -673,17 +673,6 @@ in
           "--whitelist=/home/user/Downloads"
         ];
       };
-
-      # Moonfin - Jellyfin/Emby-Client (AppImage, pkgs/moonfin/default.nix)
-      # AppImage = 3rd-party pre-built Binary → Sandbox essentiell.
-      # Profil basiert auf freetube (ähnliche Media-Player-Anforderungen).
-      moonfin = {
-        executable = "${pkgs.moonfin}/bin/moonfin";
-        profile = "${pkgs.firejail}/etc/firejail/freetube.profile";
-        extraArgs = [
-          "--ignore=private-dev"   # Für HW-Video-Decode (VA-API)
-        ];
-      };
     };
   };
 
@@ -705,6 +694,5 @@ in
     pkgs-unstable.vscodium  # VSCodium aus unstable (für aktuelle Version)
     libreoffice-fresh  # Office-Suite (Firejail-wrapped)
     pan  # NNTP-Newsreader (Firejail-wrapped)
-    moonfin  # Jellyfin/Emby-Client (AppImage, Firejail-wrapped)
   ];
 }
