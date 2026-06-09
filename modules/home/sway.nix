@@ -350,7 +350,13 @@
   services.kanshi = {
     enable = true;
 
-    systemdTarget = "graphical-session.target";
+    # NUR an die Sway-Session binden, nicht an graphical-session.target.
+    # Sonst startet kanshi auch unter GNOME (Standard-Session) und crasht dort
+    # in einer Restart-Schleife: "compositor doesn't support
+    # wlr-output-management-unstable-v1" (Mutter spricht das wlroots-Protokoll
+    # nicht). sway-session.target wird von home-managers Sway-Modul erzeugt und
+    # nur unter Sway aktiv. (2026-06-08)
+    systemdTarget = "sway-session.target";
 
     settings = [
       # Fallback-Profil: Alle Displays aktivieren
