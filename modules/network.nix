@@ -161,11 +161,15 @@ in
               psk = "$WIFI_HOME_PSK";
             };
             ipv4 = {
-              # Statische IP statt DHCP: Fritz!Box DHCP vergibt 192.168.178.28,
-              # die aber von einem anderen Gerät (30:05:5C:5C:BC:C1) belegt ist.
-              # ARP-Konflikt → NM weigert sich, die Adresse zu konfigurieren.
-              method = "manual";
-              address1 = "192.168.178.50/24,192.168.178.1";
+              # DHCP statt client-seitiger statischer IP. Historie: .28 (30:05:5C:5C:BC:C1)
+              # und .50 lagen beide IM Fritz!Box-DHCP-Pool (.20–.200), die Box vergab sie
+              # parallel an Fremdgeräte → ARP-Duplicate-Address-Detection scheitert → NM
+              # bricht Aktivierung ab → Reconnect-Loop ("WLAN bricht nach kurzer Zeit ab",
+              # 2026-06-09). DHCP ist hier robuster: der Client dekliniert eine kollidierende
+              # Adresse selbst (DHCPDECLINE) und holt eine andere, statt aufzugeben. Die feste
+              # IP wird nirgends sonst referenziert. Falls je eine feste IP nötig wird:
+              # DHCP-Reservierung in fritz.box auf die Laptop-MAC, NICHT client-seitig.
+              method = "auto";
               # Kein DHCP-DNS, systemd-resolved global config wird genutzt
               ignore-auto-dns = true;
             };
