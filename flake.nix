@@ -2,14 +2,20 @@
   description = "NixOS Konfiguration für user";
 
   inputs = {
-    # nixos-unstable-small Channel. (Früher temporär auf 70bcfff gepinnt für den
-    # apparmor/PAM-Fix PR #511479, gemergt 2026-04-19 — längst im Channel, Pin
-    # 2026-06-08 entfernt.) "-small" = gleicher Unstable-Channel, nur kleinere/
-    # schnellere Bumps mit weniger Rebuilds.
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
+    # nixos-unstable Channel (voller Jobset).
+    # GEÄNDERT 2026-06-24: von nixos-unstable-small auf nixos-unstable.
+    # Grund: "-small" hat einen REDUZIERTEN Hydra-Jobset (v.a. Server-/Kernpakete).
+    # Desktop-/GUI-Pakete liegen außerhalb → kein Binär-Cache-Treffer → Source-Build.
+    # Bei einem Toolchain-Bump (gcc/rustc/stdenv) baut dann sehr viel aus Quellcode
+    # (24.06. stundenlanger Build). Der volle "nixos-unstable"-Branch springt erst
+    # weiter, nachdem Hydra praktisch ALLES gebaut hat → deutlich bessere Cache-
+    # Treffer auf dem Desktop. Trade-off: Branch springt etwas langsamer.
+    # (Früher temporär auf 70bcfff gepinnt für apparmor/PAM-Fix PR #511479,
+    # gemergt 2026-04-19 — längst im Channel, Pin 2026-06-08 entfernt.)
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-    # master = neueste HM-Version (26.11), passend zur nixos-unstable-small
+    # master = neueste HM-Version (26.11), passend zur nixos-unstable
     # nixpkgs (ebenfalls 26.11 seit dem Release-Bump). follows nixpkgs hält beide
     # synchron → keine Versions-Mismatch-Warnung.
     home-manager = {
