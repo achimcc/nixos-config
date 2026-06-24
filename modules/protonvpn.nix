@@ -159,7 +159,11 @@
   };
 
   # Timer: Check VPN health every 30 seconds
+  # DEAKTIVIERT (2026-06-24): Kill Switch ist aus, VPN ist optional.
+  # Kein Watchdog/Desktop-Notification mehr, wenn proton0 fehlt.
+  # Reaktivierung: enable = true (oder Zeile entfernen).
   systemd.timers."vpn-watchdog" = {
+    enable = false;
     description = "VPN Watchdog Timer";
     wantedBy = [ "timers.target" ];
 

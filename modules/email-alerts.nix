@@ -224,7 +224,11 @@ in {
     '';
   };
 
+  # DEAKTIVIERT (2026-06-24): Kill Switch ist aus, VPN ist optional.
+  # Keine E-Mail-Warnung mehr, wenn proton0 fehlt.
+  # Reaktivierung: enable = true (oder Zeile entfernen).
   systemd.timers.vpn-failure-alert = {
+    enable = false;
     description = "VPN Failure Check Timer";
     wantedBy = [ "timers.target" ];
     timerConfig = {

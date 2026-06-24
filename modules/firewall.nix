@@ -194,8 +194,13 @@ in
         }
 
         # OUTPUT CHAIN
+        # KILL SWITCH DEAKTIVIERT (2026-06-24): policy von drop auf accept.
+        # Internet funktioniert wieder OHNE VPN. Ausgehender Traffic ist nicht mehr
+        # auf VPN-Interfaces beschränkt. Die expliziten drop-Regeln unten (DoT-Leak,
+        # LLMNR/mDNS, IPv6-Leak) bleiben als allgemeine Härtung aktiv.
+        # Reaktivierung: policy accept -> policy drop.
         chain output {
-          type filter hook output priority filter; policy drop;
+          type filter hook output priority filter; policy accept;
 
           # 1. Loopback traffic
           oif lo accept
