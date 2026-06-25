@@ -1692,19 +1692,21 @@ in
   };
 
   # ==========================================
-  # PROTONVPN GUI - VPN-Verbindung nach Login
+  # PROTONVPN GUI - NUR auf manuellen Start (kein Autostart mehr)
   # ==========================================
-  # GUI MODE: ProtonVPN GUI verwaltet die VPN-Verbindung komplett
-  # CLI-Autoconnect deaktiviert (kein wg-quick-proton-cli Service)
+  # GEÄNDERT 2026-06-24: Autostart DEAKTIVIERT (WantedBy entfernt).
+  # GRUND: Die GUI baut beim Start IMMER ihr Kill-Switch-Interface (pvpnksintrf0)
+  # auf, das DNS + Default-Route kapert (Domains=~., DefaultRoute=yes) — auch ohne
+  # verbundenes VPN. Beim Login/NM-Neustart blockierte das den Internetzugang
+  # komplett, sodass disable-firewall.sh nötig war. Da VPN jetzt optional ist,
+  # startet die GUI nicht mehr automatisch.
   #
-  # WICHTIG: In der GUI KONFIGURIEREN:
-  # 1. ProtonVPN GUI öffnen → Settings → Connection
-  # 2. "Auto-connect" AKTIVIEREN (verbindet automatisch beim Login)
-  # 3. "Kill Switch" DEAKTIVIERT lassen (nftables übernimmt das)
+  # VPN WEITERHIN NUTZBAR: GUI manuell aus dem App-Menü öffnen (Paket proton-vpn
+  # liefert die .desktop-Datei), oder: systemctl --user start protonvpn-gui.
+  # Reaktivierung Autostart: WantedBy = [ "graphical-session.target" ] zurück.
   #
-  # Boot-Ablauf: Firewall → NM → Login → Guard → GUI startet → GUI verbindet (proton0)
-  # Guard muss VOR ProtonVPN laufen (Keyring-Korruption nach Hard-Crash!)
-  # Zwischen Boot und Login: Firewall Kill Switch blockiert Traffic (sicher)
+  # Der NM-Dispatcher fix-pvpn-killswitch-dns (network.nix) neutralisiert die
+  # DNS-Kaperung weiterhin, falls die GUI mal manuell gestartet wird.
   systemd.user.services.protonvpn-gui = {
     Unit = {
       Description = "ProtonVPN GUI";
@@ -1718,9 +1720,7 @@ in
       Restart = "on-failure";
       RestartSec = "5s";
     };
-    Install = {
-      WantedBy = [ "graphical-session.target" ];
-    };
+    # Kein Install/WantedBy → startet nicht automatisch beim Login.
   };
 
   # ==========================================
