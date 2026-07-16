@@ -77,6 +77,21 @@
     #   2026-02-27: gnome-characters/GL(!) → GPU HANG → SLUB BUG → Reboot (nach Resume)
     "i915.enable_psr=0" # PSR komplett deaktivieren (SF Crashes verhindern)
     # Falls weiterhin Crashes: "i915.enable_dc=0" als nächste Eskalation
+
+    # ACPI GPE 0x6D Interrupt-Storm (2026-07-15)
+    # SYMPTOM: Videowiedergabe ruckelt — ABER NUR am Netzteil, auf Akku flüssig.
+    # URSACHE: Am Netzteil feuert ACPI GPE 0x6D ~5000×/s (IRQ 9, SCI-Storm) → der
+    #   irq/9-acpi-Thread frisst dauerhaft ~0,4-0,8 Kern + injiziert Scheduling-Latenz
+    #   → Dropped Frames. Auf Akku: 0/s, kein Ruckeln (gemessen /proc/interrupts + /sys/
+    #   firmware/acpi/interrupts/gpe6D). Nicht Thermik (throttelte zwar bei 100°C, via
+    #   power.nix-Fix behoben, Ruckeln blieb), nicht GPU, nicht OOM, nicht VLC-SW-Decode.
+    # DIAGNOSE: GPE 0x6D ist eine "Orphan-GPE" — KEIN _L6D/_E6D-ASL-Handler in der DSDT,
+    #   kein Linux-Treiber quittiert die Quelle → Firmware-Dauerfeuer auf AC. Laufzeit
+    #   "disable" hielt nicht (ACPI-Kern re-enabled), "mask" gab EINVAL. Maskieren ist
+    #   gefahrlos (keine ASL-Logik; DYTC/Thermal läuft über EC-GPE 0x6e, nicht 0x6D).
+    # FIX: acpi_mask_gpe maskiert die GPE schon bei der ACPI-Init (dort greift es).
+    #   Rückgängig: diese Zeile entfernen + rebuild.
+    "acpi_mask_gpe=0x6D"
   ];
   boot.loader.systemd-boot.configurationLimit = 10; # Weniger Boot-Einträge
   boot.loader.efi.canTouchEfiVariables = true;

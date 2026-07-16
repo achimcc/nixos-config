@@ -12,7 +12,14 @@
     enable = true;
     settings = {
       # CPU Governor
-      CPU_SCALING_GOVERNOR_ON_AC = "performance";
+      # AC von "performance" auf "powersave" geändert (2026-07-15): Der
+      # performance-Governor pinnte die Kerne dauerhaft auf hohe Frequenz/Spannung
+      # → CPU sass konstant bei ~100 °C → Hardware-Throttling (PROCHOT) → Videoruckeln.
+      # "powersave" ist bei intel_pstate NICHT langsam: unter Last taktet HWP/Turbo
+      # weiterhin voll hoch, nur im Leerlauf kühlt die CPU ab (gemessen: 100 → 77 °C).
+      # thermald ist auf dieser Plattform nicht verfügbar (siehe unten), daher muss
+      # das AC-Profil selbst thermisch gesund sein.
+      CPU_SCALING_GOVERNOR_ON_AC = "powersave";
       CPU_SCALING_GOVERNOR_ON_BAT = "powersave";
 
       # CPU Turbo
@@ -20,11 +27,12 @@
       CPU_BOOST_ON_BAT = 0;
 
       # Energieprofil
-      CPU_ENERGY_PERF_POLICY_ON_AC = "performance";
+      CPU_ENERGY_PERF_POLICY_ON_AC = "balance_performance";
       CPU_ENERGY_PERF_POLICY_ON_BAT = "power";
 
       # Platform Profile (ACPI)
-      PLATFORM_PROFILE_ON_AC = "performance";
+      # AC von "performance" auf "balanced" (2026-07-15, gleicher Grund wie Governor)
+      PLATFORM_PROFILE_ON_AC = "balanced";
       PLATFORM_PROFILE_ON_BAT = "balanced";
 
       # Festplatten
