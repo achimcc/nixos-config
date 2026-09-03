@@ -327,6 +327,19 @@
     auto-optimise-store = true;
     max-jobs = "auto";
     cores = 0; # Alle Kerne nutzen
+
+    # Aufraeumen WAEHREND eines Baus, nicht erst woechentlich.
+    # Am 2026-09-03 lief die Platte mitten im 'nixos-rebuild switch' voll
+    # (Kanalwechsel unstable-small -> unstable, also faktisch ein Neubau des
+    # ganzen Systems). tlp starb daraufhin in der installPhase, und zwar VOR
+    # ihrer ersten Ausgabezeile -- es ging schlicht kein Schreibzugriff mehr,
+    # weshalb im Log kein Fehlertext stand und es wie ein kaputtes Paket aussah.
+    # min-free = 0 hiess: der Daemon sah dem Volllaufen tatenlos zu.
+    # Faellt der freie Platz unter min-free, sammelt er jetzt bis max-free auf.
+    # nix.gc (woechentlich, --delete-older-than 30d) hilft dagegen nicht: es
+    # raeumt Generationen, nicht die verwaisten Pfade des alten Kanals.
+    min-free = 20 * 1024 * 1024 * 1024; # 20 GiB: darunter wird gesammelt
+    max-free = 50 * 1024 * 1024 * 1024; # 50 GiB: bis hierhin wird gesammelt
   };
 
   # Garbage Collection
