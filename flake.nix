@@ -1,5 +1,5 @@
 {
-  description = "NixOS Konfiguration für user";
+  description = "NixOS Konfiguration für ein ThinkPad T14 Gen 5";
 
   inputs = {
     # nixos-unstable Channel (voller Jobset).
@@ -134,7 +134,7 @@
             home-manager.useUserPackages = true;
             # Wichtig: llm-agents und pkgs-unstable an Home Manager durchreichen
             home-manager.extraSpecialArgs = { inherit llm-agents pkgs-unstable rcu id; };
-            home-manager.users.user = import ./home.nix;
+            home-manager.users.${id.username} = import ./home.nix;
             # Sops für Home Manager
             home-manager.sharedModules = [
               sops-nix.homeManagerModules.sops

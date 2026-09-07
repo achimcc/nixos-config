@@ -1,7 +1,7 @@
-# NixOS Hauptkonfiguration für nixos
+# NixOS Hauptkonfiguration für den Laptop (Host: nixos)
 # Module werden aus ./modules/ importiert
 
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, id, ... }:
 
 {
   imports = [
@@ -166,9 +166,9 @@
   # BENUTZER
   # ==========================================
 
-  users.users.user = {
+  users.users.${id.username} = {
     isNormalUser = true;
-    description = "NixOS User";
+    description = id.realName;
     extraGroups = [ "networkmanager" "wheel" "input" ];
     shell = pkgs.nushell;
   };
@@ -362,11 +362,11 @@
     description = "Check for NixOS Updates and Notify";
     serviceConfig = {
       Type = "oneshot";
-      User = "user";
+      User = id.username;
     };
 
     script = ''
-      cd /home/user/nixos-config
+      cd /home/${id.username}/nixos-config
 
       # Flake-Inputs aktualisieren (nur lokal, kein rebuild)
       ${pkgs.nix}/bin/nix flake update --commit-lock-file 2>&1 | tee /tmp/flake-update.log
