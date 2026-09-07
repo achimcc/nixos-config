@@ -541,7 +541,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 ## Task 6: Update MEMORY.md
 
 **Files:**
-- Create/Update: `/home/user/.claude/projects/-home-user-nixos-config/memory/MEMORY.md`
+- Create/Update: `/home/<nutzer>/.claude/projects/-home-<nutzer>-nixos-config/memory/MEMORY.md`
 
 **Step 1: Add migration note to memory**
 
@@ -570,13 +570,13 @@ Append to MEMORY.md:
 
 **Step 2: Verify memory file**
 
-Run: `cat /home/user/.claude/projects/-home-user-nixos-config/memory/MEMORY.md`
+Run: `cat /home/<nutzer>/.claude/projects/-home-<nutzer>-nixos-config/memory/MEMORY.md`
 Expected: Shows updated content with migration notes
 
 **Step 3: Commit memory update**
 
 ```bash
-git add /home/user/.claude/projects/-home-user-nixos-config/memory/MEMORY.md
+git add /home/<nutzer>/.claude/projects/-home-<nutzer>-nixos-config/memory/MEMORY.md
 git commit -m "docs: document nftables migration in memory
 
 Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"

@@ -2,6 +2,12 @@
 # Restore VPN and Kill Switch - Fixed configuration
 set -euo pipefail
 
+# Repo-Verzeichnis und Desktop-Nutzer zur Laufzeit ermitteln, statt sie fest
+# einzutragen: Das Skript laeuft unter sudo (dann waere $HOME /root) und der
+# Nutzername soll nicht im oeffentlichen Repo stehen.
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DESKTOP_USER="$(id -nu 1000)"
+
 echo "════════════════════════════════════════════════════════"
 echo "  RESTORE VPN KILL SWITCH"
 echo "════════════════════════════════════════════════════════"
@@ -19,11 +25,11 @@ fi
 
 echo ""
 echo "→ Configuring git safe directory for root..."
-sudo git config --global --add safe.directory /home/user/nixos-config 2>/dev/null || true
+sudo git config --global --add safe.directory $REPO_DIR 2>/dev/null || true
 
 echo ""
 echo "→ Building system configuration..."
-sudo nixos-rebuild switch --flake /home/user/nixos-config#nixos
+sudo nixos-rebuild switch --flake $REPO_DIR#nixos
 
 echo ""
 echo "→ Restarting firewall service (to apply DROP policies)..."

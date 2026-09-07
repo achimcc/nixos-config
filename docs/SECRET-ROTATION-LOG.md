@@ -6,7 +6,7 @@ Track all secret rotations to ensure compliance with rotation policy.
 
 | Secret | Last Rotated | Next Due | Status | Rotated By | Notes |
 |--------|--------------|----------|--------|------------|-------|
-| Anthropic API Key | 2026-02-05 | 2026-05-06 | ✅ Current | user | Initial setup |
+| Anthropic API Key | 2026-02-05 | 2026-05-06 | ✅ Current | <nutzer> | Initial setup |
 | GitHub API Token | - | 2026-05-06 | ⚠️ TODO | - | Need to rotate |
 | Miniflux API Key | - | 2026-05-06 | ⚠️ TODO | - | Need to rotate |
 

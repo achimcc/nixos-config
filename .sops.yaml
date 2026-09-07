@@ -3,15 +3,15 @@
 
 keys:
   # Benutzer Keys (für lokales Editieren)
-  - &user_user age1ysu70tzmjnh464ruh0jsf7g207hj3ufkqwn7ap0zet69vjy0wv9q7p077h
+  - &user_laptop age1ysu70tzmjnh464ruh0jsf7g207hj3ufkqwn7ap0zet69vjy0wv9q7p077h
   
   # Host Keys (werden beim ersten Boot generiert)
-  - &host_nixos age1g50dwjpmlc9404w3f3rgjmamws6zf9g3vlgyylgj3rygfedasprsj4lqzv
+  - &host_laptop age1g50dwjpmlc9404w3f3rgjmamws6zf9g3vlgyylgj3rygfedasprsj4lqzv
 
 creation_rules:
   # Alle Secrets im secrets/ Ordner (YAML und conf Dateien)
   - path_regex: secrets/.*\.(yaml|conf)$
     key_groups:
       - age:
-          - *user_user
-          - *host_nixos
+          - *user_laptop
+          - *host_laptop

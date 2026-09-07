@@ -82,7 +82,7 @@ gc        # → git commit
 gp        # → git push
 
 # NixOS
-nrs       # → sudo nixos-rebuild switch --flake /home/user/nixos-config#nixos
+nrs       # → sudo nixos-rebuild switch --flake /home/<nutzer>/nixos-config#nixos
 
 # Sonstiges
 obb       # → openbb (Investment Research)
@@ -263,7 +263,7 @@ Visualisierte Festplattenbelegung.
 
 ```bash
 dust                                  # Aktuelles Verzeichnis
-dust /home/user                      # Bestimmtes Verzeichnis
+dust /home/<nutzer>                      # Bestimmtes Verzeichnis
 dust -d 3                             # Max Tiefe 3
 dust -r                               # Umgekehrte Sortierung
 dust -n 20                            # Top 20 anzeigen
@@ -276,12 +276,12 @@ Moderner HTTP-Client (HTTPie-ähnlich).
 ```bash
 # GET Requests
 xh httpbin.org/get                    # Einfacher GET
-xh https://api.github.com/users/user # Mit HTTPS
+xh https://api.github.com/users/<nutzer> # Mit HTTPS
 
 # POST Requests
-xh POST httpbin.org/post name=user   # Form data
+xh POST httpbin.org/post name=<nutzer>   # Form data
 xh POST httpbin.org/post --json \
-   name=user age:=30                 # JSON (`:=` für Zahlen)
+   name=<nutzer> age:=30                 # JSON (`:=` für Zahlen)
 
 # Headers & Auth
 xh httpbin.org/headers \
@@ -300,8 +300,8 @@ xh --download httpbin.org/image/png   # Datei herunterladen
 
 ```bash
 # Identität (vorkonfiguriert)
-git config user.name                  # "NixOS User"
-git config user.email                 # "user@posteo.de"
+git config user.name                  # "<name>"
+git config user.email                 # "<mail>"
 
 # Signierung mit SSH (aktiviert)
 git config gpg.format                 # "ssh"
@@ -708,7 +708,7 @@ totp-posteo                           # Posteo TOTP in Clipboard
 # Key-Verwaltung
 gpg --list-keys                       # Öffentliche Schlüssel
 gpg --list-secret-keys                # Private Schlüssel
-gpg --export -a user@posteo.de # Public Key exportieren
+gpg --export -a <mail> # Public Key exportieren
 
 # Verschlüsselung
 gpg -e -r empfaenger@example.com file # Datei verschlüsseln
@@ -980,7 +980,7 @@ F12         - Step Out
 # System aktualisieren
 nrs                                   # Alias (vorkonfiguriert)
 sudo nixos-rebuild switch --flake \
-  /home/user/nixos-config#nixos
+  /home/<nutzer>/nixos-config#nixos
 
 # Andere Modi
 sudo nixos-rebuild boot --flake .    # Beim nächsten Boot

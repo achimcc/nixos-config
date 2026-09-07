@@ -9,6 +9,12 @@
 
 set -euo pipefail
 
+# Repo-Verzeichnis und Desktop-Nutzer zur Laufzeit ermitteln, statt sie fest
+# einzutragen: Das Skript laeuft unter sudo (dann waere $HOME /root) und der
+# Nutzername soll nicht im oeffentlichen Repo stehen.
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DESKTOP_USER="$(id -nu 1000)"
+
 # Farben für Output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -71,8 +77,8 @@ done
 log_section "2️⃣  Trenne VPN-Verbindungen..."
 
 # ProtonVPN GUI User-Service stoppen (verwaltet WireGuard-Verbindung)
-if sudo -u user XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active --quiet protonvpn-gui 2>/dev/null; then
-    sudo -u user XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop protonvpn-gui && \
+if sudo -u "$DESKTOP_USER" XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active --quiet protonvpn-gui 2>/dev/null; then
+    sudo -u "$DESKTOP_USER" XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop protonvpn-gui && \
         log_success "ProtonVPN GUI gestoppt" || log_warning "Konnte ProtonVPN GUI nicht stoppen"
 else
     log_info "ProtonVPN GUI nicht aktiv"
@@ -374,7 +380,7 @@ echo ""
 log_info "Um die Sicherheitskonfiguration wiederherzustellen:"
 echo ""
 echo "   1. Firewall reaktivieren:"
-echo "      ${GREEN}sudo nixos-rebuild switch --flake /home/user/nixos-config#nixos${NC}"
+echo "      ${GREEN}sudo nixos-rebuild switch --flake $REPO_DIR#nixos${NC}"
 echo ""
 echo "   2. Oder nur Services neu starten:"
 echo "      ${GREEN}sudo systemctl start nftables${NC}"

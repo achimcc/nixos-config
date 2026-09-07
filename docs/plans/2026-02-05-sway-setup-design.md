@@ -1,4 +1,4 @@
-# Sway Setup Design für User "user"
+# Sway Setup Design für User "<nutzer>"
 
 **Datum**: 2026-02-05
 **Status**: Approved
@@ -6,7 +6,7 @@
 
 ## Übersicht
 
-Minimales, funktionales Sway-Setup als alternative Window Manager Session neben GNOME. User "user" kann bei GDM zwischen GNOME und Sway wählen.
+Minimales, funktionales Sway-Setup als alternative Window Manager Session neben GNOME. User "<nutzer>" kann bei GDM zwischen GNOME und Sway wählen.
 
 ## Ziele
 

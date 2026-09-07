@@ -109,7 +109,7 @@ Track in `docs/SECRET-ROTATION-LOG.md`:
 ```markdown
 | Secret | Last Rotated | Next Due | Rotated By |
 |--------|--------------|----------|------------|
-| Anthropic API | 2026-02-05 | 2026-05-06 | user |
+| Anthropic API | 2026-02-05 | 2026-05-06 | <nutzer> |
 | GitHub Token | - | OVERDUE | - |
 | WiFi PSK | - | - | - |
 ```
@@ -139,4 +139,4 @@ Track in `docs/SECRET-ROTATION-LOG.md`:
 - **Version:** 1.0
 - **Effective Date:** 2026-02-05
 - **Last Updated:** 2026-02-05
-- **Owner:** user
+- **Owner:** <nutzer>

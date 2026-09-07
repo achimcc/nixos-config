@@ -221,7 +221,7 @@ curl -s https://api.anthropic.com/v1/messages \
 **Rotation-Schedule:**
 ```bash
 # Kalendereintrag erstellen
-echo "0 0 1 */3 * /home/user/nixos-config/scripts/rotate-secrets.sh" | crontab -
+echo "0 0 1 */3 * /home/<nutzer>/nixos-config/scripts/rotate-secrets.sh" | crontab -
 ```
 
 ---

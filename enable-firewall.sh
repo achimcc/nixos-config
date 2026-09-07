@@ -6,6 +6,12 @@
 
 set -euo pipefail
 
+# Repo-Verzeichnis und Desktop-Nutzer zur Laufzeit ermitteln, statt sie fest
+# einzutragen: Das Skript laeuft unter sudo (dann waere $HOME /root) und der
+# Nutzername soll nicht im oeffentlichen Repo stehen.
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DESKTOP_USER="$(id -nu 1000)"
+
 # Farben für Output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -46,7 +52,7 @@ echo ""
 read -p "Vollständigen Rebuild durchführen? (J/n): " -r
 if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     log_info "Starte nixos-rebuild switch..."
-    if nixos-rebuild switch --flake /home/user/nixos-config#nixos; then
+    if nixos-rebuild switch --flake $REPO_DIR#nixos; then
         log_success "System erfolgreich neu konfiguriert!"
 
         # Kurz warten, dann Status prüfen
@@ -91,7 +97,7 @@ fi
 log_section "1️⃣  Starte ProtonVPN GUI..."
 
 # ProtonVPN GUI läuft als User-Service (erstellt proton0 beim Verbinden)
-if sudo -u user XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart protonvpn-gui 2>&1; then
+if sudo -u "$DESKTOP_USER" XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart protonvpn-gui 2>&1; then
     log_success "ProtonVPN GUI User-Service neugestartet"
     sleep 3
 
@@ -235,7 +241,7 @@ log_section "══════════════════════�
 if [[ "$NFTABLES_ACTIVE" != true ]]; then
     echo ""
     log_error "ACHTUNG: Firewall ist nicht vollständig aktiv!"
-    log_info "Führe aus: sudo nixos-rebuild switch --flake /home/user/nixos-config#nixos"
+    log_info "Führe aus: sudo nixos-rebuild switch --flake $REPO_DIR#nixos"
     echo ""
 fi
 

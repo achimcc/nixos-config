@@ -268,7 +268,7 @@ ipv6 = {
 #### Test-Build
 
 ```bash
-❯ sudo nixos-rebuild test --flake /home/user/nixos-config#nixos
+❯ sudo nixos-rebuild test --flake /home/<nutzer>/nixos-config#nixos
 # Build erfolgreich
 
 ❯ ping -c 3 www.google.de
@@ -384,7 +384,7 @@ ipv6 = {
 
 ```bash
 # 1. Rebuild mit Test-Profil
-❯ sudo nixos-rebuild test --flake /home/user/nixos-config#nixos
+❯ sudo nixos-rebuild test --flake /home/<nutzer>/nixos-config#nixos
 # ✅ Build erfolgreich
 
 # 2. Network Connectivity Test
@@ -597,7 +597,7 @@ proton0 (VPN interface)
 
 - **Firewall Config:** `modules/firewall.nix:141-163`
 - **Network Config:** `modules/network.nix:63-75, 103`
-- **Auto Memory:** `~/.claude/projects/-home-user-nixos-config/memory/MEMORY.md`
+- **Auto Memory:** `~/.claude/projects/-home-<nutzer>-nixos-config/memory/MEMORY.md`
 - **Git Commit:** `976ee45`
 
 ---

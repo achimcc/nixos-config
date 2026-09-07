@@ -24,7 +24,7 @@ Nitrokey 3C NFC
 **Bereits konfiguriert:**
 - ✅ Nitrokey 3C NFC Support (`hardware.nitrokey.enable = true`)
 - ✅ GPG-Agent mit pinentry-gnome3
-- ✅ GPG-Schlüssel auf Nitrokey (user@posteo.de)
+- ✅ GPG-Schlüssel auf Nitrokey (<mail>)
 - ✅ Firejail GPG-Agent Socket Zugriff (`/run/user/1000/gnupg`)
 - ✅ Firejail Nitrokey-Zugriff (`ignore private-dev`, `ignore nou2f`)
 
@@ -72,7 +72,7 @@ Nitrokey 3C NFC
 
 **Konfiguration:**
 ```nix
-home.file.".thunderbird/user/user.js".text = ''
+home.file.".thunderbird/<nutzer>/user.js".text = ''
   // Externes GnuPG aktivieren
   user_pref("mail.openpgp.allow_external_gnupg", true);
 
@@ -103,7 +103,7 @@ systemd.user.services.export-gpg-pubkey = {
     Type = "oneshot";
     ExecStart = pkgs.writeShellScript "export-gpg-key" ''
       mkdir -p ~/.config/thunderbird-gpg
-      ${pkgs.gnupg}/bin/gpg --armor --export user@posteo.de \
+      ${pkgs.gnupg}/bin/gpg --armor --export <mail> \
         -o ~/.config/thunderbird-gpg/gpg-public-key.asc
     '';
   };
@@ -137,7 +137,7 @@ whitelist ${HOME}/.config/thunderbird-gpg
 
 ### 1. System-Rebuild
 ```bash
-sudo nixos-rebuild switch --flake /home/user/nixos-config#nixos
+sudo nixos-rebuild switch --flake /home/<nutzer>/nixos-config#nixos
 ```
 
 ### 2. GPG-Agent Kommunikation testen
@@ -171,7 +171,7 @@ cat ~/.config/thunderbird-gpg/gpg-public-key.asc
 2. Account Settings → End-to-End Encryption
 3. Add Key → Import
 4. Datei wählen: `~/.config/thunderbird-gpg/gpg-public-key.asc`
-5. Key für user@posteo.de akzeptieren
+5. Key für <mail> akzeptieren
 
 ### 6. E-Mail Signierung testen
 
@@ -188,7 +188,7 @@ cat ~/.config/thunderbird-gpg/gpg-public-key.asc
 ### 7. E-Mail Verschlüsselung testen
 
 **Schritte:**
-1. E-Mail an user@posteo.de (sich selbst) senden
+1. E-Mail an <mail> (sich selbst) senden
 2. Encrypt aktivieren
 3. Verschlüsselte E-Mail empfangen und öffnen
 

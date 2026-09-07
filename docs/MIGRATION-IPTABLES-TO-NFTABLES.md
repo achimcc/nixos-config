@@ -316,7 +316,7 @@ boot.kernelModules = [
 
 ### Durchgeführte Änderungen
 
-**Datei:** `/home/user/.claude/projects/-home-user-nixos-config/memory/MEMORY.md`
+**Datei:** `/home/<nutzer>/.claude/projects/-home-<nutzer>-nixos-config/memory/MEMORY.md`
 
 **Hinzugefügt:** Sektion "Firewall Migration > iptables to nftables Migration (2026-02-05)"
 

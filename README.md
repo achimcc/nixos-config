@@ -220,7 +220,7 @@ Ungenutzte und potenziell unsichere Module sind blockiert:
 
 ```bash
 # Clone repository
-git clone https://github.com/user/nixos-config.git
+git clone https://github.com/<nutzer>/nixos-config.git
 cd nixos-config
 
 # Generate Age key (if not present)
@@ -970,5 +970,5 @@ Private configuration. Use at your own risk.
 
 ## Contact
 
-- **Email**: user@posteo.de
-- **Git Signing Key**: sk-ssh-ed25519@openssh.com (Nitrokey 3C NFC)
+Diese Konfiguration ist persönlich und wird nicht als Vorlage gepflegt.
+Kontaktdaten stehen bewusst nicht im Repo; Fragen bitte über ein Issue.

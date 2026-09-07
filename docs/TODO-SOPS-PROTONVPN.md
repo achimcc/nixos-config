@@ -12,7 +12,7 @@ ProtonVPN server IP ranges have been moved from hardcoded values in `modules/fir
 Run the following command to edit the secrets file with sops:
 
 ```bash
-cd /home/user/nixos-config
+cd /home/<nutzer>/nixos-config
 sops secrets/secrets.yaml
 ```
 
@@ -53,7 +53,7 @@ You should see OUTPUT rules accepting traffic to the ProtonVPN IP ranges.
 Once verified working, delete this TODO file:
 
 ```bash
-rm /home/user/nixos-config/docs/TODO-SOPS-PROTONVPN.md
+rm /home/<nutzer>/nixos-config/docs/TODO-SOPS-PROTONVPN.md
 git add docs/TODO-SOPS-PROTONVPN.md
 git commit -m "chore: remove completed ProtonVPN sops TODO"
 ```
@@ -61,8 +61,8 @@ git commit -m "chore: remove completed ProtonVPN sops TODO"
 ## Technical Details
 
 ### Files Modified
-- `/home/user/nixos-config/modules/sops.nix` - Added secret definition for `protonvpn/ip-ranges`
-- `/home/user/nixos-config/modules/firewall.nix` - Modified to read IP ranges from sops secret instead of hardcoded values
+- `/home/<nutzer>/nixos-config/modules/sops.nix` - Added secret definition for `protonvpn/ip-ranges`
+- `/home/<nutzer>/nixos-config/modules/firewall.nix` - Modified to read IP ranges from sops secret instead of hardcoded values
 
 ### Secret Configuration
 - **Path**: `${config.sops.secrets."protonvpn/ip-ranges".path}` (typically `/run/secrets/protonvpn/ip-ranges`)

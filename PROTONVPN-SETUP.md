@@ -19,15 +19,15 @@ Kopiere den Output (beginnt mit `age1...`) und füge ihn in `.sops.yaml` ein:
 
 ```yaml
 keys:
-  - &user_user age1rr0acs6r4eyxv2tlhp8xrj6ktzflh97mqpxcu2uup276cgulavwqt0jv64
-  - &host_nixos age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  # <-- Hier einfügen
+  - &user_laptop age1rr0acs6r4eyxv2tlhp8xrj6ktzflh97mqpxcu2uup276cgulavwqt0jv64
+  - &host_laptop age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  # <-- Hier einfügen
 
 creation_rules:
   - path_regex: secrets/.*\.yaml$
     key_groups:
       - age:
-          - *user_user
-          - *host_nixos  # <-- Aktivieren
+          - *user_laptop
+          - *host_laptop  # <-- Aktivieren
 ```
 
 ### 2. Secrets-Datei erstellen
@@ -35,7 +35,7 @@ creation_rules:
 Erstelle die verschlüsselte Secrets-Datei:
 
 ```bash
-cd /Users/user/user/nix-os-config
+cd /Users/<nutzer>/<nutzer>/nix-os-config
 
 # Secrets-Datei erstellen (falls noch nicht vorhanden)
 sops secrets/secrets.yaml
@@ -56,7 +56,7 @@ Diese findest du auf der ProtonVPN-Website unter:
 ### 3. System neu builden
 
 ```bash
-sudo nixos-rebuild switch --flake /Users/user/user/nix-os-config#nixos
+sudo nixos-rebuild switch --flake ~/nixos-config#nixos
 ```
 
 ### 4. Überprüfung

@@ -33,19 +33,19 @@ nixos-config/
 ### Rebuild System (apply changes)
 
 ```bash
-sudo nixos-rebuild switch --flake /home/user/nixos-config#nixos
+sudo nixos-rebuild switch --flake /home/<nutzer>/nixos-config#nixos
 ```
 
 ### Test Configuration (without switching)
 
 ```bash
-sudo nixos-rebuild test --flake /home/user/nixos-config#nixos
+sudo nixos-rebuild test --flake /home/<nutzer>/nixos-config#nixos
 ```
 
 ### Build Without Activating
 
 ```bash
-sudo nixos-rebuild build --flake /home/user/nixos-config#nixos
+sudo nixos-rebuild build --flake /home/<nutzer>/nixos-config#nixos
 ```
 
 ### Update Flake Inputs
