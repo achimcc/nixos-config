@@ -3,6 +3,10 @@
 { config, pkgs, lib, ... }:
 
 let
+  # Spool für nicht zustellbare Alerts. Ohne den ging ein Alarm bei Netz-/DNS-
+  # Ausfall ersatzlos verloren (nur eine msmtp-Zeile im Journal).
+  undeliveredLog = "/var/log/security-alerts-undelivered.log";
+
   # Helper-Script für Email-Versand
   # SECURITY: Subject/Body werden strikt sanitiert gegen Header-Injection,
   # da Aufrufer dynamische Inhalte aus Suricata/ClamAV/AIDE einbetten (die
@@ -29,7 +33,10 @@ let
     DATE_LONG="$(${pkgs.coreutils}/bin/date)"
     NIXOS_VER="$(/run/current-system/sw/bin/nixos-version 2>/dev/null || echo unknown)"
 
-    # Email via printf (kein HEREDOC mit unkontrollierter Variablen-Expansion)
+    # Email via printf (kein HEREDOC mit unkontrollierter Variablen-Expansion).
+    # Einmal in eine Datei schreiben, damit Retries exakt dieselbe Mail senden.
+    MAIL_FILE=$(${pkgs.coreutils}/bin/mktemp)
+    trap '${pkgs.coreutils}/bin/rm -f "$MAIL_FILE"' EXIT
     {
       ${pkgs.coreutils}/bin/printf 'From: %s\n' "$FROM"
       ${pkgs.coreutils}/bin/printf 'To: %s\n' "$TO"
@@ -42,7 +49,35 @@ let
       ${pkgs.coreutils}/bin/printf -- '---\n'
       ${pkgs.coreutils}/bin/printf 'Generated: %s\n' "$DATE_LONG"
       ${pkgs.coreutils}/bin/printf 'System: NixOS %s\n' "$NIXOS_VER"
-    } | ${pkgs.msmtp}/bin/msmtp --read-recipients -- "$TO"
+    } > "$MAIL_FILE"
+
+    # RETRY (2026-08-15): Nach Boot/nixos-rebuild ist systemd-resolved zwar schon
+    # neu gestartet, NetworkManager aber noch nicht → resolved kennt keinen
+    # Upstream-Server → msmtp bricht mit NOHOST ab ("posteo.de kann nicht
+    # gefunden werden"). Drei Versuche à 15 s überbrücken dieses Fenster.
+    SENT=0
+    for ATTEMPT in 1 2 3; do
+      if ${pkgs.msmtp}/bin/msmtp --read-recipients -- "$TO" < "$MAIL_FILE"; then
+        SENT=1
+        break
+      fi
+      ${pkgs.coreutils}/bin/printf 'send-security-alert: Zustellung fehlgeschlagen (Versuch %s/3)\n' "$ATTEMPT" >&2
+      if [ "$ATTEMPT" -lt 3 ]; then
+        ${pkgs.coreutils}/bin/sleep 15
+      fi
+    done
+
+    # Unzustellbar: Alarm NICHT verschlucken, sondern lokal spoolen. Sonst wäre
+    # ein Angreifer, der nur DNS/Netz stört, automatisch auch alarmfrei.
+    if [ "$SENT" -ne 1 ]; then
+      ${pkgs.coreutils}/bin/printf 'send-security-alert: ALERT NICHT ZUSTELLBAR — gespoolt nach %s\n' '${undeliveredLog}' >&2
+      {
+        ${pkgs.coreutils}/bin/printf '=== %s | %s ===\n' "$DATE_LONG" "$SUBJECT"
+        ${pkgs.coreutils}/bin/cat "$MAIL_FILE"
+        ${pkgs.coreutils}/bin/printf '\n'
+      } >> '${undeliveredLog}'
+      exit 1
+    fi
   '';
 
 in {
@@ -55,6 +90,11 @@ in {
       tls = true;
       tls_trust_file = "/etc/ssl/certs/ca-certificates.crt";
       logfile = "/var/log/msmtp.log";
+      # msmtp-Default ist 5 Minuten. Bei blockiertem (statt abgelehntem) Netz
+      # würden 3 Retries ~15 min hängen und den Unit-Start-Timeout reißen —
+      # ein Timeout failt die Unit auch mit "-"-Präfix am ExecStartPost.
+      # 20 s → Worst Case 3×20 s + 2×15 s Pause = 90 s.
+      timeout = 20;
     };
 
     accounts = {
@@ -71,6 +111,8 @@ in {
   # Log-Verzeichnis für msmtp erstellen
   systemd.tmpfiles.rules = [
     "f /var/log/msmtp.log 0600 root root -"
+    # 0600: Spool enthält vollständige Alert-Mails (Dateinamen, Signaturen etc.)
+    "f ${undeliveredLog} 0600 root root -"
   ];
 
   # Helper-Script in systemPackages verfügbar machen
@@ -84,9 +126,15 @@ in {
   # AIDE: Email bei Integritätsverletzungen
   # Hinweis: $EXIT_CODE ist nur in ExecStopPost verfügbar, NICHT in ExecStartPost.
   # Daher prüfen wir den Journal-Output von AIDE statt den Exit-Code.
+  #
+  # "-"-Präfix (2026-08-15): ExecStartPost zählt in das Unit-Ergebnis. Ohne das
+  # Präfix machte ein gescheiterter Mailversand (msmtp exit 68) aus einem
+  # erfolgreichen Check ein "failed" — und `nixos-rebuild switch` brach mit
+  # exit 4 ab, obwohl nur die Benachrichtigung nicht rausging. Der Fehler bleibt
+  # im Journal + im Spool sichtbar, reißt aber nicht den Rebuild mit.
   systemd.services.aide-check = {
     serviceConfig = {
-      ExecStartPost = pkgs.writeShellScript "aide-alert" ''
+      ExecStartPost = "-" + pkgs.writeShellScript "aide-alert" ''
         if journalctl -u aide-check --since "5 minutes ago" | grep -q "AIDE found differences"; then
           ${sendSecurityAlert} \
             "AIDE Integrity Violation Detected" \
@@ -109,7 +157,8 @@ in {
   # Rootkit Detection: Email bei Funden
   systemd.services.unhide-check = {
     serviceConfig = {
-      ExecStartPost = pkgs.writeShellScript "unhide-alert" ''
+      # "-"-Präfix: siehe aide-check oben — Mailfehler darf den Scan nicht failen.
+      ExecStartPost = "-" + pkgs.writeShellScript "unhide-alert" ''
         if journalctl -u unhide-check --since "1 hour ago" | grep -qi "found"; then
           ${sendSecurityAlert} \
             "Rootkit Detection: Hidden Processes Found" \

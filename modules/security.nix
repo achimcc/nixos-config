@@ -235,6 +235,16 @@
       # USB-C Monitor Hub (Genesys Logic USB2.0 Hub)
       # Häufig in externen USB-C Monitoren verbaut
       allow id 05e3:0608 name "USB2.0 Hub" with-connect-type "hotplug"
+
+      # SanDisk Cruzer Blade USB-Stick - Mass Storage only (BadUSB-Schutz)
+      # Gerät präsentiert 1 Interface: Bulk-Only (08:06:50)
+      allow id 0781:5567 serial "4C530000251107123443" with-interface { 08:*:* } with-connect-type "hotplug"
+
+      # Intenso High Speed Line USB-Stick - Mass Storage only (BadUSB-Schutz)
+      # Gerät präsentiert 1 Interface: Bulk-Only (08:06:50)
+      # ACHTUNG: 090c:1000 ist die generische SMI-Controller-ID, die viele
+      # No-Name-Sticks teilen. Die Serial pinnt die Regel auf dieses Exemplar.
+      allow id 090c:1000 serial "19122001010447" with-interface { 08:*:* } with-connect-type "hotplug"
     '';
   };
 
@@ -456,6 +466,16 @@
   systemd.services.aide-check = {
     description = "AIDE Integrity Check";
     path = [ pkgs.aide ];
+    # Der Check selbst braucht kein Netz — der Alarm-Hook (ExecStartPost in
+    # email-alerts.nix) aber schon. Ohne diese Ordering feuerte der
+    # Persistent-Timer beim `nixos-rebuild switch` seinen Nachhol-Lauf genau in
+    # das Fenster, in dem systemd-resolved schon neu gestartet war,
+    # NetworkManager aber erst 1 s später kam (2026-08-15, 14:51:32 vs 14:51:33)
+    # → kein Upstream-DNS → msmtp NOHOST.
+    # Wants (nicht Requires): schlägt network-online.target fehl (offline),
+    # läuft der Integritäts-Check trotzdem.
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
     serviceConfig = {
       Type = "oneshot";
       StandardOutput = "journal";
@@ -463,6 +483,11 @@
       # AIDE Exit-Codes 1-7 = Änderungen erkannt (Bitmap: 1=added, 2=removed, 4=changed)
       # Exit-Code 0 = keine Änderungen. Exit-Code >7 = echter Fehler (IO/Config).
       SuccessExitStatus = "1 2 3 4 5 6 7";
+      # KEIN TimeoutStartSec setzen: bei Type=oneshot ist der Start-Timeout per
+      # Default deaktiviert (systemd.service(5)). Ein expliziter Wert führt den
+      # Timeout überhaupt erst ein — und ein Timeout failt die Unit auch dann,
+      # wenn der Mail-Retry im ExecStartPost mit "-" abgesichert ist.
+      # Den Retry begrenzt stattdessen msmtps `timeout 20` (email-alerts.nix).
     };
     script = ''
       if [ ! -f /var/lib/aide/aide.db ]; then
@@ -515,6 +540,9 @@
     description = "Unhide Hidden Process Scanner";
     restartIfChanged = false; # Kein Neustart bei nixos-rebuild (läuft via Timer)
     path = [ pkgs.unhide pkgs.procps ];
+    # Alarm-Hook braucht DNS — siehe aide-check oben.
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
     serviceConfig = {
       Type = "oneshot";
       # Prüfe auf versteckte Prozesse mit verschiedenen Techniken
@@ -522,6 +550,10 @@
       ExecStart = "${pkgs.unhide}/bin/unhide-linux sys procall";
       StandardOutput = "journal";
       StandardError = "journal";
+      # KEIN TimeoutStartSec: `unhide-linux sys procall` brute-forced den
+      # kompletten PID-Raum und braucht auf dieser Maschine >14 min. Ein
+      # gesetzter Timeout (Versuch am 2026-08-15 mit 600 s) killt den Scan
+      # mitten im Lauf — Type=oneshot hat per Default gar keinen Timeout.
     };
   };
 
@@ -731,18 +763,23 @@
   # Journal-Größe — großzügig dimensioniert wegen Suricata (jetzt 3 Interfaces:
   # proton0, wlp0s20f3, enp0s31f6) + auditd + sudo-fail-monitor. 2G ist sicher
   # erreichbar bei hohem Netzwerkverkehr.
-  services.journald.extraConfig = ''
-    SystemMaxUse=2G
-    SystemKeepFree=4G
-    MaxRetentionSec=30day
+  # `settings.Journal` STATT `extraConfig` (2026-09-07): Die alte Option ist
+  # entfallen und macht den Bau rot — „no longer has any effect; please remove
+  # it". Der Rebuild scheiterte daran, bevor irgendetwas anderes an die Reihe
+  # kam. Dieselben Werte, nur als Attributsatz statt als INI-Text; die
+  # Kommentare stehen jetzt daneben statt darin.
+  services.journald.settings.Journal = {
+    SystemMaxUse = "2G";
+    SystemKeepFree = "4G";
+    MaxRetentionSec = "30day";
     # Pro-Service-Rate-Limit: Verhindert dass eine Log-Flut anderer Services
     # Platz stiehlt. 10000 Messages pro 30s pro Unit sollten Malware-Scan und
     # Brute-Force-Alerts abdecken ohne dass andere Services hungern.
-    RateLimitIntervalSec=30s
-    RateLimitBurst=10000
+    RateLimitIntervalSec = "30s";
+    RateLimitBurst = 10000;
     # Forward to kmsg NICHT (default), spart Memory-Ring-Buffer-Overhead
-    ForwardToKMsg=no
-  '';
+    ForwardToKMsg = "no";
+  };
 
   # Log-Rotation für sudo.log
   services.logrotate.settings.sudo = {

@@ -65,7 +65,8 @@
       # Extensions aktivieren
       enabled-extensions = [
         "appindicatorsupport@rgcjonas.gmail.com"
-        "pano@elhan.io"
+        # "pano@elhan.io"  # 2026-08-03: Paket aus nixpkgs entfernt (siehe home.nix)
+        "clipboard-indicator@tudmotu.com"  # Pano-Ersatz
       ];
     };
 

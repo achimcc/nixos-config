@@ -140,9 +140,10 @@ in
     # zeroad # 0 A.D. — temporär deaktiviert (nixpkgs-Build-Fehler: 0ad-0.27.1)
 
     # --- GNOME ERWEITERUNGEN ---
-    gnomeExtensions.pano
-    libgda5
-    gsound
+    # gnomeExtensions.pano  # 2026-08-03 aus nixpkgs entfernt (fehlende Upstream-Wartung) → ersetzt durch clipboard-indicator
+    # libgda5   # war nur Pano-Abhängigkeit
+    # gsound    # war nur Pano-Abhängigkeit
+    gnomeExtensions.clipboard-indicator # Clipboard-Manager (Pano-Ersatz seit 2026-08-03)
 
     # --- SYSTEM MONITORING ---
     mission-center
@@ -1024,6 +1025,43 @@ in
         PreferredAuthentications = "password";
         PubkeyAuthentication = "no";
       };
+      # sftp-01, der Dateidienst des Homeservers (Zone `int`, SFTPGo auf 2022).
+      #
+      # PASSWORT UND SONST NICHTS, und der Grund ist der Agent: Er haelt sechs
+      # Schluessel, ssh bietet sie alle der Reihe nach an, und SFTPGo trennt
+      # nach dem sechsten Fehlversuch die Verbindung
+      # ('too many authentication failures') -- BEVOR die Passwortmethode
+      # ueberhaupt an der Reihe ist. In Nautilus sieht das aus wie ein kaputter
+      # Dateidienst: Es kommt nicht einmal die Passwortabfrage.
+      #
+      # EIN `Host`-BLOCK, KEIN `Match ... port 2022`: Das Client-`Match` kennt
+      # kein `port`-Kriterium (nur host/originalhost/user/localuser/exec/...).
+      # OpenSSH lehnt daraufhin die GANZE Datei ab -- 'Bad Match condition,
+      # terminating' --, und damit stehen auch `git push` und `colmena`. Der
+      # Nix-Bau merkt davon nichts, er schreibt den Text nur hin.
+      # UND DER NAME GEHOERT DAZU (2026-09-07, H13): Seit es
+      # `sftp.rusty-vault.de` gibt, erreicht man denselben Dienst ueber einen
+      # Namen — und der fiel aus diesem Block heraus. An `ssh -G` gemessen:
+      #
+      #   10.0.20.13             port 2022   pubkeyauthentication false
+      #   sftp.rusty-vault.de    port 22     pubkeyauthentication true
+      #
+      # Also genau die Falle von oben noch einmal, nur unter neuem Namen: In
+      # Nautilus waere wieder nicht einmal die Passwortabfrage gekommen.
+      #
+      # Der Eintrag traegt beide Wege: Zu Hause loest der Name ueber Blocky
+      # direkt auf 10.0.20.13 auf, von unterwegs ueber den VPS — und dort
+      # liegt der SFTP-Weg auf demselben Port 2022.
+      #
+      # NEBENBEI ERSPART ER DIE PORTANGABE: `sftp://user@sftp.rusty-vault.de`
+      # genuegt danach, auch in Nautilus (gvfs ruft `ssh` auf und liest diese
+      # Datei).
+      "10.0.20.13 sftp.rusty-vault.de" = {
+        User = "user";
+        Port = 2022;
+        PreferredAuthentications = "password";
+        PubkeyAuthentication = "no";
+      };
     };
   };
 
@@ -1480,13 +1518,14 @@ in
         --tmpfs /tmp \
         --bind "$HOME" "$HOME" \
         --ro-bind /etc /etc \
+        --ro-bind /usr/bin/env /usr/bin/env \
         --ro-bind /run/current-system /run/current-system \
         --bind /run/user/$(id -u) /run/user/$(id -u) \
         --ro-bind /sys /sys \
         --setenv PATH "/run/wrappers/bin:/home/user/.local/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin" \
         --unshare-pid \
         --die-with-parent \
-        ${pkgs-unstable.vscodium}/bin/codium \
+        ${pkgs-unstable.vscodium}/lib/vscode/codium \
           --no-sandbox \
           --disable-gpu-sandbox \
           --disable-seccomp-filter-sandbox \
@@ -1707,6 +1746,20 @@ in
   #
   # Der NM-Dispatcher fix-pvpn-killswitch-dns (network.nix) neutralisiert die
   # DNS-Kaperung weiterhin, falls die GUI mal manuell gestartet wird.
+  #
+  # STOLPERFALLE 2026-08-28: "GUI startet nicht beim Klick aufs GNOME-Icon".
+  # Sie startete sehr wohl — sie versteckte sich nur sofort wieder. Ursache liegt
+  # NICHT in dieser Nix-Config, sondern in ~/.config/Proton/VPN/app-config.json:
+  # "start_app_minimized": true. App.do_activate() (proton/vpn/app/gtk/app.py)
+  # ruft window.present() und emittiert DANACH bei JEDER Aktivierung "app-ready";
+  # dessen Default-Handler macht bei start_app_minimized + aktivem Tray
+  # window.set_visible(False). Da die App Single-Instance ist (Gtk.Application),
+  # reicht jeder weitere Icon-Klick nur ein Activate an die laufende Instanz durch
+  # -> Fenster wird eingeblendet und sofort wieder versteckt. Fix: Einstellung auf
+  # false (Settings -> General -> "Start app minimized" aus). Seit Autostart weg
+  # ist, hat "minimiert starten" ohnehin keinen Nutzen mehr.
+  # Diagnose ohne Bildschirm: Tray-Menue-Label via dbusmenu lesen
+  # ("Show" = Fenster versteckt, "Hide" = sichtbar).
   systemd.user.services.protonvpn-gui = {
     Unit = {
       Description = "ProtonVPN GUI";

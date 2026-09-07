@@ -299,6 +299,7 @@ in
         # "yes" = validate and FAIL resolution if validation fails
         # SECURITY: Never use "allow-downgrade" - strict validation only!
         # Note: DNSSECNegativeTrustAnchors was removed in systemd 258+
+        # Ausnahmen laufen über /etc/dnssec-trust-anchors.d/*.negative (siehe unten)
         DNSSEC = "yes";
         Domains = [ "~." ];
         DNSOverTLS = "true";
@@ -317,6 +318,39 @@ in
       };
     };
   };
+
+  # ------------------------------------------
+  # DNSSEC Negative Trust Anchor: BunnyCDN
+  # ------------------------------------------
+  # PROBLEM: Bilder von Seiten, die BunnyCDN nutzen (z.B. die Moviewall auf
+  # tntracker.org → tmdb-image-prod.b-cdn.net), laden nicht. Chrome zeigt nur
+  # kaputte Bild-Icons, sehr selten klappt es doch.
+  #
+  # URSACHE: Jede BunnyCDN-Pull-Zone ist eine eigene delegierte Zone mit eigenem
+  # SOA (ns1.bunnydns.com). Die DS-Abfrage für so eine Sub-Zone beantwortet
+  # BunnyDNS mit NOERROR + SOA, aber OHNE NSEC/NSEC3-Beweis. Mit DNSSEC="yes"
+  # (strict) kann resolved die "insecure delegation" damit nicht beweisen, die
+  # Hilfs-Transaktion scheitert → "DNSSEC validation failed: failed-auxiliary"
+  # → SERVFAIL → Browser bekommt keine IP.
+  # Die TTL der A-Records beträgt 10 s (GeoDNS), d.h. bei ~200 Postern auf einer
+  # Moviewall-Seite läuft der Cache permanent ab und jeder Versuch scheitert neu.
+  # Das erklärt auch, warum es gelegentlich doch kurz funktioniert.
+  #
+  # SICHERHEIT: Kein Downgrade. b-cdn.net hat in .net gar keinen DS-Record, die
+  # Zone ist also ohnehin unsigniert — strict validation liefert dort null
+  # zusätzlichen Schutz, nur den Fehlschlag. DNSSEC="yes" bleibt global aktiv,
+  # der NTA gilt ausschließlich für b-cdn.net und darunter (RFC 7646).
+  #
+  # Der resolved.conf-Schalter DNSSECNegativeTrustAnchors wurde in systemd 258+
+  # entfernt, der dateibasierte Mechanismus existiert weiterhin (systemd 261).
+  # Siehe dnssec-trust-anchors.d(5).
+  #
+  # VERIFIKATION: `resolvectl query tmdb-image-prod.b-cdn.net`
+  #   vorher:  resolve call failed: DNSSEC validation failed: failed-auxiliary
+  #   nachher: liefert eine IP (Data is authenticated: no → insecure, wie erwartet)
+  environment.etc."dnssec-trust-anchors.d/bunnycdn.negative".text = ''
+    b-cdn.net
+  '';
 
 
   # ==========================================

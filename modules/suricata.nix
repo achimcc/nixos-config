@@ -20,19 +20,21 @@
       # ist minimal langsamer, aber stabil — gilt für VPN UND physische NICs.
       #
       # LAYERED DETECTION:
-      # - proton0: Entschlüsselter VPN-Traffic (nutzt Malware-Regelsatz voll)
       # - wlp0s20f3 / enp0s31f6: Physischer Traffic (vor VPN-Tunnel) → erkennt
       #   lokale Angriffe (ARP-Spoofing, DHCP-Rogue, MITM-Versuche, DNS-Hijack,
       #   Scans im LAN) die am VPN vorbeilaufen würden.
+      #
+      # proton0 ENTFERNT (2026-08-06): Seit Deaktivierung des ProtonVPN-GUI-
+      # Autostarts (9c21bdb) existiert das Interface nicht mehr. Suricata brach
+      # deshalb bei JEDEM Start ab ("failed to find interface: No such device"
+      # → thread W#01-proton0 failed) und lief 11 h in einer Restart-Schleife
+      # (638 Restarts). Jeder Versuch kompilierte via ExecStartPre `suricata -T`
+      # die 101k Regeln neu: ~90 s auf 100 % eines Kerns, alle ~3 min → CPU-
+      # Konkurrenz + Package-Temp-Throttling → Videowiedergabe ruckelte in Wellen.
+      # Der Loop-Schutz (startLimitBurst=5/300s, s.u.) griff nicht, weil ein
+      # Fehlversuch ~180 s dauert und damit nie 5 Starts pro Fenster erreicht.
+      # Falls ProtonVPN wieder dauerhaft läuft: Block hier reaktivieren.
       af-packet = [
-        {
-          interface = "proton0";  # VPN (ProtonVPN GUI WireGuard)
-          cluster-id = 101;
-          cluster-type = "cluster_flow";
-          defrag = true;
-          use-mmap = false;
-          tpacket-v3 = false;
-        }
         {
           interface = "wlp0s20f3";  # WLAN (physisch)
           cluster-id = 102;
