@@ -11,8 +11,9 @@
 
 ## 1. Ziel
 
-Systemusername, Mailadresse, Klarname und Hostname stehen weder im Arbeitsstand
-noch in der Git-Historie des öffentlichen Repos im Klartext.
+Systemusername, Mailadresse und Klarname stehen weder im Arbeitsstand noch in der
+Git-Historie des öffentlichen Repos im Klartext. Der Hostname ist bereits
+generisch (§2.3); von ihm bleiben nur veraltete Doku-Erwähnungen zu tilgen.
 
 ## 2. Ausgangslage (gemessen)
 
@@ -71,22 +72,41 @@ verwendet Python-Regex; die Regel für den Username braucht deshalb einen negati
 Lookahead (`regex:<USER>(?!cc)`), und die spezifischen Varianten (Hostname,
 Mail-Localpart, Dateiname) müssen als eigene Regeln **vor** der allgemeinen stehen.
 
-### 2.3 Der Hostname und der SOPS-Host-Key
+### 2.3 Der Hostname — bereits generisch (Korrektur nach Abnahme)
 
-`<HOST>` erscheint an drei funktional relevanten Stellen:
+Nachgemessen beim Schreiben des Umsetzungsplans:
 
-- `flake.nix` — `nixosConfigurations.<HOST>`
-- `modules/network.nix:58` — `networking.hostName`
-- `.sops.yaml:9,17` — YAML-Anker `&host_<HOST>` / `*host_<HOST>`
+```
+modules/network.nix:75   hostName = "nixos";
+flake.nix:97             nixosConfigurations.nixos
+hostnamectl --static  →  nixos
+```
 
-Die ersten beiden **müssen synchron** geändert werden; weichen sie voneinander ab,
-findet `nixos-rebuild` die Konfiguration nicht. `TEST-PLAN.md:7` dokumentiert genau
-diesen Fehler aus der Vergangenheit.
+**Der Hostname ist bereits `nixos` und damit ohne Personenbezug.** Die
+`<USER>-laptop`-Vorkommen sind ausschließlich **veraltete Dokumentation** aus der
+Zeit vor der Umbenennung, die `TEST-PLAN.md:12` festhält. `AGENTS.md:36` empfiehlt
+noch `--flake …#<USER>-laptop` — ein Aufruf, der heute fehlschlägt, weil es diese
+Konfiguration nicht mehr gibt.
 
-Der `.sops.yaml`-Anker ist dagegen rein kosmetisch: Der Host-Age-Key leitet sich
-aus dem SSH-Host-Key der Maschine ab, nicht aus ihrem Namen. Eine
-Hostname-Änderung entwertet **keine** Secrets, und `sops updatekeys` ist nicht
-nötig. Der Anker wird nur umbenannt, damit kein Personenbezug im Repo stehen bleibt.
+Folgen für den Plan:
+
+- **Kein Eingriff ins laufende System.** Das Risiko „Hostname-Änderung stört
+  Netzwerkdienste" aus §8 entfällt ersatzlos, ebenso das Risiko
+  „Hostname-Mismatch".
+- Es bleibt reine Textpflege in `AGENTS.md`, `CLI-TOOLS-CHEATSHEET.md`,
+  `PROTONVPN-SETUP.md`, `TEST-PLAN.md`, `restore-vpn.sh`, `configuration.nix:1`
+  und dem `.sops.yaml`-Anker `&host_<USER>-laptop`.
+- Der `.sops.yaml`-Anker ist ein YAML-Name ohne Funktion für die Entschlüsselung:
+  Der Host-Age-Key leitet sich aus dem SSH-Host-Key der Maschine ab, nicht aus
+  ihrem Namen. Umbenennen entwertet **keine** Secrets, `sops updatekeys` ist nicht
+  nötig.
+- Nebenbei wird die Dokumentation dadurch erstmals wieder korrekt.
+
+### 2.4 Nachtrag zur Variantenliste
+
+Beim Erheben der Stellenliste zusätzlich gefunden:
+
+- `flake.nix:2` — `description = "NixOS Konfiguration für <NAME-Vorname>"`
 
 ## 3. Zentrale Entscheidung: SOPS ist hier das falsche Werkzeug
 
@@ -219,11 +239,10 @@ ersatzlos löschen, sie ist erledigt).
 Durchreichung: `id` wird über `specialArgs` bzw. `extraSpecialArgs` an alle Module
 gegeben, analog zu `inputs`/`pkgs-unstable` in `flake.nix:100` und `flake.nix:118`.
 
-**Hostname umbenennen** (synchron, siehe §2.3): `flake.nix`
-`nixosConfigurations.<HOST>`, `modules/network.nix:58` `networking.hostName`,
-`.sops.yaml`-Anker. Dazu 33 Erwähnungen in `AGENTS.md`,
-`CLI-TOOLS-CHEATSHEET.md`, `PROTONVPN-SETUP.md`, `TEST-PLAN.md`, `restore-vpn.sh`
-und `configuration.nix:1`.
+**Veraltete Hostname-Erwähnungen bereinigen** (siehe §2.3): reine Textpflege in
+`AGENTS.md`, `CLI-TOOLS-CHEATSHEET.md`, `PROTONVPN-SETUP.md`, `TEST-PLAN.md`,
+`restore-vpn.sh`, `configuration.nix:1` und dem `.sops.yaml`-Anker. Der Hostname
+selbst ist bereits generisch und wird nicht angefasst.
 
 **Zwei Werte bleiben wertgleich, nur die Herkunft ändert sich:**
 - `home-<USER>.nix:420` `thunderbird.profiles = [ "<USER>" ]` — Verzeichnisname unter
@@ -271,7 +290,6 @@ Kein Schritt gilt als erledigt ohne die Ausgabe seines Kommandos.
 |---|---|---|
 | B | `nixos-rebuild build --flake .#<HOST>` | Baut durch |
 | B | `id <USER>` nach `switch` | Nutzer unverändert, gleiche UID |
-| B | `hostnamectl` | neuer Hostname aktiv |
 | B | `sudo cat /run/secrets/email/posteo` | SOPS entschlüsselt weiterhin |
 | B | `git config user.email` | unveränderter Wert |
 | B | `send-security-alert "Test" "Test"` | Mail kommt an |
@@ -303,8 +321,6 @@ Auswahl. Sie ist die einzige Prüfung, die Baustein C überhaupt validiert.
 | Thunderbird-Profil wird nicht mehr gefunden | Wert bleibt gleich (§ Baustein B) |
 | `git+ssh`-Input beim Rebuild nicht auflösbar | Ablauf in §4.2, dokumentiert in der README |
 | GNOME-Keyring nimmt Schaden | Baustein B fasst weder Keyring-Dateien noch die Guard-/Backup-Dienste an; deren `owner`-Angaben ändern nur ihre Herkunft, nicht ihren Wert |
-| Hostname-Mismatch zwischen `flake.nix` und `networking.hostName` | Beide in einem Commit ändern; `TEST-PLAN.md:7` dokumentiert diesen Fehler bereits einmal aufgetreten. `nixos-rebuild build` schlägt sofort fehl, der Fehler ist nicht schleichend |
-| Hostname-Änderung stört Netzwerkdienste | Betrifft `known_hosts`-Einträge Dritter, Avahi/mDNS-Namen und alles, was den Rechner beim Namen ruft. Vor Baustein B prüfen, ob der alte Name irgendwo außerhalb dieses Repos hinterlegt ist |
 | Ersetzung zerstört GitHub-URLs | `achimcc` per negativem Lookahead schützen (§2.2); nach dem Rewrite `git grep achimcc` gegenprüfen |
 | Eine Variante wird übersehen | Prüfung gegen die vollständige Liste aus §2.2, erhoben aus allen 449 Commits — nicht gegen den Arbeitsstand. Die erste Fassung dieses Entwurfs hatte den Hostnamen übersehen; das ist der Beleg, dass die Stichprobe nicht reicht |
 
