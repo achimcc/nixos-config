@@ -1,7 +1,7 @@
-# Home Manager Konfiguration für User "user"
+# Home Manager Konfiguration für den Desktop-Nutzer
 # Ausgelagert aus configuration.nix für bessere Übersichtlichkeit
 
-{ config, pkgs, pkgs-unstable, llm-agents, rcu, lib, ... }:
+{ config, pkgs, pkgs-unstable, llm-agents, rcu, lib, id, ... }:
 
 let
   easyeffects-presets = pkgs.stdenv.mkDerivation {
@@ -397,9 +397,9 @@ in
   # Definiert den Posteo Account für Thunderbird und andere Mail-Tools
   accounts.email.accounts.posteo = {
     primary = true;
-    address = "user@posteo.de";
-    userName = "user@posteo.de";
-    realName = "NixOS User";
+    address = id.email;
+    userName = id.email;
+    realName = id.realName;
 
     # IMAP Konfiguration (Empfang)
     imap = {
@@ -418,7 +418,7 @@ in
     # Thunderbird Integration
     thunderbird = {
       enable = true;
-      profiles = [ "user" ];
+      profiles = [ id.username ];
     };
   };
 
@@ -427,11 +427,11 @@ in
   xdg.configFile."goa-1.0/accounts.conf".text = ''
     [Account account_posteo_caldav_0]
     Provider=webdav
-    Identity=user@posteo.de
-    PresentationIdentity=user@posteo.de
+    Identity=${id.email}
+    PresentationIdentity=${id.email}
     Uri=https://posteo.de:8443
     CalendarEnabled=true
-    CalDavUri=https://posteo.de:8443/calendars/user@posteo.de/default/
+    CalDavUri=https://posteo.de:8443/calendars/${id.email}/default/
     ContactsEnabled=false
     FilesEnabled=false
     AcceptSslErrors=false
@@ -808,7 +808,7 @@ in
         done
 
         # Prüfe ob Credentials bereits existieren (IDEMPOTENT)
-        EXISTING=$(${pkgs.libsecret}/bin/secret-tool lookup protocol imap server posteo.de user "user@posteo.de" 2>/dev/null || echo "")
+        EXISTING=$(${pkgs.libsecret}/bin/secret-tool lookup protocol imap server posteo.de user "${id.email}" 2>/dev/null || echo "")
 
         if [ -n "$EXISTING" ]; then
           echo "Posteo-Credentials bereits vorhanden, überspringe Schreibvorgang."
@@ -829,14 +829,14 @@ in
         echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo IMAP" \
           protocol imap \
           server posteo.de \
-          user "user@posteo.de"
+          user "${id.email}"
         sleep 1
 
         # SMTP Passwort
         echo -n "$PASSWORD" | ${pkgs.libsecret}/bin/secret-tool store --label="Posteo SMTP" \
           protocol smtp \
           server posteo.de \
-          user "user@posteo.de"
+          user "${id.email}"
         sleep 1
 
         # GNOME Online Accounts (CalDAV für GNOME Kalender)
@@ -916,7 +916,7 @@ in
       Type = "oneshot";
       ExecStart = pkgs.writeShellScript "export-gpg-key" ''
         ${pkgs.coreutils}/bin/mkdir -p ~/.config/thunderbird-gpg
-        ${pkgs.gnupg}/bin/gpg --armor --export user@posteo.de \
+        ${pkgs.gnupg}/bin/gpg --armor --export ${id.email} \
           > ~/.config/thunderbird-gpg/gpg-public-key.asc
       '';
     };
@@ -947,7 +947,7 @@ in
     user_pref("mail.openpgp.allow_external_gnupg", true);
 
     // GPG-Binary explizit setzen (Wrapper für Debug-Logging)
-    user_pref("mail.openpgp.gnupg_path", "/home/user/.config/thunderbird-gpg/gpg-wrapper.sh");
+    user_pref("mail.openpgp.gnupg_path", "/home/${id.username}/.config/thunderbird-gpg/gpg-wrapper.sh");
 
     // Öffentliche Schlüssel aus GnuPG-Keyring importieren
     user_pref("mail.openpgp.fetch_pubkeys_from_gnupg", true);
@@ -1053,11 +1053,11 @@ in
       # direkt auf 10.0.20.13 auf, von unterwegs ueber den VPS — und dort
       # liegt der SFTP-Weg auf demselben Port 2022.
       #
-      # NEBENBEI ERSPART ER DIE PORTANGABE: `sftp://user@sftp.rusty-vault.de`
+      # NEBENBEI ERSPART ER DIE PORTANGABE: `sftp://${id.username}@sftp.rusty-vault.de`
       # genuegt danach, auch in Nautilus (gvfs ruft `ssh` auf und liest diese
       # Datei).
       "10.0.20.13 sftp.rusty-vault.de" = {
-        User = "user";
+        User = id.username;
         Port = 2022;
         PreferredAuthentications = "password";
         PubkeyAuthentication = "no";
@@ -1073,8 +1073,8 @@ in
       signByDefault = true;
     };
     settings = {
-      user.name = "NixOS User";
-      user.email = "user@posteo.de";
+      user.name = id.realName;
+      user.email = id.email;
       init.defaultBranch = "main";
       pull.rebase = true;
       # SSH-Signierung statt GPG
@@ -1095,9 +1095,9 @@ in
 
   # Allowed Signers für SSH-Commit-Verifizierung
   # Nach Erstellung des neuen ed25519-Keys: Public-Key-Inhalt hier eintragen.
-  # Erzeugung: ssh-keygen -t ed25519 -C "user@posteo.de"
+  # Erzeugung: ssh-keygen -t ed25519 -C "${id.email}"
   home.file.".ssh/allowed_signers".text = ''
-    user@posteo.de namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICBEnBXC5ijeHaellXY2+SOUPN/JnmKuRfHDK1YGB2Mo user@posteo.de
+    ${id.email} namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICBEnBXC5ijeHaellXY2+SOUPN/JnmKuRfHDK1YGB2Mo ${id.email}
   '';
 
   # --- GITHUB CLI ---
@@ -1241,7 +1241,7 @@ in
     name = "VSCodium";
     genericName = "Text Editor";
     comment = "Code Editing. Redefined. (Sandboxed with Bubblewrap)";
-    exec = "/home/user/.local/bin/codium %F";
+    exec = "/home/${id.username}/.local/bin/codium %F";
     icon = "vscodium";
     terminal = false;
     type = "Application";
@@ -1254,7 +1254,7 @@ in
     actions = {
       new-empty-window = {
         name = "New Empty Window";
-        exec = "/home/user/.local/bin/codium --new-window %F";
+        exec = "/home/${id.username}/.local/bin/codium --new-window %F";
       };
     };
   };
@@ -1522,7 +1522,7 @@ in
         --ro-bind /run/current-system /run/current-system \
         --bind /run/user/$(id -u) /run/user/$(id -u) \
         --ro-bind /sys /sys \
-        --setenv PATH "/run/wrappers/bin:/home/user/.local/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin" \
+        --setenv PATH "/run/wrappers/bin:/home/${id.username}/.local/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin" \
         --unshare-pid \
         --die-with-parent \
         ${pkgs-unstable.vscodium}/lib/vscode/codium \
@@ -1706,7 +1706,7 @@ in
       # Alias nicht nötig, da ~/.local/bin bereits im PATH ist
       # Sonstiges
       obb = "openbb"; # FHS-wrapped, installiert automatisch beim ersten Start
-      nrs = "sudo nixos-rebuild switch --flake /home/user/nixos-config#nixos";
+      nrs = "sudo nixos-rebuild switch --flake /home/${id.username}/nixos-config#nixos";
       charge = "sudo tlp fullcharge";
     };
     environmentVariables = {
