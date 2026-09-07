@@ -43,11 +43,29 @@
 
     # RCU - reMarkable Connection Utility (gepinnt auf geprüften Commit)
     rcu.url = "git+https://github.com/thozza/rcu.git?rev=0dc42d188af723569a07f827b43713e9c56ef6c7";
+
+    # Identität des Rechners (Username, Klarname, Mailadresse) aus dem PRIVATEN
+    # Repo. Diese Werte werden zur BAUZEIT gebraucht — users.users.<name>,
+    # /home/<name>/… und die Mailadresse stehen im Nix-Ausdruck selbst.
+    # SOPS scheidet dafür aus: sops-nix entschlüsselt erst zur LAUFZEIT auf dem
+    # Ziel und käme zu spät. `flake = false`, weil das Repo keine flake.nix hat.
+    #
+    # Preis, den man kennen muss: `sudo nixos-rebuild` kann diesen Input nicht
+    # selbst holen — root hat den SSH-Schlüssel nicht. Nach einem
+    # `nix-collect-garbage` deshalb erst als Nutzer `nix flake update identity`
+    # und danach der übliche Rebuild.
+    identity = {
+      url = "git+ssh://git@github.com/achimcc/homeserver-secrets.git";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, llm-agents, sops-nix, lanzaboote, nix-flatpak, rcu, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, llm-agents, sops-nix, lanzaboote, nix-flatpak, rcu, identity, ... } @inputs:
     let
       system = "x86_64-linux";
+
+      # Identität aus dem privaten Repo: { username, realName, email }.
+      id = import "${identity}/identity/laptop.nix";
       
       # Unstable nixpkgs
       pkgs-unstable = import nixpkgs-unstable {
@@ -97,7 +115,7 @@
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         inherit system;
         # Hier geben wir die Inputs an alle Module weiter
-        specialArgs = { inherit inputs llm-agents pkgs-unstable; };
+        specialArgs = { inherit inputs llm-agents pkgs-unstable id; };
         modules = [
           # Custom packages overlay
           { nixpkgs.overlays = [ customOverlay protonvpnFixOverlay ]; }
@@ -115,7 +133,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             # Wichtig: llm-agents und pkgs-unstable an Home Manager durchreichen
-            home-manager.extraSpecialArgs = { inherit llm-agents pkgs-unstable rcu; };
+            home-manager.extraSpecialArgs = { inherit llm-agents pkgs-unstable rcu id; };
             home-manager.users.user = import ./home.nix;
             # Sops für Home Manager
             home-manager.sharedModules = [

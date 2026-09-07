@@ -170,6 +170,22 @@
         "type": "github"
       }
     },
+    "identity": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788773177,
+        "narHash": "sha256-jfZR5Y4R37ZZNb3fiVcorIk7ncphLLbtVHviQRsmoWA=",
+        "ref": "refs/heads/main",
+        "rev": "02f0972d17a34d3395f958e29118a8e2977ee437",
+        "revCount": 72,
+        "type": "git",
+        "url": "ssh://git@github.com/achimcc/homeserver-secrets.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "ssh://git@github.com/achimcc/homeserver-secrets.git"
+      }
+    },
     "lanzaboote": {
       "inputs": {
         "crane": "crane",
@@ -265,16 +281,16 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1782231800,
-        "narHash": "sha256-AyPvq+cx3JFicSd687dhhIfUMryk9PUFmHnofBjalMg=",
+        "lastModified": 1788614874,
+        "narHash": "sha256-7QYjT2vHLuX9Z1pdxHXDKCbh1CR3D/2rywB9Tx0MPRg=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "6f5e2d2ea55618c5197ce40e346f205c35d2213e",
+        "rev": "c043004d1c6985732bcc1cbc5a9c9aecbbb4e0f0",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-unstable-small",
+        "ref": "nixos-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -341,6 +357,7 @@
     "root": {
       "inputs": {
         "home-manager": "home-manager",
+        "identity": "identity",
         "lanzaboote": "lanzaboote",
         "llm-agents": "llm-agents",
         "nix-flatpak": "nix-flatpak",
