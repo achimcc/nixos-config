@@ -61,7 +61,7 @@
     allowSFTP = false;
 
     # Nur explizit erlaubte User (anpassen bei Aktivierung)
-    # allowUsers = [ "user" ];
+    # allowUsers = [ id.username ];
 
     # SSH auf non-standard Port (Security durch Obscurity + weniger Scans)
     # ports = [ 22022 ];  # Auskommentiert, Standard-Port 22

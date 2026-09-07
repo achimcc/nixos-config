@@ -4,7 +4,7 @@
 #
 # HINWEIS: NixOS hat kein services.logwatch - wir verwenden custom systemd-Services
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, id, ... }:
 
 {
   # ==========================================
@@ -109,7 +109,7 @@
           || echo "No sudo failures yesterday"
         echo ""
         echo "-- PAM faillock state --"
-        ${pkgs.pam}/bin/faillock --user user 2>/dev/null || echo "faillock not available"
+        ${pkgs.pam}/bin/faillock --user ${id.username} 2>/dev/null || echo "faillock not available"
         echo ""
       } >> "$REPORT_FILE"
 
@@ -289,8 +289,8 @@
         local message="$2"
         local urgency="critical"
 
-        # Desktop Notification für User user
-        sudo -u user DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+        # Desktop Notification für den Desktop-Nutzer
+        sudo -u ${id.username} DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
           ${pkgs.libnotify}/bin/notify-send --urgency="$urgency" --icon=dialog-warning \
           "$title" "$message" || true
 
@@ -371,7 +371,7 @@
 
       if ${pkgs.systemd}/bin/journalctl --since "5 minutes ago" --no-pager | \
          grep -iE "pam_faillock.*locking account|faillock.*too many"; then
-        send_notification "ACCOUNT LOCKED" "PAM faillock hat Account gesperrt. Reset: sudo faillock --user user --reset"
+        send_notification "ACCOUNT LOCKED" "PAM faillock hat Account gesperrt. Reset: sudo faillock --user ${id.username} --reset"
       fi
     '';
   };

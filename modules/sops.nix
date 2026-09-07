@@ -1,7 +1,7 @@
 # Sops-nix Secret Management
 # Verschlüsselte Secrets im Git Repository
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, id, ... }:
 
 {
   # ==========================================
@@ -36,19 +36,19 @@
 
     # E-Mail Passwort für Posteo
     secrets."email/posteo" = {
-      owner = "user";
+      owner = id.username;
       mode = "0400";
     };
 
     # Anthropic API Key für AI Tools (avante.nvim, etc.)
     secrets."anthropic-api-key" = {
-      owner = "user";
+      owner = id.username;
       mode = "0400";
     };
 
     # GitHub Token für gh CLI und octo.nvim
     secrets."github-token" = {
-      owner = "user";
+      owner = id.username;
       mode = "0400";
     };
 
@@ -57,27 +57,27 @@
 
     # SSH Key für Hetzner VPS
     secrets."ssh/hetzner-vps" = {
-      owner = "user";
+      owner = id.username;
       mode = "0600";
-      path = "/home/user/.ssh/hetzner-vps";
+      path = "/home/${id.username}/.ssh/hetzner-vps";
     };
     secrets."ssh/hetzner-vps-pub" = {
-      owner = "user";
+      owner = id.username;
       mode = "0644";
-      path = "/home/user/.ssh/hetzner-vps.pub";
+      path = "/home/${id.username}/.ssh/hetzner-vps.pub";
     };
 
     # Miniflux RSS-Reader Zugangsdaten
     secrets."miniflux/url" = {
-      owner = "user";
+      owner = id.username;
       mode = "0400";
     };
     secrets."miniflux/username" = {
-      owner = "user";
+      owner = id.username;
       mode = "0400";
     };
     secrets."miniflux/password" = {
-      owner = "user";
+      owner = id.username;
       mode = "0400";
     };
 

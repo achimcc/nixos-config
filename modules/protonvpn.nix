@@ -2,7 +2,7 @@
 # GUI MODE: ProtonVPN GUI verwaltet die VPN-Verbindung nach Login
 # Firewall Kill Switch (nftables) schützt Traffic vor VPN-Verbindung
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, id, ... }:
 
 {
   # ==========================================
@@ -55,7 +55,7 @@
 
           # Desktop notification nur einmal pro Problem (nicht bei jedem Watchdog-Durchlauf)
           if [[ "$notify" == "true" ]] && [[ ! -f "$NOTIFIED_FILE" ]]; then
-            ${pkgs.sudo}/bin/sudo -u user DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+            ${pkgs.sudo}/bin/sudo -u ${id.username} DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
               ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=network-error \
               "VPN Kill Switch Active" "$msg" 2>/dev/null || true
             touch "$NOTIFIED_FILE"

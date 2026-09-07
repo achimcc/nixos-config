@@ -1,7 +1,7 @@
 # GNOME Dconf Settings
 # Deklarative Desktop-Einstellungen für GNOME
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, id, ... }:
 
 {
   # Dconf aktivieren
@@ -141,7 +141,7 @@
 
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2" = {
       name = "Posteo TOTP";
-      command = "/home/user/.local/bin/totp-posteo";
+      command = "/home/${id.username}/.local/bin/totp-posteo";
       binding = "<Super><Shift>t";
     };
 

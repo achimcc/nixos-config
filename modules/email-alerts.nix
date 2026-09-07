@@ -1,6 +1,6 @@
 # Email Alerts für kritische Sicherheitsereignisse
 # Verwendet msmtp als leichtgewichtigen SMTP-Relay
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, id, ... }:
 
 let
   # Spool für nicht zustellbare Alerts. Ohne den ging ein Alarm bei Netz-/DNS-
@@ -26,8 +26,12 @@ let
     BODY=$(${pkgs.coreutils}/bin/printf '%s' "$2" \
       | ${pkgs.coreutils}/bin/tr -d '\r')
 
-    TO="user@posteo.de"  # Hardcoded, da sops placeholder in script nicht funktioniert
-    FROM="user@posteo.de"
+    # Aus der Identität (privates Repo), nicht aus SOPS: Der Wert wird zur
+    # BAUZEIT in dieses Script eingesetzt, sops-nix entschlüsselt aber erst zur
+    # Laufzeit. Genau daran scheiterte der frühere Versuch mit
+    # config.sops.placeholder an dieser Stelle.
+    TO="${id.email}"
+    FROM="${id.email}"
     HOSTNAME="$(${pkgs.hostname}/bin/hostname | ${pkgs.coreutils}/bin/tr -d '\r\n')"
     DATE_RFC="$(${pkgs.coreutils}/bin/date -R)"
     DATE_LONG="$(${pkgs.coreutils}/bin/date)"
@@ -101,8 +105,8 @@ in {
       default = {
         host = "posteo.de";
         port = 587;
-        from = "user@posteo.de";
-        user = "user@posteo.de";
+        from = id.email;
+        user = id.email;
         passwordeval = "${pkgs.coreutils}/bin/cat ${config.sops.secrets."email/posteo".path}";
       };
     };

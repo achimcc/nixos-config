@@ -1,7 +1,7 @@
 # Secure Boot Konfiguration mit Lanzaboote
 # Signiert Kernel und Initrd für UEFI Secure Boot
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, id, ... }:
 
 {
   # ==========================================
@@ -49,7 +49,7 @@
       # Prüfe ob Secure Boot aktiviert ist
       if ! ${pkgs.sbctl}/bin/sbctl status | grep -q "Secure Boot.*enabled"; then
         # Desktop-Benachrichtigung für User
-        sudo -u user DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+        sudo -u ${id.username} DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
           ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=dialog-error \
           "Secure Boot WARNUNG" "Secure Boot ist NICHT aktiviert! System ist ungeschützt." || true
 

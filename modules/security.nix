@@ -1,7 +1,7 @@
 # Kernel & System Hardening
 # Zusätzliche Sicherheitsmaßnahmen auf Kernel-Ebene
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, id, ... }:
 
 {
   # ==========================================
@@ -438,7 +438,7 @@
     # Bootloader-Installation läuft (neue Generationen werden danach geschrieben).
 
     # NixOS Konfiguration (Flake-basiert)
-    /home/user/nixos-config CONTENT
+    /home/${id.username}/nixos-config CONTENT
 
     # Nix Store wird NICHT durch AIDE überwacht (zu viele Änderungen bei Updates)
     # Stattdessen: nix-store --verify --check-contents (prüft Nix-eigene Hashes)
@@ -455,11 +455,11 @@
     !/run
     !/nix/store
     !/nix/var
-    !/home/user/nixos-config/.git
-    !/home/user/nixos-config/.claude
-    !/home/user/nixos-config/.crush
-    !/home/user/nixos-config/flake.lock
-    !/home/user/nixos-config/result
+    !/home/${id.username}/nixos-config/.git
+    !/home/${id.username}/nixos-config/.claude
+    !/home/${id.username}/nixos-config/.crush
+    !/home/${id.username}/nixos-config/flake.lock
+    !/home/${id.username}/nixos-config/result
   '';
 
   # Systemd-Timer für regelmäßige Prüfung
@@ -672,7 +672,7 @@
   # ==========================================
   # Sperrt den User-Account nach 5 fehlgeschlagenen Auth-Versuchen für 15 Min.
   # Greift für sudo, login, gdm-password (alles was den Standard-PAM-Stack nutzt).
-  # Status prüfen: `faillock --user user`; zurücksetzen: `sudo faillock --user user --reset`
+  # Status prüfen: `faillock --user ${id.username}`; zurücksetzen: `sudo faillock --user ${id.username} --reset`
   security.pam.services.sudo.failDelay.delay = 4000000; # 4s Delay nach jedem Fehlversuch
   security.pam.services.login.failDelay.delay = 4000000;
 

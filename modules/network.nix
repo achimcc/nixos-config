@@ -1,7 +1,7 @@
 # Netzwerk & DNS Konfiguration
 # NetworkManager für WLAN/Ethernet/VPN mit deklarativem Home-Netzwerk via sops
 
-{ config, lib, pkgs, pkgs-unstable, ... }:
+{ config, lib, pkgs, pkgs-unstable, id, ... }:
 
 let
   # Chrome-Wrapper: GPU-Compositing + VA-API Hardware-Video-Decode (testweise reaktiviert 2026-05-23).
@@ -598,7 +598,7 @@ in
         executable = "${pkgs.tor-browser}/bin/tor-browser";
         profile = "${pkgs.firejail}/etc/firejail/tor-browser_en-US.profile";
         extraArgs = [
-          "--private=/home/user/Downloads"
+          "--private=/home/${id.username}/Downloads"
         ];
       };
 
@@ -608,7 +608,7 @@ in
         executable = "${pkgs.mullvad-browser}/bin/mullvad-browser";
         profile = "${pkgs.firejail}/etc/firejail/tor-browser_en-US.profile";
         extraArgs = [
-          "--private=/home/user/Downloads"
+          "--private=/home/${id.username}/Downloads"
         ];
       };
 
@@ -666,7 +666,7 @@ in
         executable = "${pkgs.logseq}/bin/logseq";
         profile = "${pkgs.firejail}/etc/firejail/obsidian.profile";
         extraArgs = [
-          "--whitelist=/home/user/Dokumente/Logseq"
+          "--whitelist=/home/${id.username}/Dokumente/Logseq"
         ];
       };
 
@@ -704,7 +704,7 @@ in
         executable = "${pkgs.libreoffice-fresh}/bin/libreoffice";
         profile = "${pkgs.firejail}/etc/firejail/libreoffice.profile";
         extraArgs = [
-          "--whitelist=/home/user/Downloads"
+          "--whitelist=/home/${id.username}/Downloads"
         ];
       };
     };

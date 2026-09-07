@@ -24,7 +24,7 @@
 
           # Desktop notification disabled (annoying)
           # Watchdog still logs to journalctl and auto-recovers DNS
-          # ${pkgs.sudo}/bin/sudo -u user DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+          # ${pkgs.sudo}/bin/sudo -u <nutzer> DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
           #   ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=network-error \
           #   "DNS Failure" "$msg" 2>/dev/null || true
 

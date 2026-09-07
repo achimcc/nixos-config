@@ -1,7 +1,7 @@
 # Firewall & VPN Kill Switch Konfiguration
 # Blockiert ALLEN Traffic außer über VPN-Interfaces
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, id, ... }:
 
 # HINWEIS: Netzwerk-Zonen-Konzept dokumentiert in firewall-zones.nix
 # Diese Datei implementiert die Zonen-Regeln mit nftables
@@ -503,21 +503,21 @@ $ip"
       # SECURITY: Cache liegt im User-Home und wird als root gelesen.
       # Kompromittierter User-Prozess dürfte sonst beliebige IPs in nftables-Set
       # einschleusen (Bypass des VPN Kill-Switch). Darum:
-      #   1. Datei-Owner muss user sein (kein root/andere User)
+      #   1. Datei-Owner muss der Desktop-Nutzer sein (kein root/andere User)
       #   2. Kein Symlink (TOCTOU-Risiko)
       #   3. Strikte IPv4-Regex (verhindert nft-Syntax-Injection)
       #   4. Cap bei 2500 IPs (Sanity-Check gegen Cache-Korruption — Proton hat ~1500 Server)
       echo ""
       echo "=== Phase 2: VPN-Server-IPs aus Cache ==="
-      CACHE="/home/user/.cache/Proton/VPN/serverlist.json"
+      CACHE="/home/${id.username}/.cache/Proton/VPN/serverlist.json"
       if [ ! -f "$CACHE" ]; then
         echo "⚠ Cache nicht gefunden: $CACHE"
       elif [ -L "$CACHE" ]; then
         echo "⚠ Cache ist ein Symlink → abgelehnt (TOCTOU-Risiko)"
       else
         CACHE_OWNER=$(${pkgs.coreutils}/bin/stat -c '%U' "$CACHE" 2>/dev/null || echo "")
-        if [ "$CACHE_OWNER" != "user" ]; then
-          echo "⚠ Cache-Datei gehört $CACHE_OWNER (erwartet: user) → abgelehnt"
+        if [ "$CACHE_OWNER" != "${id.username}" ]; then
+          echo "⚠ Cache-Datei gehört $CACHE_OWNER (erwartet: ${id.username}) → abgelehnt"
         else
           # Strikte IPv4-Regex — filtert alles aus was keine saubere Dot-Quad-IP ist
           # Cap bei 2500: Proton hat ~1500 Server. Cap = 200 (alt) hat User-sichtbare
