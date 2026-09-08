@@ -1727,6 +1727,26 @@ in
       if ("/run/secrets/github-token" | path exists) {
         $env.GH_TOKEN = (open /run/secrets/github-token | str trim)
       }
+
+      # managarr — die TUI/CLI ueber Radarr, Sonarr und Lidarr des Servers.
+      #
+      # SIE LAEUFT DORT, NICHT HIER, und das ist keine Bequemlichkeit: Die drei
+      # Dienste haengen an internen Zonenadressen (10.0.x.x), die dieser Rechner
+      # nicht erreicht, und ihre API-Schluessel liegen in sops auf dem Server.
+      # Eine zweite Kopie der Schluessel auf dem Laptop waere der falsche Preis
+      # fuer ein kuerzeres Kommando.
+      #
+      # MIT ARGUMENTEN OHNE -t, OHNE ARGUMENTE MIT: Die TUI braucht ein
+      # Terminal. Ein `-t` bei der CLI haengte dagegen an jede Zeile ein \r und
+      # machte `managarr radarr list movies | from json` kaputt.
+      def managarr [...args] {
+        let ssh_config = $"($env.HOME)/Projects/homeserver/ssh_config"
+        if ($args | is-empty) {
+          ^ssh -F $ssh_config -t server managarr
+        } else {
+          ^ssh -F $ssh_config server managarr ...$args
+        }
+      }
     '';
   };
 
