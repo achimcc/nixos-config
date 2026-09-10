@@ -1050,17 +1050,42 @@ in
       # Nautilus waere wieder nicht einmal die Passwortabfrage gekommen.
       #
       # Der Eintrag traegt beide Wege: Zu Hause loest der Name ueber Blocky
-      # direkt auf 10.0.20.13 auf, von unterwegs ueber den VPS — und dort
+      # direkt auf die Gastadresse auf, von unterwegs ueber den VPS — und dort
       # liegt der SFTP-Weg auf demselben Port 2022.
       #
       # NEBENBEI ERSPART ER DIE PORTANGABE: `sftp://${id.username}@sftp.rusty-vault.de`
       # genuegt danach, auch in Nautilus (gvfs ruft `ssh` auf und liest diese
       # Datei).
-      "10.0.20.13 sftp.rusty-vault.de" = {
+      #
+      # DIE ADRESSE IST 10.0.160.10 UND NICHT MEHR 10.0.20.13 (2026-09-10):
+      # sftp-01 ist am 2026-09-09 aus der Zone `int` in seine eigene Zone `sft`
+      # umgezogen. Die alte Zeile zeigte danach ins Leere — was nicht auffiel,
+      # weil der NAME daneben steht und alles traegt. Eine tote Adresse in
+      # einem Block, der funktioniert, faellt eben nicht auf.
+      "10.0.160.10 sftp.rusty-vault.de" = {
         User = id.username;
         Port = 2022;
         PreferredAuthentications = "password";
         PubkeyAuthentication = "no";
+
+        # UND DER RIEGEL, DEN gvfs NICHT UEBERGEHEN KANN (2026-09-10).
+        #
+        # `PubkeyAuthentication no` daneben genuegt nicht: gvfs ruft `ssh` mit
+        # einem EIGENEN `-o PreferredAuthentications=publickey,…` auf und setzt
+        # sich damit ueber die Zeile hinweg — deshalb steht in `sftp-01.nix`
+        # auch `max_auth_tries = 20`, weil der Agent hier sieben Schluessel
+        # haelt und sechs Versuche nicht reichen.
+        #
+        # `IdentityAgent none` wirkt eine Ebene tiefer: Es gibt dann gar keinen
+        # Agenten zu fragen, gleichgueltig welche Methoden gvfs verlangt. Damit
+        # kommt die Passwortabfrage auch beim ERSTEN Kontakt einer URL-Variante,
+        # fuer die noch kein Passwort im Schluesselbund liegt — der Fall, in dem
+        # Nautilus am 2026-09-10 ohne Portangabe kommentarlos scheiterte, waehrend
+        # dieselbe Adresse mit `:2022` funktionierte.
+        #
+        # ES BETRIFFT NUR DIESEN BLOCK: `git push`, `colmena` und jeder andere
+        # Host behalten ihren Agenten.
+        IdentityAgent = "none";
       };
     };
   };
