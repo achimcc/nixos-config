@@ -1549,6 +1549,35 @@ in
   # Diese Datei wird von Librewolf beim Start gelesen
   home.file.".librewolf/distribution/policies.json".text = builtins.toJSON {
     policies = {
+      # --- Karakeep als Suchkuerzel in der Adressleiste (2026-09-11) --------
+      #
+      # `k nixos` sucht in der eigenen Lesezeichensammlung auf kar-01.
+      # Die Karakeep-Erweiterung kann das NICHT: Sie schickt Seiten nur
+      # HINEIN — ihr Eintrag "Bookmarks" ist im Add-on 1.2.11 ein blosser
+      # Link auf `/dashboard/bookmarks`, und im Manifest fehlt die
+      # `bookmarks`-Berechtigung ganz.
+      #
+      # WARUM EINE SUCHMASCHINE UND KEIN LESEZEICHEN MIT SCHLUESSELWORT:
+      # Die `Bookmarks`-Policy kennt laut `BookmarksPolicies.sys.mjs` nur
+      # URL, Title, Placement, Folder und Favicon — ein Feld fuer das
+      # Schluesselwort gibt es dort nicht. `SearchEngines` hat es als
+      # `Alias`, und die Policy ist seit Firefox 139 auch ausserhalb der ESR
+      # verfuegbar (`policies-schema.json`: `firefox.version_added: 139`);
+      # LibreWolf ist 155, und im Policy-Code steht keine ESR-Schranke.
+      #
+      # Gelesen wird die Datei beim START — nach dem Ausrollen muss
+      # LibreWolf einmal geschlossen und neu geoeffnet werden.
+      SearchEngines.Add = [
+        {
+          Name = "Karakeep";
+          URLTemplate = "https://karakeep.rusty-vault.de/dashboard/search?q={searchTerms}";
+          Method = "GET";
+          Alias = "k";
+          Description = "Die eigene Lesezeichensammlung (kar-01)";
+          IconURL = "https://karakeep.rusty-vault.de/favicon.ico";
+        }
+      ];
+
       ExtensionSettings = {
         # Bitwarden (mit Desktop-App für Biometrics)
         "{446900e4-71c2-419f-a6a7-df9c091e268b}" = {
