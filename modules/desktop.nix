@@ -11,12 +11,47 @@
   services.xserver = {
     enable = true; # Nötig für XWayland-Kompatibilität
 
-    # Tastaturlayout
+    # Tastaturlayout: US-Hardware, Umlaute auf der linken Option-/Alt-Taste
+    # Opt+a/o/u = ä/ö/ü, Opt+s = ß, mit Shift die Großbuchstaben.
+    # Eigenes Layout, weil kein mitgeliefertes us-Variant die Umlaute auf die
+    # Buchstaben selbst legt (us(altgr-intl) benutzt q/p/y).
     xkb = {
-      layout = "de";
+      layout = "us-umlaut";
       variant = "";
+
+      extraLayouts.us-umlaut = {
+        description = "English (US, Umlaute auf der linken Option-Taste)";
+        languages = [ "eng" "ger" ];
+        symbolsFile = pkgs.writeText "us-umlaut-symbols" ''
+          // US-Layout, dritte Ebene auf der linken Alt-/Option-Taste.
+          // Die rechte Alt bleibt eine gewöhnliche Alt-Taste (Alt+Tab usw.).
+          partial alphanumeric_keys
+          xkb_symbols "basic" {
+              include "us(basic)"
+              name[Group1] = "English (US, Umlaute auf Option)";
+
+              key <AC01> { type[Group1] = "FOUR_LEVEL_ALPHABETIC",
+                           [ a, A, adiaeresis, Adiaeresis ] };
+              key <AD09> { type[Group1] = "FOUR_LEVEL_ALPHABETIC",
+                           [ o, O, odiaeresis, Odiaeresis ] };
+              key <AD07> { type[Group1] = "FOUR_LEVEL_ALPHABETIC",
+                           [ u, U, udiaeresis, Udiaeresis ] };
+              key <AC02> { type[Group1] = "FOUR_LEVEL_SEMIALPHABETIC",
+                           [ s, S, ssharp, U1E9E ] };
+
+              include "level3(lalt_switch)"
+          };
+        '';
+      };
     };
   };
+
+  # libxkbcommon durchsucht fest /etc/xkb, ~/.config/xkb und ~/.xkb, danach das
+  # einkompilierte (ungepatchte!) xkeyboard-config. Ohne das hier findet das
+  # Layout nur, wer XKB_CONFIG_ROOT geerbt hat — Prozesse ohne die Variable
+  # fallen still auf "us" zurück. Nicht existierende Suchpfade verwirft
+  # libxkbcommon beim Start, deshalb muss das Verzeichnis dauerhaft da sein.
+  environment.etc."xkb".source = config.services.xserver.xkb.dir;
 
   # Display Manager
   # wayland-Option mit GNOME 50 (nixpkgs 26.11) entfernt — Wayland ist der
@@ -24,6 +59,12 @@
   services.displayManager.gdm = {
     enable = true;
   };
+
+  # Der Anmeldebildschirm läuft als Systemdienst und sieht
+  # environment.sessionVariables nicht — ohne das hier fände Mutter im
+  # Greeter das eigene Layout us-umlaut nicht und fiele auf us zurück.
+  systemd.services.display-manager.environment.XKB_CONFIG_ROOT =
+    config.services.xserver.xkb.dir;
 
   # Desktop Manager
   services.desktopManager.gnome.enable = true;
@@ -39,8 +80,8 @@
     wrapperFeatures.gtk = true; # GTK-Themes in Sway
   };
 
-  # Konsolen-Tastaturlayout
-  console.keyMap = "de";
+  # Konsolen-Tastaturlayout — passt zur US-Hardware
+  console.keyMap = "us";
 
   # ==========================================
   # GNOME KONFIGURATION

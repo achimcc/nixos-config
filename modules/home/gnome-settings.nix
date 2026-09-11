@@ -29,7 +29,8 @@
     # ==========================================
 
     "org/gnome/desktop/input-sources" = {
-      sources = [ (lib.hm.gvariant.mkTuple [ "xkb" "de" ]) ];
+      # Eigenes US-Layout mit Umlauten auf Option (siehe modules/desktop.nix)
+      sources = [ (lib.hm.gvariant.mkTuple [ "xkb" "us-umlaut" ]) ];
     };
 
     "org/gnome/desktop/peripherals/touchpad" = {

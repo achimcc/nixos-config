@@ -11,6 +11,11 @@
   wayland.windowManager.sway = {
     enable = true;
 
+    # Der Syntaxcheck kompiliert die Config in der Build-Sandbox, in der das
+    # eigene Tastaturlayout us-umlaut (modules/desktop.nix) nicht existiert
+    # → "Couldn't find file symbols/us-umlaut". Von nixpkgs so vorgesehen.
+    checkConfig = false;
+
     config = rec {
       # Mod-Key: Super/Windows-Taste
       modifier = "Mod4";
@@ -99,8 +104,8 @@
       # Input Configuration
       input = {
         "*" = {
-          xkb_layout = "de";
-          xkb_variant = "nodeadkeys";
+          xkb_layout = "us-umlaut";
+          xkb_variant = "";
         };
         "type:touchpad" = {
           tap = "enabled";
