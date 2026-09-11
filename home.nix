@@ -1090,6 +1090,39 @@ in
     };
   };
 
+  # ~/.ssh/config MUSS EINE ECHTE DATEI SEIN, KEIN STORE-SYMLINK (2026-09-11).
+  #
+  # Home Manager legt die Datei sonst als Symlink nach /nix/store, und dort
+  # gehoert sie root. Draussen ist das richtig: OpenSSH akzeptiert als
+  # Eigentuemer der eigenen Config entweder root oder den aufrufenden Nutzer
+  # (readconf.c, safe_path()).
+  #
+  # In VSCodium ist es das nicht. Der bwrap-Wrapper weiter unten laeuft
+  # unprivilegiert und kann in seinem User-Namespace deshalb GENAU EINE UID
+  # abbilden — die eigene. root (0) ist nicht dabei und faellt auf die
+  # Overflow-UID 65534 (`nobody`) zurueck, also weder 0 noch 1000:
+  #
+  #   draussen:   uid=0      444
+  #   in bwrap:   uid=65534  444   ->  Bad owner or permissions on ~/.ssh/config
+  #
+  # Danach liest ssh die Datei GAR NICHT mehr, und `git pull` im integrierten
+  # Terminal endet mit "Konnte nicht vom Remote-Repository lesen". Die Keys
+  # daneben sind nicht betroffen, die liegen als echte Dateien im Home.
+  #
+  # Die Kopie gehoert dem Nutzer und traegt 0600 — das passt drinnen wie
+  # draussen. Erzeugt wird ihr Inhalt weiter von `programs.ssh` oben,
+  # abgeschaltet ist nur das Verlinken; `settings` bleibt die einzige Quelle.
+  #
+  # ES WAR NICHT DIE EINZIGE DATEI: Danach fiel ssh ueber das `Include` in
+  # /etc/ssh/ssh_config (systemd-ssh-proxy), aus demselben Grund. Das haengt
+  # in modules/ssh-hardening.nix, dort steht auch, warum bwrap nicht setuid
+  # wird.
+  home.file.".ssh/config".enable = false;
+
+  home.activation.sshConfigKopie = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    run install -Dm600 ${config.home.file.".ssh/config".source} "$HOME/.ssh/config"
+  '';
+
   # --- GIT ---
   programs.git = {
     enable = true;
@@ -1531,6 +1564,15 @@ in
   # Bubblewrap-Sandbox für VSCodium - Isoliert vom Rest des Systems
   # Integriertes Terminal funktioniert nicht (hardened Kernel + Electron PTY Issue)
   # Nutze externes Terminal: Strg+Shift+C
+  #
+  # /run/systemd/resolve IST NAMENSAUFLOESUNG, NICHT BEQUEMLICHKEIT (2026-09-11):
+  # /etc/resolv.conf zeigt auf /run/systemd/resolve/stub-resolv.conf, und
+  # `nss-resolve` (erster Eintrag in nsswitch hosts) spricht ueber den
+  # Varlink-Socket im selben Verzeichnis mit systemd-resolved. Ohne die
+  # Bindung findet der Sandkasten beides nicht und JEDER Netzzugriff endet mit
+  # "Temporary failure in name resolution" — im Terminal genau wie im Editor.
+  # Es ist ein Socket zu resolved und sonst nichts, KEIN /run/dbus (das waere
+  # der ganze Systembus).
   home.file.".local/bin/codium" = {
     executable = true;
     text = ''
@@ -1547,6 +1589,7 @@ in
         --ro-bind /run/current-system /run/current-system \
         --bind /run/user/$(id -u) /run/user/$(id -u) \
         --ro-bind /sys /sys \
+        --ro-bind /run/systemd/resolve /run/systemd/resolve \
         --setenv PATH "/run/wrappers/bin:/home/${id.username}/.local/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin" \
         --unshare-pid \
         --die-with-parent \

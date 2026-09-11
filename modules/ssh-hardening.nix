@@ -83,4 +83,41 @@
       bantime = 3600
     '';
   };
+
+  # ==========================================
+  # SSH-CLIENT: KEIN systemd-ssh-proxy-INCLUDE
+  # ==========================================
+
+  # NixOS schreibt sonst in /etc/ssh/ssh_config eine Zeile
+  #
+  #   Include <systemd>/lib/systemd/ssh_config.d/20-systemd-ssh-proxy.conf
+  #
+  # und diese eingebundene Datei gehoert root im Store. OpenSSH prueft bei
+  # JEDER per `Include` geholten Datei den Eigentuemer (root oder der eigene
+  # Nutzer, readconf.c) — die Systemdatei selbst prueft es nicht, nur das
+  # Include.
+  #
+  # Im bwrap-Sandkasten von VSCodium (siehe home.nix, ~/.local/bin/codium)
+  # geht diese Pruefung nicht auf: Der unprivilegierte User-Namespace bildet
+  # genau eine UID ab, die eigene. root erscheint drinnen als 65534
+  # (`nobody`) — weder root noch der eigene Nutzer. Ergebnis im integrierten
+  # Terminal:
+  #
+  #   Bad owner or permissions on <systemd>/…/20-systemd-ssh-proxy.conf
+  #
+  # Danach steht der ganze ssh-Aufruf, also auch `git pull`. Gemessen: ohne
+  # dieses Include liest ssh im Sandkasten wieder alles, inklusive der
+  # Nutzer-Config (`identityfile ~/.ssh/id_ed25519`, `identitiesonly yes`).
+  #
+  # DER PREIS: `ssh unix/<pfad>` und `ssh vsock/<cid>` funktionieren nicht
+  # mehr — der Weg zu lokalen VMs/Containern ueber systemd-vmspawn und
+  # machinectl. Hier laeuft nichts davon; die Server haengen an Tailscale und
+  # werden ueber Namen und IP erreicht.
+  #
+  # DIE ANDERE MOEGLICHKEIT WAERE bwrap setuid: dann entfaellt der
+  # User-Namespace und root bleibt root, was die Ursache bei der Wurzel packt
+  # und JEDE root-Datei im Sandkasten wieder lesbar macht. Dafuer haengt ein
+  # SUID-Binary am Sandbox-Start. Bewusst nicht gemacht — hier steht eine
+  # ungenutzte Bequemlichkeit gegen ein Privileg.
+  programs.ssh.systemd-ssh-proxy.enable = false;
 }
