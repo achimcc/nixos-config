@@ -686,6 +686,50 @@
     };
   };
 
+  # ==========================================
+  # FIDO2-ANMELDUNG (Nitrokey 3)
+  # ==========================================
+  #
+  # `sufficient`: Der Stick ist ein ZUSÄTZLICHER Weg, kein Ersatz. Steckt er,
+  # genügen PIN und Berührung. Steckt er nicht, schlägt pam_u2f fehl, der Stack
+  # läuft weiter und pam_unix fragt das Passwort.
+  #
+  # KEIN `nouserok` — anders als in der Konfiguration vor dem Ausbau (4c58b34).
+  # Das Flag lässt pam_u2f ERFOLG melden, sobald die Zuordnungsdatei fehlt,
+  # unlesbar oder fehlerhaft ist. Zusammen mit `sufficient` beendet ein Erfolg
+  # den Stack positiv — das wäre eine Anmeldung ganz ohne Faktor, sobald
+  # /run/secrets/u2f/mappings wegfällt. Der damalige Kommentar begründete das
+  # Flag mit dem Passwort-Rückfall; dafür braucht es das nicht, denn bei
+  # `sufficient` läuft ein FEHLSCHLAG ohnehin weiter zu pam_unix.
+  #
+  # `pinverification = 1` verlangt die Stick-PIN zusätzlich zur Berührung —
+  # ein gefundener Stick allein öffnet also nichts. Der Stick erzwingt das
+  # zusätzlich von sich aus, weil das Credential mit `pamu2fcfg -N` erzeugt
+  # wurde.
+  security.pam.u2f = {
+    enable = true;
+    control = "sufficient";
+    settings = {
+      cue = true; # blendet "touch your security key" ein
+      pinverification = 1;
+      authfile = config.sops.secrets."u2f/mappings".path;
+    };
+  };
+
+  # `login` trägt die ganze Last: Textkonsole UND grafische Anmeldung UND
+  # Sperrbildschirm.
+  #
+  # Kein Eintrag für gdm-password — der wäre wirkungslos. GDM definiert den
+  # Dienst in nixpkgs mit `useDefaultRules = false` und einem Auth-Stack, der
+  # nur aus `auth substack login` besteht (services/display-managers/gdm.nix).
+  # Ein `security.pam.services.gdm-password.u2f.enable = true` erzeugt dort
+  # deshalb KEINE PAM-Zeile; geprüft mit
+  #   nix eval …config.security.pam.services.gdm-password.text
+  # Die Konfiguration vor dem Ausbau (4c58b34) hatte diese Attrappe stehen und
+  # FIDO2 ging am Sperrbildschirm trotzdem — über den substack auf `login`.
+  security.pam.services.login.u2f.enable = true;
+  security.pam.services.sudo.u2f.enable = true;
+
   # GNOME Keyring bei Login automatisch entsperren (erstellt "login"-Collection)
   security.pam.services.login.enableGnomeKeyring = true;
   security.pam.services.gdm-password.enableGnomeKeyring = true;

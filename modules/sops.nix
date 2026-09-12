@@ -81,6 +81,22 @@
       mode = "0400";
     };
 
+    # FIDO2-Zuordnung für pam_u2f: Credential-Handle und öffentlicher Schlüssel
+    # des Nitrokey 3, erzeugt mit `pamu2fcfg -u <benutzer> -N`.
+    #
+    # Warum hier und nicht in ~/.config/Yubico/u2f_keys (dem Standardpfad):
+    # 1. Das Repo ist öffentlich — die Zeile enthält den Benutzernamen.
+    # 2. Root-eigen und 0400: Eine Datei, die der Benutzer selbst schreiben
+    #    könnte, hiesse er könnte sich für sudo einen eigenen Schlüssel
+    #    eintragen. Der Weg über /run/secrets schliesst das aus.
+    #
+    # Fällt sops-nix aus, fehlt die Datei, pam_u2f schlägt fehl und der Stack
+    # fragt das Passwort — der Rückfallweg bleibt also intakt.
+    secrets."u2f/mappings" = {
+      owner = "root";
+      mode = "0400";
+    };
+
     # ProtonVPN IP-Ranges (verschleiert Verwendung von ProtonVPN)
     # TODO: Aktiviere nach Hinzufügen in secrets.yaml (siehe docs/TODO-SOPS-PROTONVPN.md)
     # secrets."protonvpn/ip-ranges" = {
