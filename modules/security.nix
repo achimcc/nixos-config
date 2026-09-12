@@ -245,6 +245,29 @@
       # ACHTUNG: 090c:1000 ist die generische SMI-Controller-ID, die viele
       # No-Name-Sticks teilen. Die Serial pinnt die Regel auf dieses Exemplar.
       allow id 090c:1000 serial "19122001010447" with-interface { 08:*:* } with-connect-type "hotplug"
+
+      # Intenso Speed Line USB-Stick — Mass Storage only (BadUSB-Schutz)
+      # Gerät präsentiert 1 Interface: Bulk-Only (08:06:50)
+      # Das ist der Notfall-Stick beim Recovery-Zettel (homeserver §7, Bauplan A2):
+      # LUKS-Header-Backups aller fünf Blockgeräte des Servers. Er wird nur zum
+      # Bestücken und beim halbjährlichen `just recovery-test` angesteckt.
+      allow id 346d:5678 serial "FC1168FB32559" with-interface { 08:*:* } with-connect-type "hotplug"
+
+      # Nitrokey 3 (Ersatz für den defekten Vorgänger, 2026-09-12)
+      # Trägt FIDO2 für LUKS-Entsperrung und PAM-Anmeldung.
+      #
+      # KEIN serial-Match: Der USB-Deskriptor des Nitrokey 3 führt gar keine
+      # Seriennummer (gemessen: /sys/bus/usb/devices/*/serial ist leer). Die
+      # Nummer aus `nitropy nk3 list` ist eine andere Größe und für USBGuard
+      # unsichtbar — die alte Regel mit serial "FBB0…" konnte deshalb nie
+      # greifen, gewirkt hat nur ihre Fallback-Zeile.
+      #
+      # Stattdessen auf die Schnittstellen gepinnt (aus dem Deskriptor gelesen):
+      #   0b:00:00 = CCID/Smartcard (OpenPGP, PIV)
+      #   03:00:00 = HID            (FIDO2/U2F)
+      # Ein BadUSB-Klon mit gleicher VID:PID, der sich zusätzlich als Tastatur
+      # ausgibt (03:01:01), matcht diese Regel nicht und bleibt blockiert.
+      allow id 20a0:42b2 name "Nitrokey 3" with-interface { 0b:00:00 03:00:00 } with-connect-type "hotplug"
     '';
   };
 
