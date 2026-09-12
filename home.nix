@@ -1810,7 +1810,12 @@ in
     environmentVariables = {
       EDITOR = "vim";
       NPM_CONFIG_PREFIX = "~/.npm-global";
-      SOPS_AGE_KEY_FILE = "~/.config/sops/age/keys.txt";
+      # Absoluter Pfad, keine Tilde: Der Wert landet als $env.SOPS_AGE_KEY_FILE
+      # = "…" in der Nushell-Konfiguration, und weder Nushell noch Bash
+      # expandieren eine Tilde innerhalb von Anführungszeichen. Mit "~/…" suchte
+      # sops wörtlich nach einem Verzeichnis namens "~" und meldete
+      # "failed to open SOPS_AGE_KEY_FILE file: open ~/.config/sops/age/keys.txt".
+      SOPS_AGE_KEY_FILE = "/home/${id.username}/.config/sops/age/keys.txt";
     };
     extraConfig = ''
       $env.config.show_banner = false
