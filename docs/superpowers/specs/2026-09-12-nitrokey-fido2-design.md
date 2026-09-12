@@ -162,11 +162,11 @@ den Slot löschen. Andersherum legt der Dienst den Slot beim nächsten Rebuild w
 
 ## Risiken und offene Punkte
 
-**PIN-Abfrage im GNOME-Sperrbildschirm — ungeprüft.** Ob gnome-shell die PAM-Rückfrage nach
-der FIDO2-PIN sauber anzeigt, ist nicht belegt. GDM kann es; der Sperrbildschirm ist ein
-anderer Pfad. Deshalb Schritt 4 als eigene Messung. Falls er die Abfrage nicht anzeigt, ist
-der Rückfall aufs Passwort davon unberührt, und die Möglichkeiten wären: `pinverification`
-nur für `sudo`/`login` setzen, oder auf dem Sperrbildschirm beim Passwort bleiben.
+**PIN-Abfrage im GNOME-Sperrbildschirm — vom Benutzer bestätigt (2026-09-12).** Mit dem
+Vorgängerstick funktionierte das Entsperren des Sperrbildschirms per FIDO2 mit PIN
+nachweislich. Da sich an gnome-shell und am PAM-Dienst `gdm-password` nichts Grundsätzliches
+geändert hat, ist damit kein offenes Risiko mehr, sondern eine Erwartung mit Vorgeschichte.
+Schritt 4 bleibt als Messung bestehen — er bestätigt dann nur noch, statt zu erkunden.
 
 **Bekannte Eigenart des Sticks.** Laut `~/.claude/CLAUDE.md` sperrt der Nitrokey 3A Mini sein
 FIDO2-Interface nach einem gescheiterten `ssh-sign`, bis er einmal aus- und wieder eingesteckt
