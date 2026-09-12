@@ -203,6 +203,13 @@
     htop # Interaktiver Process Viewer
     dnsutils # dig, nslookup, host (DNS-Tools)
 
+    # FIDO2 / Nitrokey 3
+    # pynitrokey bewusst NICHT: es zieht python-ecdsa mit CVE-2024-23342
+    # nach, das dafür wieder in permittedInsecurePackages stehen müsste.
+    # Für FIDO2 wird es nicht gebraucht.
+    libfido2 # fido2-token: PIN setzen, Fähigkeiten prüfen
+    pam_u2f # pamu2fcfg: Credential für die PAM-Anmeldung erzeugen
+
     # Dateisystem-Unterstützung
     exfatprogs # exFAT für externe SSDs/USB-Sticks
 
@@ -243,6 +250,21 @@
     };
   };
 
+
+  # ==========================================
+  # NITROKEY 3
+  # ==========================================
+  # Setzt die udev-Regeln (nitrokey-udev-rules), die /dev/hidraw* des Sticks
+  # zugänglich machen. KEINE Gruppenmitgliedschaft nötig: Die Regeln arbeiten
+  # mit TAG+="uaccess", also vergibt systemd-logind den Zugriff per ACL an den
+  # Benutzer der aktiven lokalen Sitzung. Eine Gruppe `nitrokey` legt das Modul
+  # in diesem nixpkgs gar nicht an (geprüft).
+  # Unser Gerät 20a0:42b2 ist in den Regeln namentlich abgedeckt.
+  #
+  # Die USBGuard-Regel in modules/security.nix muss ZUSÄTZLICH greifen —
+  # USBGuard sitzt vor udev: Ein deautorisiertes Gerät hat überhaupt keine
+  # Schnittstellen, an die udev eine Regel hängen könnte.
+  hardware.nitrokey.enable = true;
 
   # ==========================================
   # Hardware graphics für Video Transcoding

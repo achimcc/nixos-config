@@ -114,19 +114,22 @@ Nach dem Bluetooth-Abschnitt einfügen:
   # ==========================================
   # NITROKEY 3
   # ==========================================
-  # Setzt die udev-Regeln, damit /dev/hidraw* des Sticks für die Gruppe
-  # `nitrokey` lesbar ist. Ohne das sieht fido2-token nur root-eigene Geräte.
+  # Setzt die udev-Regeln (nitrokey-udev-rules), die /dev/hidraw* des Sticks
+  # zugänglich machen. KEINE Gruppenmitgliedschaft nötig: Die Regeln arbeiten
+  # mit TAG+="uaccess", also vergibt systemd-logind den Zugriff per ACL an den
+  # Benutzer der aktiven lokalen Sitzung.
   # Die USBGuard-Regel in modules/security.nix muss zusätzlich greifen —
   # USBGuard sitzt vor udev, ein deautorisiertes Gerät hat gar keine
   # Schnittstellen, an die udev eine Regel hängen könnte.
   hardware.nitrokey.enable = true;
 ```
 
-Und die Benutzergruppen ergänzen (`configuration.nix:172`):
-
-```nix
-    extraGroups = [ "networkmanager" "wheel" "input" "nitrokey" ];
-```
+**Keine Gruppe eintragen.** Ein früherer Entwurf dieses Plans wollte `"nitrokey"` in
+`extraGroups` setzen. Das war falsch und beim Umsetzen aufgefallen: `hardware.nitrokey.enable`
+legt in diesem nixpkgs gar keine Gruppe `nitrokey` an (`nix eval …config.users.groups.nitrokey`
+schlägt fehl), und die Regeln vergeben den Zugriff über `TAG+="uaccess"` per ACL an die aktive
+lokale Sitzung. Unser Gerät `20a0:42b2` steht namentlich in
+`nitrokey-udev-rules/etc/udev/rules.d/41-nitrokey.rules`.
 
 - [ ] **Schritt 4: `configuration.nix` — Werkzeuge**
 
@@ -170,8 +173,16 @@ fido2-token -L
 Erwartet: `1`; zwei Schnittstellenverzeichnisse; und eine Zeile der Form
 `/dev/hidrawN: vendor=0x20a0, product=0x42b2 (Nitrokey Nitrokey 3)`.
 
-**Wenn `fido2-token -L` leer bleibt, obwohl `authorized` 1 ist:** Gruppenmitgliedschaft greift
-erst nach neuer Anmeldung. Prüfen mit `groups | str contains nitrokey`.
+**Wenn `fido2-token -L` leer bleibt, obwohl `authorized` 1 ist:** Die ACL aus `uaccess` hängt an
+der aktiven lokalen Sitzung. Prüfen, dass eine solche existiert und das Gerät die ACL trägt:
+
+```nu
+loginctl show-session (loginctl | find (whoami) | first | split row " " | first) -p Active -p Remote
+getfacl /dev/hidrawN
+```
+
+Erwartet: `Active=yes`, `Remote=no`, und in der ACL ein `user:` -Eintrag mit `rw-` für die
+eigene Benutzerkennung. Über SSH gibt es keine aktive lokale Sitzung — dann ist `sudo` nötig.
 
 - [ ] **Schritt 9: hmac-secret bestätigen**
 
