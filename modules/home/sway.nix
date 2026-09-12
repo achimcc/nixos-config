@@ -31,6 +31,9 @@
         # Application Launcher
         "${modifier}+d" = "exec ${menu}";
 
+        # Tastaturlayout umschalten (us-umlaut <-> de), wie Super+Space in GNOME
+        "${modifier}+space" = "input type:keyboard xkb_switch_layout next";
+
         # Screenshots
         "Print" = ''exec ${pkgs.grim}/bin/grim ~/Pictures/Screenshots/screenshot-$(date +%Y%m%d-%H%M%S).png'';
         "Shift+Print" = ''exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" ~/Pictures/Screenshots/screenshot-$(date +%Y%m%d-%H%M%S).png'';
@@ -102,9 +105,17 @@
       # Outputs are dynamically configured by kanshi service
 
       # Input Configuration
+      # Sway kann, was GNOME nicht kann: das Layout pro Geraet festlegen. Hier
+      # braucht es also keinen Wachdienst (modules/home/keyboard-layout-auto.nix)
+      # — die eingebaute ThinkPad-Tastatur bekommt de, alles andere us-umlaut.
       input = {
         "*" = {
-          xkb_layout = "us-umlaut";
+          xkb_layout = "us-umlaut,de";
+          xkb_variant = ",";
+        };
+        # Die eingebaute Tastatur ist deutsch bedruckt
+        "1:1:AT_Translated_Set_2_keyboard" = {
+          xkb_layout = "de";
           xkb_variant = "";
         };
         "type:touchpad" = {

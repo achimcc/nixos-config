@@ -26,6 +26,7 @@ in
 {
   imports = [
     ./modules/home/gnome-settings.nix
+    ./modules/home/keyboard-layout-auto.nix
     ./modules/home/neovim.nix
     ./modules/home/sway.nix
   ];

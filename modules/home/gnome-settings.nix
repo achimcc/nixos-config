@@ -29,8 +29,29 @@
     # ==========================================
 
     "org/gnome/desktop/input-sources" = {
-      # Eigenes US-Layout mit Umlauten auf Option (siehe modules/desktop.nix)
-      sources = [ (lib.hm.gvariant.mkTuple [ "xkb" "us-umlaut" ]) ];
+      # Zwei Quellen, weil zwei Tastaturen im Spiel sind:
+      #   Index 0 = us-umlaut — die NuPhy Air75 (US-bedruckt, Umlaute auf Opt,
+      #             siehe modules/desktop.nix)
+      #   Index 1 = de        — die eingebaute ThinkPad-Tastatur (deutsch bedruckt)
+      # Umgeschaltet wird automatisch beim An- und Abstecken der Air75
+      # (modules/home/keyboard-layout-auto.nix) und von Hand mit Super+Space
+      # (Cmd+Space auf der Air75, Win+Space auf dem ThinkPad).
+      #
+      # Die aktive Quelle ("current") steht hier bewusst NICHT: sie ist
+      # Laufzeitzustand, den der Dienst und die Tastenkombination setzen —
+      # deklarativ festgenagelt würde jeder Rebuild die Handauswahl umwerfen.
+      sources = [
+        (lib.hm.gvariant.mkTuple [ "xkb" "us-umlaut" ])
+        (lib.hm.gvariant.mkTuple [ "xkb" "de" ])
+      ];
+    };
+
+    # Layout umschalten: Super+Space vorwärts, Shift+Super+Space zurück.
+    # Das ist ohnehin der GNOME-Standard — hier steht es, damit die
+    # Kombination nicht still verschwindet, wenn der Standard sich ändert.
+    "org/gnome/desktop/wm/keybindings" = {
+      switch-input-source = [ "<Super>space" "XF86Keyboard" ];
+      switch-input-source-backward = [ "<Shift><Super>space" "<Shift>XF86Keyboard" ];
     };
 
     "org/gnome/desktop/peripherals/touchpad" = {

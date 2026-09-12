@@ -15,9 +15,15 @@
     # Opt+a/o/u = ä/ö/ü, Opt+s = ß, mit Shift die Großbuchstaben.
     # Eigenes Layout, weil kein mitgeliefertes us-Variant die Umlaute auf die
     # Buchstaben selbst legt (us(altgr-intl) benutzt q/p/y).
+    #
+    # Zwei Gruppen, weil zwei Tastaturen im Spiel sind: die NuPhy Air75 ist
+    # US-bedruckt, die eingebaute ThinkPad-Tastatur deutsch. Diese Liste gilt
+    # für den Anmeldebildschirm und die Konsole — er bietet damit beide an.
+    # In der GNOME-Sitzung zählt stattdessen dconf (modules/home/gnome-settings.nix),
+    # dort schaltet der Dienst aus modules/home/keyboard-layout-auto.nix um.
     xkb = {
-      layout = "us-umlaut";
-      variant = "";
+      layout = "us-umlaut,de";
+      variant = ",";
 
       extraLayouts.us-umlaut = {
         description = "English (US, Umlaute auf der linken Option-Taste)";
@@ -52,6 +58,23 @@
   # fallen still auf "us" zurück. Nicht existierende Suchpfade verwirft
   # libxkbcommon beim Start, deshalb muss das Verzeichnis dauerhaft da sein.
   environment.etc."xkb".source = config.services.xserver.xkb.dir;
+
+  # NixOS setzt XKB_CONFIG_ROOT fuer extraLayouts von sich aus
+  # (nixos/modules/services/x11/extra-layouts.nix) — aber nur ueber
+  # environment.sessionVariables, und das erreicht nur Login-Shells und PAM.
+  # Die GNOME-Sitzung haengt darunter nicht: gnome-shell laeuft als Unit des
+  # systemd-Nutzermanagers, und dessen Umgebung kennt die Variable nicht.
+  #
+  # Folge, gemessen am laufenden System: Mutter findet das Layout us-umlaut
+  # nicht und ersetzt es still durch us — die geladene Keymap hiess
+  # "pc_us_de_2_inet", <AC01> hatte nur [a, A] statt der dritten Ebene mit
+  # adiaeresis. Kein Fehler, keine Meldung, nur das falsche Layout.
+  #
+  # Dateien in environment.d liest der systemd-environment-d-generator in die
+  # Umgebung des Nutzermanagers ein, und damit erbt sie auch gnome-shell.
+  environment.etc."environment.d/10-xkb-config-root.conf".text = ''
+    XKB_CONFIG_ROOT=${config.services.xserver.xkb.dir}
+  '';
 
   # Display Manager
   # wayland-Option mit GNOME 50 (nixpkgs 26.11) entfernt — Wayland ist der
