@@ -7,12 +7,20 @@
 #   vpn status   gemessenen Zustand ausgeben
 #
 # Erfolg heißt: Die Exit-IP kam durch den Tunnel zurück. nmcli meldet bei WireGuard
-# auch ohne Handshake Erfolg — das allein zählt nicht.
+# auch ohne Handshake Erfolg — das allein zählt nicht. Zwei Exit-IP-Dienste nacheinander,
+# nicht nur einer: ein einzelner Dienst kann von einzelnen Exits aus gesperrt sein (gemessen
+# 2026-09-13: am.i.mullvad.net antwortete von einem Slot aus mit Verbindungs-Timeout, obwohl
+# der Tunnel selbst trug). Macht die Exit-Prüfung im ungünstigsten Fall 2 × 8 s = 16 s lang —
+# bewusst 1 s über der 15-s-Grenze aus den globalen Randbedingungen.
 # Exit-Codes: 0 belegt, 1 Tunnel trägt nicht, 2 Aufruffehler, 3 Umschaltung läuft.
 
 server_json=/etc/vpn/server.json
 status_json=/run/vpn/status.json
-exit_url=https://am.i.mullvad.net/json
+# Reihenfolge: erst Mullvad (liefert auch das Land), dann ipify als Rückfall (nur IP).
+exit_dienste=(
+  "https://am.i.mullvad.net/json"
+  "https://api.ipify.org?format=json"
+)
 laufzeit="${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR fehlt}/vpn"
 zustand="${XDG_STATE_HOME:-$HOME/.local/state}/vpn"
 
@@ -65,7 +73,7 @@ schreibe_exit() {
 }
 
 verbinde() {
-  local slot=$1 name verbindung antwort ip land
+  local slot=$1 name verbindung antwort ip land dienst
   name=$(name_von "$slot")
   if [ -z "$name" ]; then
     echo "vpn: Slot $slot gibt es nicht" >&2
@@ -81,9 +89,17 @@ verbinde() {
     exit 1
   fi
 
-  if antwort=$(curl --silent --fail --max-time 15 --interface "$verbindung" "$exit_url") \
-    && ip=$(jq -er '.ip' <<<"$antwort"); then
-    land=$(jq -r '.country // "?"' <<<"$antwort")
+  ip=""
+  land="?"
+  for dienst in "${exit_dienste[@]}"; do
+    if antwort=$(curl --silent --fail --max-time 8 --interface "$verbindung" "$dienst") \
+      && ip=$(jq -er '.ip' <<<"$antwort"); then
+      land=$(jq -r '.country // "?"' <<<"$antwort")
+      break
+    fi
+  done
+
+  if [ -n "$ip" ]; then
     schreibe_exit "$slot" "$ip"
     mkdir -p "$zustand"
     echo "$slot" > "$zustand/letzter"
@@ -94,7 +110,7 @@ verbinde() {
     fi
     melde normal "🔒 VPN $name" "Exit $ip ($land)"
   else
-    melde critical "⚠ VPN $name" "Kein Verkehr durch den Tunnel (Exit-IP nicht abrufbar). Das Profil bleibt aktiv, WireGuard versucht es weiter."
+    melde critical "⚠ VPN $name" "Kein Verkehr durch den Tunnel (Exit-IP nicht abrufbar, beide Dienste). Das Profil bleibt aktiv, WireGuard versucht es weiter."
     exit 1
   fi
 }
