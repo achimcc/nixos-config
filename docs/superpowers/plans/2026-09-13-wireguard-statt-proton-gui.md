@@ -24,8 +24,8 @@ bash (`writeShellApplication` → shellcheck beim Bau).
 
 | Aufgabe | Stand | Beleg |
 |---|---|---|
-| 1 Serverdaten | offen | |
-| 2 Profile + Messungen | offen | |
+| 1 Serverdaten | erledigt | `771034b`; homeserver-secrets `a6a3ee8` |
+| 2 Profile + Messungen | erledigt | `dec3511`; Tunnel trägt (Exit-Land/-Organisation ≠ Heimanbieter); resolved ohne eigenes DNS/`~.` am Link, Abfrage `authenticated: yes`; `rp_filter=2`; Proton-Resolver (10.2.0.1) validiert DNSSEC nicht (`dnssec-failed.org` → `NOERROR` ohne `ad`-Flag, `. DNSKEY`-Anfrage mit `+dnssec` scheitert `NOTIMP` → 0 RRSIG) und filtert `doubleclick.net` nicht (DNS-seitig kein NetShield-Effekt); Quad9 löst `doubleclick.net` normal auf. Empfehlung: DNS vorerst bei Quad9/Mullvad belassen, nicht auf Proton umstellen. |
 | 3 Status + Direkt | offen | |
 | 4 `vpn`-Befehl | offen | |
 | 5 Leiste, Kürzel, Login | offen | |
