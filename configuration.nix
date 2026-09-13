@@ -109,9 +109,26 @@
   # TPM 2.0 für zusätzliche Boot-Sicherheit
   boot.initrd.systemd.tpm2.enable = true;
 
-  # Root-Partition: Passphrase-Entsperrung (FIDO2-Slot ENTFERNT — Hardware-Token nicht mehr genutzt)
-  # Falls der Slot in cryptsetup luksDump noch existiert, manuell entfernen:
-  #   sudo systemd-cryptenroll --wipe-slot=fido2 /dev/disk/by-uuid/fcef0557-...
+  # Root-Partition: FIDO2-Entsperrung per Nitrokey 3 (PIN + Berührung),
+  # Passphrase bleibt als Rückfall.
+  #
+  # Voraussetzungen, die anderswo stehen und nicht angetastet werden dürfen:
+  # - lockdown=integrity (oben in boot.kernelParams). "confidentiality" würde
+  #   USB-HID im Initrd blockieren und FIDO2 unmöglich machen.
+  # - usbhid/hid_generic im Initrd (hardware-configuration.nix:12).
+  # - boot.initrd.systemd.fido2.enable ist standardmäßig true (geprüft).
+  # - USBGuard läuft erst NACH dem Initrd, blockiert den Stick dort also nicht.
+  #
+  # ENROLLMENT (einmalig):
+  #   sudo systemd-cryptenroll --fido2-device=auto --fido2-with-client-pin=yes \
+  #     /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a
+  #
+  # Der `device`-Pfad steht in hardware-configuration.nix:21; Nix führt beide
+  # Definitionen zusammen.
+  # Vollständig: docs/superpowers/plans/2026-09-12-nitrokey-fido2.md
+  boot.initrd.luks.devices."luks-fcef0557-8a09-4f30-b78e-aecc458a975a" = {
+    crypttabExtraOpts = [ "fido2-device=auto" ];
+  };
 
   # Swap: TPM2-basierte Entsperrung (für Hibernate/Resume ohne Interaktion)
   # Swap-Verschlüsselung explizit verifiziert (LUKS2)

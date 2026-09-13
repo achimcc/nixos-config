@@ -19,6 +19,57 @@ vorher auf das Swap-Gerät eingeschränkt.
 
 **Spec:** `docs/superpowers/specs/2026-09-12-nitrokey-fido2-design.md`
 
+## Fortschritt
+
+**Stand 2026-09-13, unmittelbar vor dem Neustart-Test von Aufgabe 4.** Wer hier neu einsteigt:
+zuerst das Ergebnis dieses Neustarts beim Benutzer erfragen, dann weiter.
+
+| Aufgabe | Stand | Beleg |
+|---|---|---|
+| 1 Stick sichtbar | erledigt | `5ea0815`; `authorized=1`, `fido2-token -L` findet `20a0:42b2`, `hmac-secret` vorhanden |
+| 2 FIDO2-PIN | erledigt | `fido2-token -I`: `clientPin` statt `noclientPin`, `pin retries: 8` |
+| 3 Anmeldung | erledigt und getestet | `9452745`; sudo mit/ohne Stick, Sperrbildschirm mit/ohne Stick |
+| 4 LUKS-FIDO2 Root | Slot angelegt, crypttab geschaltet — **Neustart-Test steht aus** | `luksDump`: Token 1 `systemd-fido2` → Keyslot 2 |
+| 5–8 | offen | |
+
+**Slot-Belegung Root** (gemessen vor dem Neustart): 0 = Passphrase (Argon2id, t=4, 867 MiB, 4
+Threads), 1 = TPM2 (PBKDF2, Token 0), 2 = FIDO2 (Token 1).
+
+**Was beim Neustart zu erwarten ist:** systemd probiert erst TPM2, dann FIDO2. Weil das Initrd
+sich geändert hat, stimmt PCR 11 nicht mehr — TPM2 verweigert, **nur deshalb** kommt diesmal die
+FIDO2-Abfrage. Danach erneuert `tpm2-reenroll` den TPM2-Slot, und ab dem übernächsten Start
+entsperrt die Platte wieder von allein. Das ist erwartet und endet mit Aufgabe 7.
+
+**Ungeklärt:** Ob die Header-Sicherung `/root/luks-header-root-vor-fido2.img` angelegt wurde, hat
+der Benutzer nicht bestätigt. **Vor Aufgabe 5 zwingend nachfragen.**
+
+### Außerplanmäßig erledigt
+
+- `113e157` `dns-watchdog` startete `systemd-resolved` bei jedem einzelnen Aussetzer neu und
+  erzeugte damit selbst die DNS-Ausfälle. Symptom: `nix build` scheitert mit
+  „Could not resolve host: cache.nixos.org". Jetzt erst nach zwei Fehlschlägen in Folge.
+- `6383b8f` `SOPS_AGE_KEY_FILE` stand mit wörtlicher Tilde in `home.nix`.
+
+### Beim Umsetzen gelernt — gilt für die restlichen Aufgaben
+
+- **`grep` ist in der Benutzer-Shell ripgrep.** Kein `-E` (heißt dort `--encoding`), Muster als
+  Argument: `… | rg -i -A3 "a|b"`.
+- **`sops secrets/secrets.yaml` als Benutzer geht nicht.** Der Schlüssel in
+  `~/.config/sops/age/keys.txt` passt zu keinem Empfänger in `.sops.yaml`. Editieren nur so:
+  `sudo env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops secrets/secrets.yaml`
+- **sops-nix prüft zur Bauzeit.** Ein Geheimnis muss in `secrets.yaml` stehen, *bevor* die
+  Konfiguration, die darauf zeigt, baut.
+- **`gdm-password` hat keinen eigenen Auth-Stack** (`auth substack login`). `u2f.enable` darauf
+  erzeugt keine Zeile; Anmelde- und Sperrbildschirm laufen über `login`.
+- **Keine Gruppe `nitrokey`** — die udev-Regeln nutzen `uaccess`. Aufgabe 1 ist entsprechend
+  berichtigt.
+
+### Außerhalb des Auftrags gefunden, nicht behoben
+
+- `NPM_CONFIG_PREFIX = "~/.npm-global"` in `home.nix` — derselbe Tilde-Fehler.
+- Der passende Nutzerschlüssel für `.sops.yaml` fehlt (siehe oben).
+- `tpm2-reenroll` hing am Swap-Gerät drei Tage (siehe „Was dieser Plan nicht tut").
+
 ## Globale Randbedingungen
 
 - **Kein Zugangsweg wird entfernt, bevor der neue nachweislich trägt.** Jede Aufgabe endet mit
