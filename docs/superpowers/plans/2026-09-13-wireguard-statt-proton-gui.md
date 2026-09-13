@@ -26,7 +26,7 @@ bash (`writeShellApplication` → shellcheck beim Bau).
 |---|---|---|
 | 1 Serverdaten | erledigt | `771034b`; homeserver-secrets `a6a3ee8` |
 | 2 Profile + Messungen | erledigt | `dec3511`; Tunnel trägt (Exit-Land/-Organisation ≠ Heimanbieter); resolved ohne eigenes DNS/`~.` am Link, Abfrage `authenticated: yes`; `rp_filter=2`; Proton-Resolver (10.2.0.1) validiert DNSSEC nicht (`dnssec-failed.org` → `NOERROR` ohne `ad`-Flag, `. DNSKEY`-Anfrage mit `+dnssec` scheitert `NOTIMP` → 0 RRSIG) und filtert `doubleclick.net` nicht (DNS-seitig kein NetShield-Effekt); Quad9 löst `doubleclick.net` normal auf. Empfehlung: DNS vorerst bei Quad9/Mullvad belassen, nicht auf Proton umstellen. |
-| 3 Status + Direkt | offen | |
+| 3 Status + Direkt | erledigt | `8fa0ab0`, `a089a79`; Statusdatei `/run/vpn/status.json` 644 root, Felder vollständig (Slot, Name, Handshake-Alter, rx/tx, direkt, killswitch); Tunnel weg → `slot` null, danach wieder verbunden; Zustand „Direkt“ ohne Passwortabfrage gestartet/gestoppt (Tool-Bash in aktiver Sitzung); nftables-Neustart leert die Chain `direkt`, die Unit meldet danach weiterhin `active` → Wahrheit ist die Chain, nicht der Unit-Zustand (Verfeinerung 2), bestätigt. |
 | 4 `vpn`-Befehl | offen | |
 | 5 Leiste, Kürzel, Login | offen | |
 | 6 GUI raus | offen | |
@@ -484,7 +484,7 @@ git commit -m "Plan: Aufgabe 2 erledigt, Messbefunde"
   `vpn-direkt.service` (start/stop/restart ohne Passwort für den Nutzer);
   nft-Chain `inet filter direkt` (leer = nicht direkt).
 
-- [ ] **Schritt 1: Roter Test**
+- [x] **Schritt 1: Roter Test**
 
 ```bash
 systemctl cat vpn-status.service vpn-direkt.service 2>&1 | head -2
@@ -492,7 +492,7 @@ test -e /run/vpn/status.json && echo vorhanden || echo fehlt
 ```
 Erwartet: `No files found for vpn-status.service.` und `fehlt`.
 
-- [ ] **Schritt 2: `modules/vpn/vpn-status.sh` anlegen**
+- [x] **Schritt 2: `modules/vpn/vpn-status.sh` anlegen**
 
 Ohne Shebang und `set`-Zeilen — `writeShellApplication` setzt beides und prüft mit shellcheck.
 
@@ -560,7 +560,7 @@ while true; do
 done
 ```
 
-- [ ] **Schritt 3: `modules/vpn.nix` erweitern**
+- [x] **Schritt 3: `modules/vpn.nix` erweitern**
 
 Im `let`-Block nach `profil = …;` ergänzen:
 
@@ -630,7 +630,7 @@ Im Attrset nach `systemd.services.vpn-boot = { … };` ergänzen:
   '';
 ```
 
-- [ ] **Schritt 4: Chain `direkt` in `modules/firewall.nix`**
+- [x] **Schritt 4: Chain `direkt` in `modules/firewall.nix`**
 
 In der Output-Chain als **letzte** Regel, direkt vor `# 19. Dropped packets (logging temporarily disabled)`:
 
@@ -649,27 +649,27 @@ Nach der schließenden Klammer der `forward`-Chain, noch innerhalb von `table in
         }
 ```
 
-- [ ] **Schritt 5: Bau (shellcheck + nft-Syntaxprüfung laufen mit)**
+- [x] **Schritt 5: Bau (shellcheck + nft-Syntaxprüfung laufen mit)**
 
 ```bash
 nix build --no-link .#nixosConfigurations.nixos.config.system.build.toplevel
 ```
 Erwartet: ohne Fehler. Meldet shellcheck etwas: am Skript beheben, nicht abschalten.
 
-- [ ] **Schritt 6: Commit**
+- [x] **Schritt 6: Commit**
 
 ```bash
 git add modules/vpn.nix modules/vpn/vpn-status.sh modules/firewall.nix
 git commit -m "vpn: Status-Dienst, Zustand Direkt als nft-Chain, polkit nur für vpn-direkt"
 ```
 
-- [ ] **Schritt 7: [Nutzer] Aktivieren**
+- [x] **Schritt 7: [Nutzer] Aktivieren**
 
 ```nu
 sudo nixos-rebuild switch --flake /home/achim/nixos-config#nixos
 ```
 
-- [ ] **Schritt 8: Statusdatei messen**
+- [x] **Schritt 8: Statusdatei messen**
 
 ```bash
 stat -c '%a %U' /run/vpn/status.json
@@ -678,7 +678,7 @@ jq -c . /run/vpn/status.json; sleep 3; jq -c . /run/vpn/status.json
 Erwartet: `644 root`; `slot` 1, `name` von Slot 1, `handshake_alter` < 180, `rx`/`tx` Zahlen,
 `direkt` false, `killswitch` false; `zeit` steigt zwischen den Abfragen.
 
-- [ ] **Schritt 9: Tunnel weg → `slot` null**
+- [x] **Schritt 9: Tunnel weg → `slot` null**
 
 ```bash
 nmcli connection down wg-1; sleep 3; jq -c '{slot, handshake_alter}' /run/vpn/status.json
@@ -686,7 +686,7 @@ nmcli connection up wg-1; sleep 4; jq -c '{slot, handshake_alter}' /run/vpn/stat
 ```
 Erwartet: erst `{"slot":null,"handshake_alter":null}`, dann Slot 1 mit kleinem Alter.
 
-- [ ] **Schritt 10: „Direkt“ ohne Passwort, Wahrheit aus der Chain**
+- [x] **Schritt 10: „Direkt“ ohne Passwort, Wahrheit aus der Chain**
 
 ```bash
 systemctl start vpn-direkt.service; sleep 3; jq .direkt /run/vpn/status.json
@@ -695,7 +695,7 @@ systemctl stop vpn-direkt.service; sleep 3; jq .direkt /run/vpn/status.json
 Erwartet: keine Passwortabfrage, erst `true`, dann `false`. Fragt polkit trotzdem (Tool-Bash
 nicht in der aktiven Sitzung): dieselben Befehle **[Nutzer]** in GNOME Console.
 
-- [ ] **Schritt 11: [Nutzer] nftables-Reload beendet „Direkt“**
+- [x] **Schritt 11: [Nutzer] nftables-Reload beendet „Direkt“**
 
 ```nu
 systemctl start vpn-direkt.service
@@ -709,7 +709,7 @@ systemctl stop vpn-direkt.service
 Erwartet: `false` (Chain geleert) obwohl die Unit `active` meldet — genau der Grund für
 Verfeinerung 2. Danach Unit gestoppt.
 
-- [ ] **Schritt 12: Fortschritt eintragen, committen**
+- [x] **Schritt 12: Fortschritt eintragen, committen**
 
 ---
 
