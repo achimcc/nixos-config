@@ -97,11 +97,6 @@ in
       wifi.macAddress = "stable";
       ethernet.macAddress = "stable";
       # WWAN Modem ignorieren (ModemManager aktiviert cdc-wdm0/GSM und erzeugt Routing-Konflikte)
-      # ProtonVPN Kill-Switch-Interfaces (pvpnksintrf*/ipv6leakintrf*) NICHT als
-      # unmanaged markieren! Die GUI erstellt diese IMMER beim Verbinden (auch bei
-      # killswitch=0) und NM muss sie aktivieren können, sonst: TimeoutError → Crash.
-      # ACHTUNG: pvpnksintrf0 setzt DNS=100.85.0.1 + DefaultRoute=yes + Domains=~.
-      # → Kapert DNS BEVOR VPN steht → Fix: NM-Dispatcher (fix-pvpn-killswitch-dns).
       unmanaged = [ "type:gsm" "interface-name:cdc-wdm*" "interface-name:wwp*" ];
       # NetworkManager nutzt systemd-resolved
       dns = "systemd-resolved";
@@ -116,25 +111,6 @@ in
             # Verhindert, dass Hostname im DHCP gesendet wird
             if [ "$2" = "dhcp4-change" ] || [ "$2" = "dhcp6-change" ]; then
               exit 0
-            fi
-          '';
-          type = "basic";
-        }
-        {
-          source = pkgs.writeText "fix-pvpn-killswitch-dns" ''
-            # ProtonVPN GUI Kill-Switch DNS-Fix
-            #
-            # PROBLEM: ProtonVPN GUI erstellt pvpnksintrf0 beim Login und setzt:
-            #   DNS=100.85.0.1, DefaultRoute=yes, Domains=~.
-            # → Kapert ALLEN DNS zu einer IP die nur über VPN erreichbar ist
-            # → DNS bricht → GUI kann API nicht erreichen → Henne-Ei-Problem
-            #
-            # FIX: DNS-Konfiguration von pvpnksintrf0 zurücksetzen,
-            # damit resolved weiterhin globale DNS-Server (Quad9) nutzt.
-            # Das Interface selbst bleibt aktiv (GUI crasht sonst).
-            if [ "$1" = "pvpnksintrf0" ] && [ "$2" = "up" ]; then
-              ${pkgs.systemd}/bin/resolvectl revert "$1" 2>/dev/null || true
-              logger -t pvpn-dns-fix "pvpnksintrf0 DNS-Hijack neutralisiert"
             fi
           '';
           type = "basic";
@@ -188,27 +164,14 @@ in
   # ==========================================
   # NM CONNECTION CLEANUP (vor jedem NM-Start)
   # ==========================================
-  # Bereinigt störende NM-Verbindungen BEVOR NetworkManager startet:
-  #
-  # 1. ProtonVPN Kill Switch Connections:
-  #    ProtonVPN GUI erstellt Kill Switch NM-Verbindungen die beim Boot
-  #    automatisch verbinden und WiFi/DNS brechen:
-  #    - pvpn-killswitch-ipv6: DNS ::1 (unerreichbar) mit default-route=yes
-  #    - pvpn-killswitch: ungültige DNS, stiehlt Default-Route
-  #    Unser nftables Kill Switch (firewall.nix) übernimmt den VPN-Leak-Schutz.
-  #
-  # 2. Stale WiFi Profiles:
+  # Stale WiFi Profiles:
   #    Wenn WiFi-Einstellungen manuell geändert werden (GNOME Settings, nmcli),
   #    überschreibt NM die deklarative Konfiguration mit falschen Werten:
   #    - ipv4.method: manual statt auto (DHCP)
   #    - ipv6.method: auto statt disabled (IPv6-Leak!)
   #    - ignore-auto-dns: nein statt ja (Router-DNS statt Quad9)
   #    Durch Löschung vor NM-Start erstellt ensureProfiles ein frisches Profil.
-  #
-  # 3. ProtonVPN GUI VPN-Verbindungen:
-  #    ProtonVPN GUI erstellt WireGuard-Verbindungen (z.B. "ProtonVPN DE#11")
-  #    mit autoconnect=ja, die beim Boot DNS (10.2.0.1) und Routing (100.85.x)
-  #    auf dem WiFi-Interface übernehmen → DNS und Routing brechen.
+  #    (Bis 2026-09-13 räumte der Dienst auch Profile der ProtonVPN-GUI weg.)
   systemd.services.cleanup-nm-connections = {
     description = "Remove stale NM connections before NetworkManager starts";
     before = [ "NetworkManager.service" ];
@@ -218,31 +181,12 @@ in
       RemainAfterExit = false;
     };
     script = ''
-      # 1. ProtonVPN Kill Switch Connections entfernen
-      for f in /etc/NetworkManager/system-connections/pvpn-killswitch*; do
-        if [ -f "$f" ]; then
-          rm -f "$f"
-          echo "Gelöscht (pvpn-killswitch): $f"
-        fi
-      done
-
-      # 2. Stale WiFi Profiles entfernen (ensureProfiles erstellt frische nach NM-Start)
+      # Stale WiFi Profiles entfernen (ensureProfiles erstellt frische nach NM-Start)
       # WICHTIG: Löscht ALLE Greenside4-Dateien, damit ensureProfiles die einzige Quelle ist
       for f in /etc/NetworkManager/system-connections/Greenside4*; do
         if [ -f "$f" ]; then
           rm -f "$f"
           echo "Gelöscht (stale wifi): $f"
-        fi
-      done
-
-      # 3. ProtonVPN GUI VPN-Verbindungen entfernen
-      # ProtonVPN GUI erstellt WireGuard-Verbindungen (z.B. "ProtonVPN DE#11")
-      # mit autoconnect=ja, die beim Boot DNS (10.2.0.1) und Routing (100.85.x)
-      # auf dem WiFi-Interface übernehmen → DNS und Routing brechen
-      for f in /etc/NetworkManager/system-connections/ProtonVPN*; do
-        if [ -f "$f" ]; then
-          rm -f "$f"
-          echo "Gelöscht (protonvpn-gui): $f"
         fi
       done
     '';
@@ -275,9 +219,10 @@ in
   '';
 
   # WORKAROUND: YouTube direkt mit IPv4 in /etc/hosts (umgeht IPv6-DNS-Problem)
-  # WORKAROUND: rusty-vault.de direkt zur Origin (umgeht ProtonVPN 10.2.0.1
-  # DNS-Resolver, der DNSSEC nicht sauber unterstützt → strict validation
-  # in resolved scheitert, solange proton0 mit Domain=~. alle Queries abfängt)
+  # WORKAROUND: rusty-vault.de direkt zur Origin (umging 2026 den ProtonVPN-Resolver
+  # 10.2.0.1, der DNSSEC nicht sauber unterstützte, solange die GUI proton0 mit
+  # Domain=~. setzte). Seit der WireGuard-Umstellung (2026-09-13) ohne Anlass —
+  # Entfernen erst nach Messung: resolvectl query rusty-vault.de mit Tunnel.
   networking.hosts = {
     "108.177.96.93" = [ "youtube.com" "www.youtube.com" "m.youtube.com" ];
     "142.250.185.46" = [ "googlevideo.com" ];

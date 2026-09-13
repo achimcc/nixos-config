@@ -128,7 +128,6 @@ in
   home.packages = with pkgs; [
 
     # --- VPN & NETZWERK SICHERHEIT ---
-    proton-vpn # GUI zusätzlich zur CLI (umbenannt von protonvpn-gui)
     nmap # Netzwerk-Scanner
     colmena # NixOS Deployment Tool
 
@@ -1852,52 +1851,6 @@ in
         }
       }
     '';
-  };
-
-  # ==========================================
-  # PROTONVPN GUI - NUR auf manuellen Start (kein Autostart mehr)
-  # ==========================================
-  # GEÄNDERT 2026-06-24: Autostart DEAKTIVIERT (WantedBy entfernt).
-  # GRUND: Die GUI baut beim Start IMMER ihr Kill-Switch-Interface (pvpnksintrf0)
-  # auf, das DNS + Default-Route kapert (Domains=~., DefaultRoute=yes) — auch ohne
-  # verbundenes VPN. Beim Login/NM-Neustart blockierte das den Internetzugang
-  # komplett, sodass disable-firewall.sh nötig war. Da VPN jetzt optional ist,
-  # startet die GUI nicht mehr automatisch.
-  #
-  # VPN WEITERHIN NUTZBAR: GUI manuell aus dem App-Menü öffnen (Paket proton-vpn
-  # liefert die .desktop-Datei), oder: systemctl --user start protonvpn-gui.
-  # Reaktivierung Autostart: WantedBy = [ "graphical-session.target" ] zurück.
-  #
-  # Der NM-Dispatcher fix-pvpn-killswitch-dns (network.nix) neutralisiert die
-  # DNS-Kaperung weiterhin, falls die GUI mal manuell gestartet wird.
-  #
-  # STOLPERFALLE 2026-08-28: "GUI startet nicht beim Klick aufs GNOME-Icon".
-  # Sie startete sehr wohl — sie versteckte sich nur sofort wieder. Ursache liegt
-  # NICHT in dieser Nix-Config, sondern in ~/.config/Proton/VPN/app-config.json:
-  # "start_app_minimized": true. App.do_activate() (proton/vpn/app/gtk/app.py)
-  # ruft window.present() und emittiert DANACH bei JEDER Aktivierung "app-ready";
-  # dessen Default-Handler macht bei start_app_minimized + aktivem Tray
-  # window.set_visible(False). Da die App Single-Instance ist (Gtk.Application),
-  # reicht jeder weitere Icon-Klick nur ein Activate an die laufende Instanz durch
-  # -> Fenster wird eingeblendet und sofort wieder versteckt. Fix: Einstellung auf
-  # false (Settings -> General -> "Start app minimized" aus). Seit Autostart weg
-  # ist, hat "minimiert starten" ohnehin keinen Nutzen mehr.
-  # Diagnose ohne Bildschirm: Tray-Menue-Label via dbusmenu lesen
-  # ("Show" = Fenster versteckt, "Hide" = sichtbar).
-  systemd.user.services.protonvpn-gui = {
-    Unit = {
-      Description = "ProtonVPN GUI";
-      After = [ "graphical-session.target" "network-online.target" "gnome-keyring-guard.service" ];
-      Wants = [ "gnome-keyring-guard.service" ];
-      PartOf = [ "graphical-session.target" ];
-    };
-    Service = {
-      Type = "simple";
-      ExecStart = "${pkgs.proton-vpn}/bin/protonvpn-app";
-      Restart = "on-failure";
-      RestartSec = "5s";
-    };
-    # Kein Install/WantedBy → startet nicht automatisch beim Login.
   };
 
   # ==========================================

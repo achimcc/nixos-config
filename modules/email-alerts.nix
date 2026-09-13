@@ -259,35 +259,4 @@ in {
     };
   };
 
-  # VPN Failure: Email wenn VPN dauerhaft down
-  systemd.services.vpn-failure-alert = {
-    description = "VPN Failure Alert";
-    script = ''
-      # GUI MODE: Prüfe ob proton0 Interface existiert (von ProtonVPN GUI erstellt)
-      if ! ${pkgs.iproute2}/bin/ip link show proton0 &>/dev/null; then
-        ${sendSecurityAlert} \
-          "VPN Connection Failure" \
-          "ProtonVPN GUI connection is DOWN (no proton0 interface).
-
-          Kill switch is active - no internet access.
-          Check ProtonVPN GUI or journalctl --user -u protonvpn-gui
-
-          Action: Open ProtonVPN GUI and reconnect."
-      fi
-    '';
-  };
-
-  # DEAKTIVIERT (2026-06-24): Kill Switch ist aus, VPN ist optional.
-  # Keine E-Mail-Warnung mehr, wenn proton0 fehlt.
-  # Reaktivierung: enable = true (oder Zeile entfernen).
-  systemd.timers.vpn-failure-alert = {
-    enable = false;
-    description = "VPN Failure Check Timer";
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnBootSec = "30min";  # Nicht sofort nach Boot
-      OnUnitActiveSec = "1h";
-      Persistent = true;
-    };
-  };
 }

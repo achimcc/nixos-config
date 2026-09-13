@@ -33,7 +33,7 @@
       # Konkurrenz + Package-Temp-Throttling → Videowiedergabe ruckelte in Wellen.
       # Der Loop-Schutz (startLimitBurst=5/300s, s.u.) griff nicht, weil ein
       # Fehlversuch ~180 s dauert und damit nie 5 Starts pro Fenster erreicht.
-      # Falls ProtonVPN wieder dauerhaft läuft: Block hier reaktivieren.
+      # Die WireGuard-Slots (wg-1…wg-9, seit 2026-09-13) wechseln das Interface — deshalb bewusst kein af-packet-Eintrag dafür.
       af-packet = [
         {
           interface = "wlp0s20f3";  # WLAN (physisch)

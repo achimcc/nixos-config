@@ -152,7 +152,7 @@
 
   environment.systemPackages = with pkgs; [
     wl-clipboard
-    gnomeExtensions.appindicator # Tray-Icon Support (wichtig für ProtonVPN)
+    gnomeExtensions.appindicator # Tray-Icon Support
   ];
 
   # ==========================================

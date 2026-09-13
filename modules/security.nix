@@ -827,8 +827,8 @@
     '';
   };
 
-  # Journal-Größe — großzügig dimensioniert wegen Suricata (jetzt 3 Interfaces:
-  # proton0, wlp0s20f3, enp0s31f6) + auditd + sudo-fail-monitor. 2G ist sicher
+  # Journal-Größe — großzügig dimensioniert wegen Suricata (2 Interfaces: wlp0s20f3,
+  # enp0s31f6) + auditd + sudo-fail-monitor. 2G ist sicher
   # erreichbar bei hohem Netzwerkverkehr.
   # `settings.Journal` STATT `extraConfig` (2026-09-07): Die alte Option ist
   # entfallen und macht den Bau rot — „no longer has any effect; please remove

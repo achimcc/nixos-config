@@ -27,9 +27,8 @@
     # SECRETS DEFINITIONEN
     # ==========================================
 
-    # WireGuard Private Key für ProtonVPN (wird in protonvpn.nix referenziert)
-    # Die alten protonvpn-username/password werden nicht mehr benötigt
-    # da WireGuard statt protonvpn-cli verwendet wird
+    # WireGuard-Schlüssel der neun VPN-Slots (wireguard/slot1…9) werden in
+    # modules/vpn.nix deklariert — dort, wo auch das NM-Template entsteht.
 
     # WLAN Passwort
     secrets."wifi/home" = {};
@@ -51,9 +50,6 @@
       owner = id.username;
       mode = "0400";
     };
-
-    # ProtonVPN WireGuard Secrets entfernt — GUI MODE: GUI verwaltet Verbindung
-    # Bei Bedarf für manuellen CLI-Betrieb: git log für alte Konfiguration
 
     # SSH Key für Hetzner VPS
     secrets."ssh/hetzner-vps" = {
@@ -97,13 +93,6 @@
       mode = "0400";
     };
 
-    # ProtonVPN IP-Ranges (verschleiert Verwendung von ProtonVPN)
-    # TODO: Aktiviere nach Hinzufügen in secrets.yaml (siehe docs/TODO-SOPS-PROTONVPN.md)
-    # secrets."protonvpn/ip-ranges" = {
-    #   owner = "root";
-    #   mode = "0400";
-    # };
-
     # Template für NetworkManager Environment-Datei
     templates."nm-wifi-env" = {
       content = ''
@@ -114,8 +103,6 @@
       mode = "0400";
     };
 
-    # WireGuard CLI-Template entfernt — GUI MODE: ProtonVPN GUI verwaltet Verbindung
-    # Bei Bedarf für manuellen CLI-Betrieb: git log für alte Konfiguration
   };
 
   # Sops CLI Tool verfügbar machen

@@ -8,7 +8,6 @@
     ./hardware-configuration.nix
     ./modules/network.nix
     ./modules/firewall.nix
-    ./modules/protonvpn.nix
     ./modules/vpn.nix
     ./modules/dns-watchdog.nix
     ./modules/desktop.nix

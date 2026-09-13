@@ -12,7 +12,7 @@
 # 2. NetworkManager.service (Netzwerk-Interfaces aktivieren, DHCP)
 # 3. network-online.target (Netzwerk ist online)
 # 4. nixos-firewall.service (Firewall aktivieren - MUSS NACH network-online sein!)
-# 5. ProtonVPN GUI (proton0) - verbindet nach Login
+# 5. vpn-boot.service (wg-1) - verbindet Slot 1 (modules/vpn.nix)
 
 let
   # VPN configuration
@@ -93,8 +93,7 @@ in
   # 2. NetworkManager.service (Netzwerk-Interfaces, DHCP, IP-Konfiguration)
   # 3. network-online.target (Netzwerk ist ONLINE mit IP und Route)
   # 4. nftables.service (Firewall aktivieren - VPN Kill Switch)
-  # 5. wg-quick-proton-cli.service (VPN CLI autoconnect)
-  # 6. ProtonVPN GUI (optional, creates proton0 interface after login)
+  # 5. vpn-boot.service (Slot 1, modules/vpn.nix)
   #
   # Service-Name ist "nftables.service" (NixOS-managed)!
 
@@ -116,12 +115,6 @@ in
           type ipv4_addr
           flags dynamic, timeout
           timeout 60s
-        }
-
-        # ProtonVPN API server IPs - populated by proton-api-update.service
-        set proton_api {
-          type ipv4_addr
-          flags timeout
         }
 
         # Tailscale coordination server IPs - populated by tailscale-api-update.service
@@ -158,13 +151,9 @@ in
           ip saddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.quic} accept
           ip saddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.discovery} accept
 
-          # 7. Syncthing - Over VPN interfaces (HYBRID MODE: CLI + GUI)
-          iifname "proton-cli" tcp dport ${toString syncthingPorts.tcp} accept
-          iifname "proton0" tcp dport ${toString syncthingPorts.tcp} accept
+          # 7. Syncthing - über VPN-Interfaces
           iifname "tun*" tcp dport ${toString syncthingPorts.tcp} accept
           iifname "wg*" tcp dport ${toString syncthingPorts.tcp} accept
-          iifname "proton-cli" udp dport ${toString syncthingPorts.quic} accept
-          iifname "proton0" udp dport ${toString syncthingPorts.quic} accept
           iifname "tun*" udp dport ${toString syncthingPorts.quic} accept
           iifname "wg*" udp dport ${toString syncthingPorts.quic} accept
 
@@ -222,13 +211,6 @@ in
           # WireGuard-Handshake ist verschlüsselt - kein Daten-Leak möglich
           # ProtonVPN WireGuard nutzt: UDP 443, 88, 1224, 51820, 500, 4500
           oifname != { "proton-cli", "proton0" } udp dport { ${toString vpnPorts.https}, ${toString vpnPorts.wireguard}, ${toString vpnPorts.wireguardAlt1}, ${toString vpnPorts.wireguardAlt2}, ${toString vpnPorts.ikev2}, ${toString vpnPorts.ikev2Nat} } accept
-
-          # 4b. ProtonVPN API-Zugriff auf physischen Interfaces
-          # ERFORDERLICH für API-Authentifizierung (api.protonvpn.ch, vpn-api.proton.me)
-          # EINGESCHRÄNKT auf @proton_api Set (gefüllt von proton-api-update.service)
-          # RISIKO: VPN-Server TCP-Erreichbarkeitscheck wird blockiert (nicht im Set).
-          # ProtonVPN fällt auf UDP zurück oder Verbindung schlägt fehl → dann iterieren.
-          oifname != { "proton-cli", "proton0" } ip daddr @proton_api tcp dport ${toString vpnPorts.https} accept
 
           # 4c. Tailscale Coordination Server (controlplane.tailscale.com, login.tailscale.com)
           # ERFORDERLICH vor tailscale0 existiert (Erstverbindung/Authentifizierung)
@@ -391,9 +373,8 @@ in
 
       # Setze loose rp_filter (2) für VPN interfaces (falls vorhanden)
       # Note: grep exits with 1 if no matches, so use || true to prevent script failure at boot
-      # HYBRID MODE: Match both proton-cli (CLI) and proton0 (GUI)
       VPN_IFACES=$(${pkgs.iproute2}/bin/ip -o link show | \
-        ${pkgs.gnugrep}/bin/grep -E "^[0-9]+: (tun|wg|proton-cli|proton0)" | \
+        ${pkgs.gnugrep}/bin/grep -E "^[0-9]+: (tun|wg)" | \
         ${pkgs.gawk}/bin/awk -F': ' '{print $2}' | \
         ${pkgs.gnugrep}/bin/grep -v "@" || true)
 
@@ -407,161 +388,11 @@ in
     '';
   };
 
-  # ==========================================
-  # PROTON API IP UPDATE SERVICE
-  # ==========================================
-  # Löst ProtonVPN-API-Domains auf und füllt das nftables Set proton_api.
-  # Ohne diesen Service ist TCP 443 auf physischen Interfaces komplett blockiert
-  # (Kill Switch), nur IPs im Set werden durchgelassen.
-  # Beim nftables-Start: gespeicherte API-IPs sofort laden (kein DNS nötig).
-  # Verhindert Race Condition: VPN-GUI versucht Verbindung bevor proton-api-update läuft.
-  # Separater Service statt ExecStartPost (NixOS nftables.nix belegt ExecStartPost bereits).
+  # nftables NACH network-online starten (siehe Kommentar oben zur Service-Reihenfolge).
   systemd.services.nftables = {
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
     before = lib.mkForce [ ];
-  };
-
-  systemd.services.proton-api-seed = {
-    description = "Seed ProtonVPN API IPs into nftables set from persistent cache";
-    after = [ "nftables.service" ];
-    requires = [ "nftables.service" ];
-    # WICHTIG: An nftables.service binden, NICHT an multi-user.target!
-    # Grund: nftables-Restart (z.B. via nixos-rebuild switch) flusht das deklarative
-    # Ruleset → @proton_api Set ist leer. Mit wantedBy=nftables.service zieht systemd
-    # den Seed-Service bei JEDEM nftables-(Re)Start mit, sodass die API-IPs sofort
-    # wieder im Set sind. Ohne diesen Fix: ProtonVPN Login blockiert bis zum
-    # nächsten proton-api-update Timer-Trigger (bis zu 30min!).
-    wantedBy = [ "nftables.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = false;
-      ExecStart = pkgs.writeShellScript "proton-api-seed" ''
-        SEED_FILE="/var/lib/proton-api-seed"
-        if [ -f "$SEED_FILE" ]; then
-          COUNT=0
-          while IFS= read -r ip; do
-            [ -z "$ip" ] && continue
-            ${pkgs.nftables}/bin/nft add element inet filter proton_api \
-              "{ $ip timeout 2h }" 2>/dev/null && COUNT=$((COUNT + 1)) || true
-          done < "$SEED_FILE"
-          echo "✓ proton-api-seed: $COUNT API-IPs geladen"
-        else
-          echo "⚠ proton-api-seed: Keine Seed-Datei (erster Boot?)"
-        fi
-      '';
-    };
-  };
-
-  systemd.services.proton-api-update = {
-    description = "Update ProtonVPN API IPs in nftables set";
-    restartIfChanged = false; # Kein Neustart bei nixos-rebuild (läuft via Timer)
-    after = [ "nftables.service" "network-online.target" ];
-    wants = [ "network-online.target" ];
-    # WICHTIG: An nftables.service binden (NICHT multi-user.target — das blockiert
-    # nixos-rebuild). Grund: nftables-Restart flusht das @proton_api Set komplett,
-    # auch die ~200 Server-IPs aus serverlist.json. Ohne diesen Trigger sind nur
-    # die 3 Seed-API-IPs im Set — VPN-Server-Connect schlägt fehl, weil der
-    # TCP-Reachability-Check zum Server (Port 443) geblockt wird.
-    # Wants= ist non-blocking → blockiert nixos-rebuild NICHT.
-    wantedBy = [ "nftables.service" ];
-
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = false;
-    };
-
-    path = [ pkgs.nftables pkgs.jq pkgs.gnugrep ];
-
-    script = ''
-      DOMAINS="api.protonvpn.ch account.protonvpn.ch vpn-api.proton.me account.proton.me"
-      TIMEOUT="2h"
-      RESOLVECTL="${pkgs.systemd}/bin/resolvectl"
-      SEED_FILE="/var/lib/proton-api-seed"
-      API_IPS_COLLECTED=""
-
-      # Phase 1: API-Domain-IPs auflösen (Bootstrap - damit curl zur API funktioniert)
-      # timeout 5: verhindert 60s-Wartezeit bei nicht auflösbaren Domains
-      echo "=== Phase 1: API-Domain-IPs ==="
-      for domain in $DOMAINS; do
-        IPS=$(timeout 5 $RESOLVECTL query -4 "$domain" 2>/dev/null \
-          | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u || true)
-
-        if [ -z "$IPS" ]; then
-          echo "⚠ Keine IPs für $domain gefunden"
-          continue
-        fi
-
-        for ip in $IPS; do
-          nft add element inet filter proton_api "{ $ip timeout $TIMEOUT }" 2>/dev/null || true
-          echo "✓ $domain → $ip"
-          API_IPS_COLLECTED="$API_IPS_COLLECTED
-$ip"
-        done
-      done
-
-      # API-IPs persistent speichern (für schnelles Seeden beim nächsten Boot)
-      if [ -n "$API_IPS_COLLECTED" ]; then
-        echo "$API_IPS_COLLECTED" | grep -v '^$' | sort -u > "$SEED_FILE"
-        echo "✓ $(wc -l < "$SEED_FILE") API-IPs in $SEED_FILE gespeichert"
-      fi
-
-      # Phase 2: VPN-Server-IPs aus lokalem ProtonVPN-Cache laden
-      # API braucht Auth-Token → lokaler Cache ist zuverlässiger
-      #
-      # SECURITY: Cache liegt im User-Home und wird als root gelesen.
-      # Kompromittierter User-Prozess dürfte sonst beliebige IPs in nftables-Set
-      # einschleusen (Bypass des VPN Kill-Switch). Darum:
-      #   1. Datei-Owner muss der Desktop-Nutzer sein (kein root/andere User)
-      #   2. Kein Symlink (TOCTOU-Risiko)
-      #   3. Strikte IPv4-Regex (verhindert nft-Syntax-Injection)
-      #   4. Cap bei 2500 IPs (Sanity-Check gegen Cache-Korruption — Proton hat ~1500 Server)
-      echo ""
-      echo "=== Phase 2: VPN-Server-IPs aus Cache ==="
-      CACHE="/home/${id.username}/.cache/Proton/VPN/serverlist.json"
-      if [ ! -f "$CACHE" ]; then
-        echo "⚠ Cache nicht gefunden: $CACHE"
-      elif [ -L "$CACHE" ]; then
-        echo "⚠ Cache ist ein Symlink → abgelehnt (TOCTOU-Risiko)"
-      else
-        CACHE_OWNER=$(${pkgs.coreutils}/bin/stat -c '%U' "$CACHE" 2>/dev/null || echo "")
-        if [ "$CACHE_OWNER" != "${id.username}" ]; then
-          echo "⚠ Cache-Datei gehört $CACHE_OWNER (erwartet: ${id.username}) → abgelehnt"
-        else
-          # Strikte IPv4-Regex — filtert alles aus was keine saubere Dot-Quad-IP ist
-          # Cap bei 2500: Proton hat ~1500 Server. Cap = 200 (alt) hat User-sichtbare
-          # Connection-Failures verursacht, weil viele Server außerhalb der ersten 200
-          # (alphabetisch nach IP sortiert) blockiert wurden.
-          SERVER_IPS=$(jq -r '.LogicalServers[].Servers[].EntryIP' "$CACHE" 2>/dev/null \
-            | ${pkgs.gnugrep}/bin/grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' \
-            | sort -u | ${pkgs.coreutils}/bin/head -2500 || true)
-          if [ -n "$SERVER_IPS" ]; then
-            COUNT=0
-            for ip in $SERVER_IPS; do
-              nft add element inet filter proton_api "{ $ip timeout $TIMEOUT }" 2>/dev/null || true
-              COUNT=$((COUNT + 1))
-            done
-            echo "✓ $COUNT VPN-Server-IPs aus Cache geladen (cap: 2500)"
-          else
-            echo "⚠ Keine gültigen IPs im Cache gefunden"
-          fi
-        fi
-      fi
-
-      echo ""
-      TOTAL=$(nft list set inet filter proton_api | grep -c "timeout" || echo "0")
-      echo "=== Gesamt: $TOTAL IPs im proton_api Set ==="
-    '';
-  };
-
-  systemd.timers.proton-api-update = {
-    description = "Periodically update ProtonVPN API IPs";
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnBootSec = "15s";       # war 30s – früher starten
-      OnUnitActiveSec = "30min";
-      # Kein RandomizedDelaySec – Script nutzt lokalen Cache, kein API-Hammering
-    };
   };
 
   # ==========================================
