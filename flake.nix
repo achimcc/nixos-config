@@ -66,7 +66,12 @@
 
       # Identität aus dem privaten Repo: { username, realName, email }.
       id = import "${identity}/identity/laptop.nix";
-      
+
+      # WireGuard-Serverliste aus dem PRIVATEN Repo (Slots 1–9). Bauzeit-Daten:
+      # NM-Profile und die Firewall-Regel für die Endpunkte brauchen sie, bevor
+      # sops-nix irgendetwas entschlüsselt. Schlüssel liegen in secrets.yaml.
+      vpnServer = import "${identity}/vpn/laptop.nix";
+
       # Unstable nixpkgs
       pkgs-unstable = import nixpkgs-unstable {
         inherit system;
@@ -115,7 +120,7 @@
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         inherit system;
         # Hier geben wir die Inputs an alle Module weiter
-        specialArgs = { inherit inputs llm-agents pkgs-unstable id; };
+        specialArgs = { inherit inputs llm-agents pkgs-unstable id vpnServer; };
         modules = [
           # Custom packages overlay
           { nixpkgs.overlays = [ customOverlay protonvpnFixOverlay ]; }
@@ -133,7 +138,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             # Wichtig: llm-agents und pkgs-unstable an Home Manager durchreichen
-            home-manager.extraSpecialArgs = { inherit llm-agents pkgs-unstable rcu id; };
+            home-manager.extraSpecialArgs = { inherit llm-agents pkgs-unstable rcu id vpnServer; };
             home-manager.users.${id.username} = import ./home.nix;
             # Sops für Home Manager
             home-manager.sharedModules = [

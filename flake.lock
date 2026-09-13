@@ -173,11 +173,11 @@
     "identity": {
       "flake": false,
       "locked": {
-        "lastModified": 1788773177,
-        "narHash": "sha256-jfZR5Y4R37ZZNb3fiVcorIk7ncphLLbtVHviQRsmoWA=",
+        "lastModified": 1789318271,
+        "narHash": "sha256-seixGqmVzKFtMezOPIieXKAhlQFhvbEw1vptrDm1HiQ=",
         "ref": "refs/heads/main",
-        "rev": "02f0972d17a34d3395f958e29118a8e2977ee437",
-        "revCount": 72,
+        "rev": "a6a3ee8ed0b06629a5aff3000d57131900286ba9",
+        "revCount": 107,
         "type": "git",
         "url": "ssh://git@github.com/achimcc/homeserver-secrets.git"
       },
