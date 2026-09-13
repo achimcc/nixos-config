@@ -1,7 +1,14 @@
 # WireGuard-Profile mit Kill-Switch und Leistenanzeige statt ProtonVPN-GUI
 
 **Datum:** 2026-09-13
-**Status:** Entwurf, wartet auf Freigabe
+**Status:** freigegeben 2026-09-13
+
+> **Beim Planen verfeinert** (Begründungen im Plan
+> `docs/superpowers/plans/2026-09-13-wireguard-statt-proton-gui.md`, Abschnitt „Verfeinerungen“):
+> kein NM-Autoconnect, stattdessen `vpn-boot.service`; „Direkt“ wird an der Chain gemessen, nicht
+> am Unit-Zustand, `PartOf` entfällt; Statusdatei `/run/vpn/status.json` mit zusätzlichem Feld
+> `killswitch` und Zustand „offen“; Syncthing-Ratenlimit vor `established`. Wo diese Spec davon
+> abweicht, gilt der Plan.
 
 ## Ziel
 
