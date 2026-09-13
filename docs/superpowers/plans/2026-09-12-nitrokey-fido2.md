@@ -930,10 +930,11 @@ Den Kommentarblock „TPM2 AUTOMATISCHES RE-ENROLLMENT“ und `systemd.services.
 vollständig löschen. Messen:
 
 ```nu
-rg -n 'tpm2-reenroll|f8e58c55|fcef0557' modules/secureboot.nix
+rg -n 'systemd.services.tpm2-reenroll|systemd-cryptenroll|f8e58c55|fcef0557' modules/secureboot.nix
 ```
 
-Erwartet: keine Treffer.
+Erwartet: keine Treffer. Der Name `tpm2-reenroll` darf im Kommentar stehen, der erklärt, warum
+der Dienst weg ist.
 
 - [ ] **Schritt 4: Bauen und schalten**
 

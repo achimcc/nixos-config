@@ -62,126 +62,18 @@
   };
 
   # ==========================================
-  # TPM 2.0 INTEGRATION
+  # TPM 2.0 UND LUKS
   # ==========================================
   #
-  # TPM2-Support ist aktiviert via boot.initrd.systemd.tpm2.enable in configuration.nix
+  # Seit 2026-09-13 entsperrt TPM2 KEIN LUKS-Gerät mehr. Root und Swap
+  # öffnen sich per FIDO2 (Nitrokey 3, PIN + Berührung) oder Passphrase,
+  # siehe die LUKS-Blöcke in configuration.nix.
   #
-  # LUKS-Entsperrung Hierarchie (nach TPM-Enrollment):
-  # 1. TPM2 (automatisch, falls PCRs übereinstimmen)
-  # 2. Passphrase (Fallback)
+  # Der frühere Dienst `tpm2-reenroll` ist deshalb entfernt. Er trug nach
+  # jedem Kernel-Update (PCR 11) die TPM2-Slots neu ein, löschte dabei zuerst
+  # den alten Slot und hing dann an einer Passphrase-Abfrage, die im
+  # Dienstkontext niemand beantwortet. Käme er zurück, legte er an der
+  # Root-Partition stillschweigend wieder einen TPM2-Slot an.
   #
-  # PCR-POLICY: 0+7+11
-  # - PCR 0:  UEFI-Firmware
-  # - PCR 7:  Secure Boot State (db/dbx/PK/KEK)
-  # - PCR 11: Lanzaboote UKI-Measurement (Kernel+Initrd+Cmdline)
-  # → Angreifer mit physischem Zugriff kann keinen manipulierten Kernel booten.
-  #
-  # TPM2-LUKS ENROLLMENT (manueller Schritt, einmalig):
-  #
-  # 1. Alte Enrollments (0+7) entfernen:
-  #    sudo systemd-cryptenroll --wipe-slot=tpm2 /dev/nvme0n1p2
-  #    sudo systemd-cryptenroll --wipe-slot=tpm2 /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
-  #
-  # 2. Neu enrollen mit 0+7+11:
-  #    sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7+11 /dev/nvme0n1p2
-  #    sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7+11 /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
-  #
-  # 3. Reboot testen. Bei Fehlschlag: Passphrase-Fallback nutzen.
-  #
-  # WICHTIG:
-  # - PCR 11 ändert sich bei jedem Kernel/Initrd-Update → `tpm2-reenroll`-Service
-  #   erneuert das Enrollment automatisch nach Rebuild (siehe unten).
-  # - Bei sbctl-Key-Rotation (PCR 7 ändert sich) ebenfalls re-enrollen.
-  # - FUTURE: Public-Key-Policy (--tpm2-public-key + signed UKI) würde Re-Enroll
-  #   überflüssig machen, aber Lanzaboote signiert UKI-PCR-Werte aktuell nicht.
-  #
-  # Vollständige Anleitung: docs/TPM-ENROLLMENT.md
-
-  # ==========================================
-  # TPM2 AUTOMATISCHES RE-ENROLLMENT
-  # ==========================================
-  # PCR 11 ändert sich bei jedem Kernel/Initrd-Update (neues UKI).
-  # Ohne Re-Enroll würde TPM beim nächsten Boot die Entsperrung verweigern
-  # → User fällt auf Passphrase zurück (funktioniert, aber nervig).
-  #
-  # Dieser Service läuft NACH nixos-rebuild switch und prüft ob die aktuellen
-  # PCR-Werte mit dem gespeicherten Enrollment übereinstimmen. Wenn nicht:
-  # Re-Enrollment mit aktuellen Werten.
-  #
-  # Security-Note: Re-Enrollment passiert WÄHREND das System läuft (nach
-  # erfolgreichem Boot mit alten Werten). Das ist vom Trust-Model her OK —
-  # ein Angreifer der den Rebuild auslösen kann, kontrolliert den Host eh.
-  systemd.services.tpm2-reenroll = {
-    description = "Re-enroll TPM2 LUKS slots after kernel/initrd update (PCR 11)";
-    # Läuft bei jedem Boot, vergleicht PCR 11 gegen gespeicherten Stand
-    # und re-enrollt nur wenn sich der Wert geändert hat (= neuer Kernel/Initrd).
-    wantedBy = [ "multi-user.target" ];
-    after = [ "multi-user.target" ];
-
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      # Markiere erfolgreich auch bei Exit 1 (TPM2 nicht verfügbar etc.)
-      SuccessExitStatus = "0 1";
-    };
-
-    script = ''
-      set -eu
-      STATE_DIR="/var/lib/tpm2-reenroll"
-      mkdir -p "$STATE_DIR"
-      chmod 0700 "$STATE_DIR"
-
-      # Aktuellen PCR-11-Wert ermitteln (hex sha256)
-      CURRENT_PCR11=$(${pkgs.tpm2-tools}/bin/tpm2_pcrread sha256:11 2>/dev/null \
-        | ${pkgs.gnugrep}/bin/grep -oE '0x[0-9a-fA-F]+' | head -1 || echo "")
-
-      if [ -z "$CURRENT_PCR11" ]; then
-        echo "tpm2-reenroll: TPM2 nicht lesbar, skip"
-        exit 1
-      fi
-
-      # Letzten gesehenen PCR 11 vergleichen
-      LAST_FILE="$STATE_DIR/last-pcr11"
-      if [ -f "$LAST_FILE" ] && [ "$(cat "$LAST_FILE")" = "$CURRENT_PCR11" ]; then
-        echo "tpm2-reenroll: PCR 11 unverändert, kein Re-Enroll nötig"
-        exit 0
-      fi
-
-      echo "tpm2-reenroll: PCR 11 hat sich geändert (neuer Kernel/Initrd)"
-      echo "  Neu: $CURRENT_PCR11"
-
-      # Re-Enrollment NUR für das Swap-Gerät.
-      # --wipe-slot=tpm2 entfernt alten Slot, --tpm2-pcrs=0+7+11 enrollt neu.
-      #
-      # Die Root-Partition steht hier bewusst NICHT mehr: Sie wird seit
-      # 2026-09-13 per FIDO2 (Nitrokey 3, PIN + Berührung) oder Passphrase
-      # entsperrt, nicht mehr per TPM2. Träge man sie wieder ein, legte dieser
-      # Dienst beim nächsten Kernel-Update stillschweigend einen TPM2-Slot an
-      # und die Platte entsperrte wieder von allein — der Sicherheitsgewinn
-      # wäre weg, ohne dass irgendwo ein Fehler erschiene.
-      # Siehe docs/superpowers/specs/2026-09-12-nitrokey-fido2-design.md
-      SWAP_DEV="/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b"
-
-      for DEV in "$SWAP_DEV"; do
-        if [ ! -e "$DEV" ]; then
-          echo "  ⚠ $DEV existiert nicht, skip"
-          continue
-        fi
-        echo "  Re-enroll $DEV..."
-        ${pkgs.systemd}/bin/systemd-cryptenroll --wipe-slot=tpm2 "$DEV" 2>/dev/null || true
-        if ${pkgs.systemd}/bin/systemd-cryptenroll \
-             --tpm2-device=auto \
-             --tpm2-pcrs=0+7+11 \
-             "$DEV"; then
-          echo "  ✓ Re-enroll erfolgreich: $DEV"
-        else
-          echo "  ⚠ Re-enroll FEHLGESCHLAGEN: $DEV (Passphrase-Fallback weiterhin aktiv)"
-        fi
-      done
-
-      echo "$CURRENT_PCR11" > "$LAST_FILE"
-      echo "tpm2-reenroll: Fertig"
-    '';
-  };
+  # Vollständig: docs/superpowers/plans/2026-09-12-nitrokey-fido2.md
 }

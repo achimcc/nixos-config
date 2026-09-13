@@ -130,31 +130,19 @@
     crypttabExtraOpts = [ "fido2-device=auto" ];
   };
 
-  # Swap: TPM2-basierte Entsperrung (für Hibernate/Resume ohne Interaktion)
-  # Swap-Verschlüsselung explizit verifiziert (LUKS2)
-  # MIGRATION: Von Keyfile auf TPM2 umgestellt (Keyfile auf unverschlüsselter /boot war extrahierbar)
+  # Swap: FIDO2-Entsperrung per Nitrokey 3 wie bei der Root-Partition
+  # (PIN + eigene Berührung), Passphrase bleibt als Rückfall. Voraussetzungen
+  # siehe Root-Block oben. Bis 2026-09-13 lief Swap über TPM2 (PCR 0+7+11);
+  # das ist samt dem Dienst tpm2-reenroll entfernt (modules/secureboot.nix).
   #
-  # PCR-POLICY: 0+7+11 (Firmware + Secure-Boot-State + UKI-Measurement)
-  # - PCR 0:  UEFI-Firmware (schützt gegen Firmware-Swap)
-  # - PCR 7:  Secure-Boot-Keys/State (db, dbx, PK, KEK)
-  # - PCR 11: Lanzaboote UKI-Hash (Kernel+Initrd+Cmdline signiert)
-  # → Angreifer kann keinen manipulierten Kernel/Initrd booten, der das TPM-Secret bekommt.
-  #
-  # TRADE-OFF: PCR 11 ändert sich bei jedem Kernel/Initrd-Update → Re-Enroll nötig.
-  # Der `tpm2-reenroll-swap`-Service (siehe unten) automatisiert das nach jedem Rebuild.
-  #
-  # ENROLLMENT (einmalig nach Umstellung auf 0+7+11):
-  #   sudo systemd-cryptenroll --wipe-slot=tpm2 \
-  #     /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
-  #   sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7+11 \
+  # ENROLLMENT (einmalig):
+  #   sudo systemd-cryptenroll --fido2-device=auto --fido2-with-client-pin=yes \
   #     /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
   #
-  # FUTURE: Public-Key-Policy (--tpm2-public-key) würde Re-Enroll überflüssig
-  # machen, erfordert aber UKI-Signatur-Einbettung, die Lanzaboote aktuell nicht
-  # automatisiert. Siehe docs/TPM-ENROLLMENT.md.
+  # Vollständig: docs/superpowers/plans/2026-09-12-nitrokey-fido2.md
   boot.initrd.luks.devices."luks-f8e58c55-8cf8-4781-bdfd-a0e4c078a70b" = {
     device = "/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b";
-    crypttabExtraOpts = [ "tpm2-device=auto" ];
+    crypttabExtraOpts = [ "fido2-device=auto" ];
     # SICHERHEIT: allowDiscards deaktiviert (verhindert Metadata-Leaks)
     # Trade-off: Minimal schlechtere SSD-Performance, deutlich bessere Sicherheit
     allowDiscards = false;
