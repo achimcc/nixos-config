@@ -22,12 +22,15 @@ while true; do
     slot=${iface#wg-}
     name=$(jq -c --argjson s "$slot" '[.[] | select(.slot == $s) | .name][0]' "$server_json")
 
-    hs=$(wg show "$iface" latest-handshakes | awk 'NR == 1 { print $2 }')
-    if [ -n "$hs" ] && [ "$hs" -gt 0 ]; then
+    # || true: Interface kann zwischen der Erkennung oben und hier verschwinden
+    # (z. B. während `nmcli connection down`) — dann bleibt hs/transfer leer statt
+    # das Skript unter set -e zu beenden.
+    hs=$(wg show "$iface" latest-handshakes | awk 'NR == 1 { print $2 }' || true)
+    if [[ "$hs" =~ ^[0-9]+$ ]] && [ "$hs" -gt 0 ]; then
       alter=$((jetzt - hs))
     fi
 
-    transfer=$(wg show "$iface" transfer | awk 'NR == 1 { print $2, $3 }')
+    transfer=$(wg show "$iface" transfer | awk 'NR == 1 { print $2, $3 }' || true)
     if [ -n "$transfer" ]; then
       rx=${transfer% *}
       tx=${transfer#* }
