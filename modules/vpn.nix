@@ -51,6 +51,12 @@ let
     add rule inet filter direkt accept
     EOF
   '';
+
+  vpnBefehl = pkgs.writeShellApplication {
+    name = "vpn";
+    runtimeInputs = with pkgs; [ networkmanager jq curl util-linux libnotify systemd coreutils gawk ];
+    text = builtins.readFile ./vpn/vpn.sh;
+  };
 in
 {
   assertions = [
@@ -146,5 +152,5 @@ in
     });
   '';
 
-  environment.systemPackages = [ pkgs.wireguard-tools ];
+  environment.systemPackages = [ pkgs.wireguard-tools vpnBefehl ];
 }
