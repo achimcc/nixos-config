@@ -151,13 +151,19 @@
       echo "tpm2-reenroll: PCR 11 hat sich geändert (neuer Kernel/Initrd)"
       echo "  Neu: $CURRENT_PCR11"
 
-      # Re-Enrollment für beide LUKS-Devices.
+      # Re-Enrollment NUR für das Swap-Gerät.
       # --wipe-slot=tpm2 entfernt alten Slot, --tpm2-pcrs=0+7+11 enrollt neu.
-      # Root-Partition:
-      ROOT_DEV="/dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a"
+      #
+      # Die Root-Partition steht hier bewusst NICHT mehr: Sie wird seit
+      # 2026-09-13 per FIDO2 (Nitrokey 3, PIN + Berührung) oder Passphrase
+      # entsperrt, nicht mehr per TPM2. Träge man sie wieder ein, legte dieser
+      # Dienst beim nächsten Kernel-Update stillschweigend einen TPM2-Slot an
+      # und die Platte entsperrte wieder von allein — der Sicherheitsgewinn
+      # wäre weg, ohne dass irgendwo ein Fehler erschiene.
+      # Siehe docs/superpowers/specs/2026-09-12-nitrokey-fido2-design.md
       SWAP_DEV="/dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b"
 
-      for DEV in "$ROOT_DEV" "$SWAP_DEV"; do
+      for DEV in "$SWAP_DEV"; do
         if [ ! -e "$DEV" ]; then
           echo "  ⚠ $DEV existiert nicht, skip"
           continue

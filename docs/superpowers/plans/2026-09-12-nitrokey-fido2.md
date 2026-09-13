@@ -21,27 +21,36 @@ vorher auf das Swap-Gerät eingeschränkt.
 
 ## Fortschritt
 
-**Stand 2026-09-13, unmittelbar vor dem Neustart-Test von Aufgabe 4.** Wer hier neu einsteigt:
-zuerst das Ergebnis dieses Neustarts beim Benutzer erfragen, dann weiter.
+**Stand 2026-09-13, nach dem Neustart-Test von Aufgabe 4.** Aufgabe 7 ist ungeplant zur Hälfte
+vorgezogen (siehe unten). Nächster Schritt: Aufgabe 5. Offen sind zwei Entscheidungen des Benutzers:
+Swap mit Zufallsschlüssel und FIDO2 mit oder ohne PIN.
 
 | Aufgabe | Stand | Beleg |
 |---|---|---|
 | 1 Stick sichtbar | erledigt | `5ea0815`; `authorized=1`, `fido2-token -L` findet `20a0:42b2`, `hmac-secret` vorhanden |
 | 2 FIDO2-PIN | erledigt | `fido2-token -I`: `clientPin` statt `noclientPin`, `pin retries: 8` |
 | 3 Anmeldung | erledigt und getestet | `9452745`; sudo mit/ohne Stick, Sperrbildschirm mit/ohne Stick |
-| 4 LUKS-FIDO2 Root | Slot angelegt, crypttab geschaltet — **Neustart-Test steht aus** | `luksDump`: Token 1 `systemd-fido2` → Keyslot 2 |
-| 5–8 | offen | |
+| 4 LUKS-FIDO2 Root | erledigt und getestet | `8273561`; Journal 2026-09-13: `Asking FIDO2 token` → Root entsperrt; Passphrase Slot 0: `cryptsetup open --test-passphrase --key-slot 0` exit 0 |
+| 5–6 | offen | |
+| 7 TPM2 von Root | Schritte 2, 4, 5, 6 erledigt, Schritt 7 (Neustart) offen | siehe unten |
+| 8 | offen | |
 
-**Slot-Belegung Root** (gemessen vor dem Neustart): 0 = Passphrase (Argon2id, t=4, 867 MiB, 4
-Threads), 1 = TPM2 (PBKDF2, Token 0), 2 = FIDO2 (Token 1).
+**Slot-Belegung** (gemessen 2026-09-13 nach dem Neustart): Root 0 = Passphrase, 2 = FIDO2
+(Token 1), **kein TPM2 mehr**. Swap 0 = Passphrase, 1 = TPM2 (Token 0, neu auf aktuellem PCR 11).
 
-**Was beim Neustart zu erwarten ist:** systemd probiert erst TPM2, dann FIDO2. Weil das Initrd
-sich geändert hat, stimmt PCR 11 nicht mehr — TPM2 verweigert, **nur deshalb** kommt diesmal die
-FIDO2-Abfrage. Danach erneuert `tpm2-reenroll` den TPM2-Slot, und ab dem übernächsten Start
-entsperrt die Platte wieder von allein. Das ist erwartet und endet mit Aufgabe 7.
+**Was beim Neustart passiert ist:** TPM2 verweigerte an beiden Geräten (PCR 11 geändert), Root
+entsperrte per FIDO2, Swap per Passphrase. Danach startete `tpm2-reenroll`, **löschte den
+TPM2-Slot der Root-Partition** (`--wipe-slot=tpm2` braucht keine Passphrase) und hing am
+Neu-Eintragen, weil `systemd-cryptenroll` auf eine Passphrase wartete (`NotAfter` unendlich).
+Dienst gestoppt, dann Aufgabe 7 Schritt 2 vorgezogen: Die Schleife läuft nur noch über Swap.
+Messung am aktiven System: Root-UUID im Dienstskript 0, Swap-UUID 1. Der `switch` startete den
+`failed`-Dienst erneut. Der Benutzer beantwortete die Swap-Abfrage per
+`systemd-tty-ask-password-agent --query`, danach `New TPM2 token enrolled as key slot 1`,
+`Result=success`.
 
 **Ungeklärt:** Ob die Header-Sicherung `/root/luks-header-root-vor-fido2.img` angelegt wurde, hat
-der Benutzer nicht bestätigt. **Vor Aufgabe 5 zwingend nachfragen.**
+der Benutzer nicht bestätigt. **Vor Aufgabe 5 zwingend nachfragen.** Existiert sie, enthält sie
+noch den TPM2-Slot der Root-Partition: Wer sie einspielt, stellt die automatische Entsperrung wieder her.
 
 ### Außerplanmäßig erledigt
 
@@ -61,6 +70,10 @@ der Benutzer nicht bestätigt. **Vor Aufgabe 5 zwingend nachfragen.**
   Konfiguration, die darauf zeigt, baut.
 - **`gdm-password` hat keinen eigenen Auth-Stack** (`auth substack login`). `u2f.enable` darauf
   erzeugt keine Zeile; Anmelde- und Sperrbildschirm laufen über `login`.
+- **`nixos-rebuild switch` startet einen `failed`-Oneshot mit `WantedBy=multi-user.target` neu.**
+  Einen hängenden Dienst also nicht nur stoppen, sondern vor dem `switch` entschärfen.
+- **`systemctl cat <dienst>` zeigt nicht den Skriptinhalt**, nur den Store-Pfad. Messungen am Skript
+  über `ExecStart=` auflösen.
 - **Keine Gruppe `nitrokey`** — die udev-Regeln nutzen `uaccess`. Aufgabe 1 ist entsprechend
   berichtigt.
 
@@ -822,10 +835,16 @@ sudo nixos-rebuild switch --flake .#nixos
 - [ ] **Schritt 4: Messen, dass der Dienst die Root-UUID nicht mehr kennt**
 
 ```nu
-systemctl cat tpm2-reenroll | grep -c "fcef0557"
+let skript = (systemctl show tpm2-reenroll -p ExecStart --value | parse --regex 'path=(?<p>\S+)' | get p.0)
+rg -c fcef0557 $skript
 ```
 
-Erwartet: `0`. Steht dort noch etwas, hat der `switch` nicht gegriffen — **nicht weitermachen**.
+Erwartet: keine Ausgabe (Exit-Code 1 = null Treffer). Steht dort eine Zahl, hat der `switch` nicht
+gegriffen — **nicht weitermachen**.
+
+**Nicht** `systemctl cat tpm2-reenroll | grep -c fcef0557`: Die Unit-Datei enthält nur den
+Store-Pfad des Skripts, die UUID steht im Skript selbst. Die Messung ergibt deshalb auch am
+unveränderten System `0` — am 2026-09-13 so nachgewiesen.
 
 - [ ] **Schritt 5: TPM2-Slot der Root-Partition löschen**
 
