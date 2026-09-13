@@ -45,12 +45,6 @@ let
     subnet = "10.11.99.0/24";
     deviceIP = "10.11.99.1";
   };
-
-  # DNS configuration
-  dnsServers = {
-    mullvad = "194.242.2.2";  # DNS-over-TLS
-    stubListener = "127.0.0.53";
-  };
 in
 {
   # ==========================================
@@ -207,12 +201,14 @@ in
           #    und routet sie über die Main-Tabelle am Tunnel vorbei (ip rule 5210).
           meta mark and 0xff0000 == 0x80000 accept
 
-          # 5b. Bisherige Tailscale-Freigaben ohne Markierung. Die Zähler zeigen, ob sie
-          #     neben 5 noch gebraucht werden (Messung Schritt 14). UDP 3478 zu jedem Ziel
-          #     erlaubt auch Browsern STUN außen herum — WebRTC-Leck-Kandidat.
-          udp dport 41641 counter accept
-          ip daddr @tailscale_api tcp dport 443 counter accept
-          udp dport 3478 counter accept
+          # 5b. Bisherige Tailscale-Freigaben ohne Markierung, eingegrenzt auf root-Sockets
+          #     (tailscaled läuft unter NixOS als root). Zuvor konnte jeder unprivilegierte
+          #     Prozess (Browser) UDP 3478/41641 ohne Tunnel nutzen — STUN/TURN hätte die
+          #     Heim-IP verraten bzw. Nutzdaten relayen können. Die Zähler zeigen weiterhin,
+          #     ob diese Regeln neben 5 noch gebraucht werden (Messung Schritt 14).
+          meta skuid 0 udp dport 41641 counter accept
+          meta skuid 0 ip daddr @tailscale_api tcp dport 443 counter accept
+          meta skuid 0 udp dport 3478 counter accept
 
           # 6. Härtung — gilt auch im Zustand "Direkt"
           udp dport 5355 drop comment "Block LLMNR (credential theft risk)"
