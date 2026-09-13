@@ -44,7 +44,7 @@ log_section "OPTION 1: Vollständiger Rebuild (Empfohlen)"
 echo ""
 log_info "Führt nixos-rebuild aus und stellt alle Konfigurationen wieder her:"
 echo "   • Firewall-Regeln (VPN Kill Switch)"
-echo "   • VPN-Verbindung (ProtonVPN GUI → WireGuard)"
+echo "   • VPN-Verbindung (WireGuard-Slots via Befehl 'vpn')"
 echo "   • Intrusion Detection (Suricata IDS)"
 echo "   • Security Monitoring (Logwatch, AIDE, etc.)"
 echo "   • Alle systemd-Timer"
@@ -59,11 +59,13 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         sleep 3
 
         log_section "Status der kritischen Services:"
-        # ProtonVPN GUI läuft als User-Service und erstellt proton0 beim Verbinden
-        if ip link show proton0 &>/dev/null; then
-            log_success "VPN aktiv (proton0 Interface vorhanden)"
+        # Zustand kommt aus /run/vpn/status.json (geschrieben von modules/vpn.nix), nicht
+        # aus einem festen Interface-Namen.
+        if [ -r /run/vpn/status.json ] && jq -e '.slot != null' /run/vpn/status.json &>/dev/null; then
+            VPN_SLOT=$(jq -r '.slot' /run/vpn/status.json)
+            log_success "VPN aktiv (Slot $VPN_SLOT)"
         else
-            log_warning "VPN nicht verbunden (ProtonVPN GUI muss manuell verbinden)"
+            log_warning "VPN nicht verbunden (als Nutzer: vpn login)"
         fi
         systemctl is-active suricata && log_success "Suricata IDS aktiv" || log_warning "Suricata nicht aktiv"
         systemctl is-active critical-alert-monitor.timer && log_success "Alert Monitor aktiv" || log_warning "Alert Monitor nicht aktiv"
@@ -92,25 +94,24 @@ if [[ ! $REPLY =~ ^[JjYy]$ ]]; then
 fi
 
 # ============================================================================
-# 1. ProtonVPN GUI neustarten
+# 1. WireGuard-Slot verbinden
 # ============================================================================
-log_section "1️⃣  Starte ProtonVPN GUI..."
+log_section "1️⃣  Verbinde VPN (letzter Slot)..."
 
-# ProtonVPN GUI läuft als User-Service (erstellt proton0 beim Verbinden)
-if sudo -u "$DESKTOP_USER" XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart protonvpn-gui 2>&1; then
-    log_success "ProtonVPN GUI User-Service neugestartet"
+# 'vpn login' verbindet den zuletzt benutzten Slot (siehe modules/vpn/vpn.sh).
+# Fehlschlag ist hier nicht fatal: Der Nutzer kann den Slot manuell wählen (vpn 1…9).
+if sudo -u "$DESKTOP_USER" XDG_RUNTIME_DIR=/run/user/1000 /run/current-system/sw/bin/vpn login 2>&1; then
+    log_success "vpn login ausgeführt"
     sleep 3
 
-    # Prüfe ob VPN bereits verbunden (Auto-Connect)
-    if ip link show proton0 &>/dev/null; then
-        VPN_IP=$(ip addr show proton0 | grep "inet " | awk '{print $2}')
-        log_success "VPN-Interface aktiv: $VPN_IP"
+    if [ -r /run/vpn/status.json ] && jq -e '.slot != null' /run/vpn/status.json &>/dev/null; then
+        VPN_SLOT=$(jq -r '.slot' /run/vpn/status.json)
+        log_success "VPN-Slot aktiv: $VPN_SLOT"
     else
-        log_info "ProtonVPN GUI gestartet - verbinde manuell über die GUI"
+        log_warning "VPN noch nicht verbunden - Status prüfen mit: vpn status"
     fi
 else
-    log_error "Konnte ProtonVPN GUI nicht starten!"
-    log_info "Prüfe: journalctl --user -u protonvpn-gui -n 50"
+    log_warning "vpn login fehlgeschlagen - Slot manuell wählen: vpn 1…9"
 fi
 
 # ============================================================================
@@ -170,14 +171,7 @@ log_info "Prüfe öffentliche IP..."
 PUBLIC_IP=$(timeout 5 curl -s https://api.ipify.org 2>/dev/null || echo "Timeout")
 if [[ "$PUBLIC_IP" != "Timeout" ]]; then
     log_success "Öffentliche IP: $PUBLIC_IP"
-
-    # Prüfe ob es eine ProtonVPN IP ist (heuristisch)
-    if [[ "$PUBLIC_IP" =~ ^(185\.|146\.|156\.|149\.|193\.|91\.|89\.|37\.|79\.) ]]; then
-        log_success "IP gehört wahrscheinlich zu ProtonVPN"
-    else
-        log_warning "IP gehört möglicherweise NICHT zu ProtonVPN!"
-        log_warning "Prüfe VPN-Status: ip link show proton0"
-    fi
+    log_info "Ob es die Exit-IP des verbundenen Slots ist, prüft 'vpn status' gegen den Exit-IP-Dienst."
 else
     log_error "Konnte öffentliche IP nicht abrufen - Netzwerk-Problem?"
 fi
@@ -207,7 +201,7 @@ if [[ "$NFTABLES_ACTIVE" == true ]]; then
     fi
 
     # Prüfe VPN-Interface-Regeln
-    VPN_RULES=$(echo "$RULESET" | grep -c "proton0\|wg0" || echo "0")
+    VPN_RULES=$(echo "$RULESET" | grep -c 'wg\*' || echo "0")
     if [[ "$VPN_RULES" -gt 0 ]]; then
         log_success "VPN-Regeln gefunden ($VPN_RULES Regeln)"
     else
@@ -224,7 +218,12 @@ log_section "══════════════════════�
 echo ""
 
 echo "Service-Status:"
-ip link show proton0 &>/dev/null && log_success "VPN: Aktiv (proton0)" || log_warning "VPN: Nicht verbunden (GUI manuell verbinden)"
+if [ -r /run/vpn/status.json ] && jq -e '.slot != null' /run/vpn/status.json &>/dev/null; then
+    VPN_SLOT=$(jq -r '.slot' /run/vpn/status.json)
+    log_success "VPN: Aktiv (Slot $VPN_SLOT)"
+else
+    log_warning "VPN: Nicht verbunden (vpn login oder vpn 1…9)"
+fi
 systemctl is-active suricata &>/dev/null && log_success "IDS: Aktiv" || log_warning "IDS: Inaktiv"
 systemctl is-active critical-alert-monitor.timer &>/dev/null && log_success "Alerts: Aktiv" || log_warning "Alerts: Inaktiv"
 

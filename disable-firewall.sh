@@ -9,11 +9,9 @@
 
 set -euo pipefail
 
-# Repo-Verzeichnis und Desktop-Nutzer zur Laufzeit ermitteln, statt sie fest
-# einzutragen: Das Skript laeuft unter sudo (dann waere $HOME /root) und der
-# Nutzername soll nicht im oeffentlichen Repo stehen.
+# Repo-Verzeichnis zur Laufzeit ermitteln, statt es fest einzutragen: Das
+# Skript laeuft unter sudo, dann waere $HOME /root.
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DESKTOP_USER="$(id -nu 1000)"
 
 # Farben für Output
 RED='\033[0;31m'
@@ -76,16 +74,19 @@ done
 # ============================================================================
 log_section "2️⃣  Trenne VPN-Verbindungen..."
 
-# ProtonVPN GUI User-Service stoppen (verwaltet WireGuard-Verbindung)
-if sudo -u "$DESKTOP_USER" XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active --quiet protonvpn-gui 2>/dev/null; then
-    sudo -u "$DESKTOP_USER" XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop protonvpn-gui && \
-        log_success "ProtonVPN GUI gestoppt" || log_warning "Konnte ProtonVPN GUI nicht stoppen"
+# Aktive WireGuard-Slots (NM-Profile wg-1…wg-9, siehe modules/vpn.nix) trennen
+ACTIVE_WG=$(nmcli -t -f NAME,TYPE connection show --active 2>/dev/null | awk -F: '$2=="wireguard" && $1 ~ /^wg-[1-9]$/ {print $1}' || true)
+if [[ -n "$ACTIVE_WG" ]]; then
+    while IFS= read -r con; do
+        nmcli connection down "$con" 2>/dev/null && log_success "$con getrennt" || log_warning "Konnte $con nicht trennen"
+    done <<< "$ACTIVE_WG"
 else
-    log_info "ProtonVPN GUI nicht aktiv"
+    log_info "Keine aktive WireGuard-Verbindung (wg-1…wg-9)"
 fi
 
-# VPN- und Kill-Switch-Interfaces herunterfahren
-for iface in proton0 wg0 wg1 pvpnksintrf0 pvpnksintrf1 ipv6leakintrf0; do
+# VPN-Interfaces herunterfahren (falls noch vorhanden; werden deklarativ neu erzeugt)
+for n in $(seq 1 9); do
+    iface="wg-$n"
     if ip link show "$iface" &>/dev/null; then
         ip link set "$iface" down 2>/dev/null && log_success "$iface down" || log_info "$iface bereits down"
     fi
@@ -172,29 +173,11 @@ fi
 log_success "Standard-Routing-Regeln überprüft"
 
 # ============================================================================
-# 5. ProtonVPN-Cleanup & WiFi-Verbindung reparieren
+# 5. WiFi-Verbindung reparieren
 # ============================================================================
 log_section "5️⃣  WiFi-Verbindung reparieren..."
 
-# 5a. ProtonVPN GUI-Verbindungen löschen (übernehmen DNS/Routing auf WiFi)
-log_info "Entferne ProtonVPN NM-Verbindungen..."
-PVPN_REMOVED=0
-for f in /etc/NetworkManager/system-connections/pvpn-killswitch* /etc/NetworkManager/system-connections/ProtonVPN*; do
-    if [ -f "$f" ]; then
-        rm -f "$f"
-        log_success "Gelöscht: $(basename "$f")"
-        ((PVPN_REMOVED++))
-    fi
-done
-if [ $PVPN_REMOVED -eq 0 ]; then
-    log_info "Keine ProtonVPN-Verbindungen gefunden"
-else
-    log_success "$PVPN_REMOVED ProtonVPN-Verbindung(en) gelöscht"
-    # NM muss die gelöschten Dateien bemerken
-    nmcli connection reload 2>/dev/null || true
-fi
-
-# 5b. WiFi-Passwort aus sops lesen
+# 5a. WiFi-Passwort aus sops lesen
 WIFI_PSK=""
 if [ -f /run/secrets/wifi/home ]; then
     WIFI_PSK=$(cat /run/secrets/wifi/home)
@@ -204,7 +187,7 @@ else
     log_info "WiFi-Verbindung nur möglich wenn Greenside4-Profil existiert"
 fi
 
-# 5c. WiFi-Interface erkennen
+# 5b. WiFi-Interface erkennen
 WIFI_IFACE=$(nmcli -t -f DEVICE,TYPE device status 2>/dev/null | grep ":wifi" | cut -d: -f1 | head -1)
 if [[ -z "$WIFI_IFACE" ]]; then
     log_warning "Kein WiFi-Interface gefunden, versuche Ethernet..."
@@ -383,8 +366,8 @@ echo "   1. Firewall reaktivieren:"
 echo "      ${GREEN}sudo nixos-rebuild switch --flake $REPO_DIR#nixos${NC}"
 echo ""
 echo "   2. Oder nur Services neu starten:"
-echo "      ${GREEN}sudo systemctl start nftables${NC}"
-echo "      ${GREEN}systemctl --user restart protonvpn-gui${NC}  (als User)"
+echo "      ${GREEN}sudo systemctl restart nftables${NC}"
+echo "      ${GREEN}vpn 1${NC}  (als User, verbindet Slot 1)"
 echo "      ${GREEN}sudo systemctl start suricata${NC}"
 echo ""
 echo "   3. System neu starten (empfohlen):"
