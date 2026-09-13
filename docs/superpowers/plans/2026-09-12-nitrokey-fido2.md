@@ -21,8 +21,8 @@ vorher auf das Swap-Gerät eingeschränkt.
 
 ## Fortschritt
 
-**Stand 2026-09-13, nach Aufgabe 5.** Aufgabe 7 ist ungeplant zur Hälfte vorgezogen (siehe
-unten). Nächster Schritt: Aufgabe 7b.
+**Stand 2026-09-13, vor den Neustart-Tests von 7b** (Schritt 6 mit Stick, Schritt 7 ohne Stick).
+Wer hier neu einsteigt: Ergebnisse erfragen und das Journal messen.
 
 | Aufgabe | Stand | Beleg |
 |---|---|---|
@@ -33,10 +33,11 @@ unten). Nächster Schritt: Aufgabe 7b.
 | 5 Passphrase Root + Swap | erledigt, Neustart-Test ohne Stick in 7b | `--test-passphrase --key-slot` Root 1, Swap 3; alte Slots 0 entfernt; Fehleingabe Swap Slot 2 entfernt; Header-Sicherung `/root/luks-header-root-nach-rotation.img` (16 MiB, 600), alte per `shred -u` |
 | 6 | offen | |
 | 7 TPM2 von Root | Schritte 2, 4, 5, 6 erledigt, Schritt 7 (Neustart) offen | siehe unten |
+| 7b Swap per FIDO2 | Schritte 1–5 erledigt, Neustarts mit/ohne Stick offen | `3b5d615`; Swap-FIDO2 Keyslot 0; `tpm2-reenroll` am aktiven System `not-found`; `Wiped slot 1` |
 | 8 | offen | |
 
-**Slot-Belegung** (gemessen 2026-09-13 nach Aufgabe 5): Root 1 = neue Passphrase, 2 = FIDO2
-(Token 1), **kein TPM2 mehr**. Swap 1 = TPM2 (Token 0, aktueller PCR 11), 3 = neue Passphrase.
+**Slot-Belegung** (gemessen 2026-09-13 nach 7b Schritt 5): Root 1 = Passphrase, 2 = FIDO2
+(Token 1). Swap 0 = FIDO2 (Token 1), 3 = Passphrase. **Kein TPM2 an keinem Gerät.**
 
 **Was beim Neustart passiert ist:** TPM2 verweigerte an beiden Geräten (PCR 11 geändert), Root
 entsperrte per FIDO2, Swap per Passphrase. Danach startete `tpm2-reenroll`, **löschte den
