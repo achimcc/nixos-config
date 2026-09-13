@@ -309,6 +309,11 @@ in
           # Even though IPv6 is disabled at kernel level, this prevents leaks if accidentally enabled
           meta nfproto ipv6 ip6 daddr != fe80::/10 drop
 
+          # 18b. Zustand "Direkt" (vpn-direkt.service füllt die Chain, sonst leer).
+          #      Unter policy accept wirkungslos; ab dem Kill-Switch die einzige
+          #      Freigabe für ungeschützten Verkehr.
+          jump direkt
+
           # 19. Dropped packets (logging temporarily disabled)
         }
 
@@ -319,6 +324,10 @@ in
           # Tailscale: Forward zwischen tailscale0 und anderen Interfaces
           iifname "tailscale0" accept
           oifname "tailscale0" accept
+        }
+
+        # Zustand "Direkt" — leer, bis vpn-direkt.service sie füllt.
+        chain direkt {
         }
       }
 

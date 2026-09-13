@@ -35,6 +35,22 @@ let
     };
     ipv6.method = "disabled";
   };
+
+  vpnStatus = pkgs.writeShellApplication {
+    name = "vpn-status";
+    runtimeInputs = with pkgs; [ wireguard-tools nftables jq gnugrep gawk coreutils ];
+    text = builtins.readFile ./vpn/vpn-status.sh;
+  };
+
+  # Füllt die Chain `direkt` (firewall.nix). Fremdes DoT/DoQ bleibt auch ungeschützt
+  # gesperrt; erlaubt sind nur die resolved-Server Quad9 und Mullvad.
+  direktAn = pkgs.writeShellScript "vpn-direkt-an" ''
+    ${pkgs.nftables}/bin/nft -f - <<'EOF'
+    flush chain inet filter direkt
+    add rule inet filter direkt meta l4proto { tcp, udp } th dport 853 ip daddr != { 9.9.9.9, 194.242.2.2 } drop
+    add rule inet filter direkt accept
+    EOF
+  '';
 in
 {
   assertions = [
@@ -85,6 +101,50 @@ in
       ExecStart = "${pkgs.networkmanager}/bin/nmcli connection up wg-1";
     };
   };
+
+  systemd.services.vpn-status = {
+    description = "VPN: Zustand messen und nach /run/vpn/status.json schreiben";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "nftables.service" ];
+    serviceConfig = {
+      ExecStart = "${vpnStatus}/bin/vpn-status";
+      Restart = "always";
+      RestartSec = "2s";
+      RuntimeDirectory = "vpn";
+      RuntimeDirectoryMode = "0755";
+      UMask = "0022";
+      ProtectHome = true;
+      PrivateTmp = true;
+      NoNewPrivileges = true;
+    };
+  };
+
+  # Zustand "Direkt": Kill-Switch bewusst aus, z. B. für Captive Portals.
+  # Kein wantedBy → nach einem Neustart nie aktiv. Ein nftables-Reload leert die
+  # Chain ohnehin; `vpn direkt` benutzt deshalb restart, nicht start.
+  systemd.services.vpn-direkt = {
+    description = "VPN: Kill-Switch bewusst aus (Zustand Direkt)";
+    after = [ "nftables.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = direktAn;
+      ExecStop = "${pkgs.nftables}/bin/nft flush chain inet filter direkt";
+    };
+  };
+
+  # Der Nutzer darf genau vpn-direkt.service starten, stoppen, neu starten — nur in
+  # der aktiven lokalen Sitzung und ohne Passwort. Sonst nichts an systemd.
+  security.polkit.extraConfig = ''
+    polkit.addRule(function (action, subject) {
+      if (action.id == "org.freedesktop.systemd1.manage-units" &&
+          action.lookup("unit") == "vpn-direkt.service" &&
+          ["start", "stop", "restart"].indexOf(action.lookup("verb")) >= 0 &&
+          subject.user == "${id.username}" && subject.local && subject.active) {
+        return polkit.Result.YES;
+      }
+    });
+  '';
 
   environment.systemPackages = [ pkgs.wireguard-tools ];
 }
