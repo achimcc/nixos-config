@@ -37,12 +37,20 @@ aktive_tunnel() {
 }
 
 trenne_tunnel_ausser() {
-  local behalten=${1:-} verbindung
+  local behalten=${1:-} verbindung rest
   while read -r verbindung; do
     if [ -n "$verbindung" ] && [ "$verbindung" != "$behalten" ]; then
-      nmcli connection down "$verbindung" >/dev/null
+      # || true: ein bereits verschwundenes Profil darf das Skript nicht abbrechen —
+      # gemessen wird danach, ob wirklich noch ein Tunnel läuft.
+      nmcli connection down "$verbindung" >/dev/null || true
     fi
   done < <(aktive_tunnel)
+
+  rest=$(aktive_tunnel | grep -v -x "$behalten" || true)
+  if [ -n "$rest" ]; then
+    melde critical "⚠ VPN" "Konnte $rest nicht trennen."
+    exit 1
+  fi
 }
 
 name_von() {
@@ -94,7 +102,10 @@ verbinde() {
 aus() {
   trenne_tunnel_ausser ""
   rm -f "$laufzeit/exit.json"
-  systemctl stop vpn-direkt.service
+  if ! systemctl stop vpn-direkt.service; then
+    melde critical "⚠ VPN" "vpn-direkt ließ sich nicht stoppen — Zustand Direkt kann noch aktiv sein."
+    exit 1
+  fi
   melde normal "⛔ VPN aus" "Alle Tunnel getrennt."
 }
 
@@ -103,7 +114,10 @@ direkt() {
   rm -f "$laufzeit/exit.json"
   # restart statt start: Nach einem nftables-Reload ist die Unit evtl. noch
   # "active", die Chain aber leer — start wäre dann wirkungslos.
-  systemctl restart vpn-direkt.service
+  if ! systemctl restart vpn-direkt.service; then
+    melde critical "⚠ VPN" "vpn-direkt ließ sich nicht starten — Kill-Switch bleibt an."
+    exit 1
+  fi
   melde critical "⚠ VPN DIREKT" "Kill-Switch aus, Verkehr ungeschützt — bis ein Server gewählt wird oder bis zum Neustart."
 }
 
