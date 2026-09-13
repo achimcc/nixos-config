@@ -1,0 +1,7 @@
+.vpn-indikator { font-weight: bold; }
+.vpn-verbunden { color: #8ff0a4; }
+.vpn-haengt { color: #ffbe6f; }
+.vpn-gesperrt,
+.vpn-unbekannt { color: #9a9996; }
+.vpn-direkt,
+.vpn-offen { color: #ff7b63; }

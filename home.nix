@@ -29,6 +29,7 @@ in
     ./modules/home/keyboard-layout-auto.nix
     ./modules/home/neovim.nix
     ./modules/home/sway.nix
+    ./modules/home/vpn.nix
   ];
 
   home.stateVersion = "24.11";

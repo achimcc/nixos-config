@@ -1,0 +1,8 @@
+{
+  "uuid": "vpn-indikator@local",
+  "name": "VPN-Indikator",
+  "description": "Gemessener WireGuard-Zustand in der Leiste; umgeschaltet wird über den Befehl vpn.",
+  "shell-version": ["50"],
+  "session-modes": ["user"],
+  "version": 1
+}
