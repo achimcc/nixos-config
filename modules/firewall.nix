@@ -1,7 +1,7 @@
 # Firewall & VPN Kill Switch Konfiguration
 # Blockiert ALLEN Traffic außer über VPN-Interfaces
 
-{ config, lib, pkgs, id, ... }:
+{ config, lib, pkgs, id, vpnServer, ... }:
 
 # HINWEIS: Netzwerk-Zonen-Konzept dokumentiert in firewall-zones.nix
 # Diese Datei implementiert die Zonen-Regeln mit nftables
@@ -15,19 +15,11 @@
 # 5. vpn-boot.service (wg-1) - verbindet Slot 1 (modules/vpn.nix)
 
 let
-  # VPN configuration
-  vpnRoutingTable = 51820;  # WireGuard routing table
-
-  # VPN-Ports zentral definiert für einfache Wartung
-  vpnPorts = {
-    wireguard = 51820;
-    wireguardAlt1 = 88;      # ProtonVPN WireGuard alternativ
-    wireguardAlt2 = 1224;    # ProtonVPN WireGuard alternativ
-    openvpn = 1194;
-    https = 443;
-    ikev2 = 500;
-    ikev2Nat = 4500;
-  };
+  # WireGuard-Endpunkte der neun Slots als nft-Konkatenation "ip . port, …".
+  # Nur dorthin darf ohne Tunnel UDP raus (Handshake). Bis 2026-09-13 stand hier
+  # "UDP 443/51820/88/1224/500/4500 zu JEDEM Ziel" — UDP 443 ist QUIC, Browser
+  # wären damit am Kill-Switch vorbeigekommen.
+  vpnEndpunkte = lib.concatMapStringsSep ", " (s: "${s.endpoint} . ${toString s.port}") vpnServer;
 
   # Syncthing Ports
   syncthingPorts = {
@@ -182,121 +174,82 @@ in
           # 13. Dropped packets (logging temporarily disabled)
         }
 
-        # OUTPUT CHAIN
-        # KILL SWITCH DEAKTIVIERT (2026-06-24): policy von drop auf accept.
-        # Internet funktioniert wieder OHNE VPN. Ausgehender Traffic ist nicht mehr
-        # auf VPN-Interfaces beschränkt. Die expliziten drop-Regeln unten (DoT-Leak,
-        # LLMNR/mDNS, IPv6-Leak) bleiben als allgemeine Härtung aktiv.
-        # Reaktivierung: policy accept -> policy drop.
+        # OUTPUT CHAIN — KILL-SWITCH (seit 2026-09-13)
+        # Spec: docs/superpowers/specs/2026-09-13-wireguard-statt-proton-gui-design.md
+        # Ohne Tunnel geht nur raus, was ihn aufbaut (Handshake zu den neun Endpunkten,
+        # DHCP), das lokale Netz und Tailscale. Ungeschützter Verkehr nur im Zustand
+        # "Direkt": vpn-direkt.service füllt die Chain `direkt` (Befehl: vpn direkt).
+        # Notfall ohne funktionierendes `vpn`: policy drop -> accept, nixos-rebuild.
         chain output {
-          type filter hook output priority filter; policy accept;
+          type filter hook output priority filter; policy drop;
 
-          # 1. Loopback traffic
+          # 1. Loopback — auch DNS an den resolved-Stub 127.0.0.53
           oif lo accept
 
-          # 2. Established/Related connections
-          ct state established,related accept
+          # 2. Syncthing-Ratenlimit über den Tunnel (Anti-Exfiltration).
+          #    Muss VOR "established" stehen, sonst trifft es nur das erste Paket.
+          #    Bis 2026-09-13 stand es hinter "oifname proton0 accept" und griff nie.
+          oifname "wg*" tcp dport ${toString syncthingPorts.tcp} limit rate over 10 mbytes/second drop
+          oifname "wg*" udp dport ${toString syncthingPorts.quic} limit rate over 10 mbytes/second drop
 
-          # 3. VPN interfaces - allow ALL traffic (HYBRID MODE: CLI + GUI)
-          oifname "proton-cli" accept
-          oifname "proton0" accept
-          oifname "tun*" accept
+          # 3. Bestehende Verbindungen — nur über Tunnel/Tailscale oder ins lokale Netz.
+          #    Eine im Zustand "Direkt" geöffnete Verbindung soll nach dem Umschalten
+          #    nicht am Tunnel vorbei weiterlaufen.
+          ct state established,related oifname "wg*" accept
+          ct state established,related oifname "tailscale0" accept
+          ct state established,related ip daddr { ${localNetwork.subnet}, ${secondLocalNetwork.subnet}, ${remarkableNetwork.subnet} } accept
+
+          # 4. Tunnel und Tailscale
           oifname "wg*" accept
           oifname "tailscale0" accept
 
-          # 4a-ts. Tailscale UDP-Handshake
-          udp dport 41641 accept
+          # 5. Tailscales eigene Pakete: tailscaled markiert seine Sockets mit 0x80000
+          #    und routet sie über die Main-Tabelle am Tunnel vorbei (ip rule 5210).
+          meta mark and 0xff0000 == 0x80000 accept
 
-          # 4a. VPN WireGuard-Handshake (UDP auf physischen Interfaces)
-          # WireGuard-Handshake ist verschlüsselt - kein Daten-Leak möglich
-          # ProtonVPN WireGuard nutzt: UDP 443, 88, 1224, 51820, 500, 4500
-          oifname != { "proton-cli", "proton0" } udp dport { ${toString vpnPorts.https}, ${toString vpnPorts.wireguard}, ${toString vpnPorts.wireguardAlt1}, ${toString vpnPorts.wireguardAlt2}, ${toString vpnPorts.ikev2}, ${toString vpnPorts.ikev2Nat} } accept
+          # 5b. Bisherige Tailscale-Freigaben ohne Markierung. Die Zähler zeigen, ob sie
+          #     neben 5 noch gebraucht werden (Messung Schritt 14). UDP 3478 zu jedem Ziel
+          #     erlaubt auch Browsern STUN außen herum — WebRTC-Leck-Kandidat.
+          udp dport 41641 counter accept
+          ip daddr @tailscale_api tcp dport 443 counter accept
+          udp dport 3478 counter accept
 
-          # 4c. Tailscale Coordination Server (controlplane.tailscale.com, login.tailscale.com)
-          # ERFORDERLICH vor tailscale0 existiert (Erstverbindung/Authentifizierung)
-          oifname != "tailscale0" ip daddr @tailscale_api tcp dport ${toString vpnPorts.https} accept
-          # STUN/DERP NAT-Traversal (UDP 3478)
-          oifname != "tailscale0" udp dport 3478 accept
-
-          # 5. DHCP requests (client:68 -> broadcast:67)
-          udp sport 68 udp dport 67 accept
-
-          # 6. DNS to systemd-resolved stub only
-          ip daddr ${dnsServers.stubListener} udp dport 53 accept
-          ip daddr ${dnsServers.stubListener} tcp dport 53 accept
-
-          # 7. DNS-over-TLS - Bootstrap phase (Quad9)
-          ip daddr 9.9.9.9 tcp dport 853 accept
-
-          # 8. DNS-over-TLS - VPN phase (Mullvad) (HYBRID MODE: CLI + GUI)
-          oifname "proton-cli" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
-          oifname "proton0" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
-          oifname "tun*" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
-          oifname "wg*" ip daddr ${dnsServers.mullvad} tcp dport 853 accept
-
-          # 9. Block all other DNS-over-TLS (prevent leaks)
-          tcp dport 853 drop
-          udp dport 853 drop
-
-          # 10. SECURITY: Block LLMNR/mDNS outbound (Suricata alert mitigation)
+          # 6. Härtung — gilt auch im Zustand "Direkt"
           udp dport 5355 drop comment "Block LLMNR (credential theft risk)"
           udp dport 5353 drop comment "Block mDNS (information leakage)"
+          meta nfproto ipv6 icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept
+          meta nfproto ipv6 ip6 daddr != fe80::/10 drop
 
-          # 11. Fritz!Box Gateway (Webinterface)
+          # 7. WireGuard-Handshake — nur zu den neun Endpunkten der Serverliste
+          ip daddr . udp dport { ${vpnEndpunkte} } accept
+
+          # 8. DHCP (client:68 -> server:67)
+          udp sport 68 udp dport 67 accept
+
+          # 9. Lokales Netz (unverändert aus der Chain vor 2026-09-13)
           ip daddr ${localNetwork.gateway} tcp dport { 80, 443 } accept
-
-          # 11a. Printer access
           ip daddr ${localNetwork.printerIP} tcp dport 631 accept
           ip daddr ${localNetwork.printerIP} tcp dport 9100 accept
-
-          # 11a. Proxmox server
           ip daddr 192.168.178.100 tcp dport { 22, 8006 } accept
-
-          # 11b. Jellyfin server (192.168.178.49)
           ip daddr 192.168.178.49 tcp dport { 22, 8096, 8920 } accept
-
-          # 11d. ICMP ping für gesamtes Heimnetz (z.B. nmap -sn)
           ip daddr ${localNetwork.subnet} icmp type echo-request accept
-
-          # 11c. Workstation 192.168.178.51 - nur benötigte Dienste
           ip daddr 192.168.178.51 tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
           ip daddr 192.168.178.51 udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
           ip daddr 192.168.178.51 icmp type echo-request accept
-
-          # 12. Syncthing - Local network only
           ip daddr ${localNetwork.subnet} tcp dport ${toString syncthingPorts.tcp} accept
           ip daddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.quic} accept
           ip daddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.discovery} accept
-
-          # 13. Syncthing broadcast discovery
           ip daddr 255.255.255.255 udp dport ${toString syncthingPorts.discovery} accept
           ip daddr 192.168.178.255 udp dport ${toString syncthingPorts.discovery} accept
-
-          # 14. Egress Rate Limiting - Syncthing (Anti-Exfiltration)
-          # Begrenzt Datenübertragung über VPN auf 10 MB/s pro Verbindung
-          oifname { "proton-cli", "proton0" } tcp dport ${toString syncthingPorts.tcp} limit rate over 10 mbytes/second drop
-          oifname { "proton-cli", "proton0" } udp dport ${toString syncthingPorts.quic} limit rate over 10 mbytes/second drop
-
-          # 15. Second local network (server network) - restricted ports
           ip daddr ${secondLocalNetwork.subnet} tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
           ip daddr ${secondLocalNetwork.subnet} udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
-
-          # 16. reMarkable 2 USB network - SSH and Web only
           ip daddr ${remarkableNetwork.subnet} tcp dport { 22, 80 } accept
 
-          # 17. IPv6: ICMPv6 Neighbor Discovery (CRITICAL for NetworkManager)
-          meta nfproto ipv6 icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept
-
-          # 18. IPv6 LEAK PREVENTION: Block all non-link-local IPv6 (Defense-in-Depth)
-          # Even though IPv6 is disabled at kernel level, this prevents leaks if accidentally enabled
-          meta nfproto ipv6 ip6 daddr != fe80::/10 drop
-
-          # 18b. Zustand "Direkt" (vpn-direkt.service füllt die Chain, sonst leer).
-          #      Unter policy accept wirkungslos; ab dem Kill-Switch die einzige
-          #      Freigabe für ungeschützten Verkehr.
+          # 10. Zustand "Direkt" — leer, außer vpn-direkt.service ist aktiv
           jump direkt
 
-          # 19. Dropped packets (logging temporarily disabled)
+          # 11. Sichtbar machen, was gesperrt wird (danach greift policy drop)
+          limit rate 10/minute log prefix "vpn-sperre: "
         }
 
         # FORWARD CHAIN
