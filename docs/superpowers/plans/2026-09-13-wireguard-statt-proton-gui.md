@@ -27,7 +27,7 @@ bash (`writeShellApplication` → shellcheck beim Bau).
 | 1 Serverdaten | erledigt | `771034b`; homeserver-secrets `a6a3ee8` |
 | 2 Profile + Messungen | erledigt | `dec3511`; Tunnel trägt (Exit-Land/-Organisation ≠ Heimanbieter); resolved ohne eigenes DNS/`~.` am Link, Abfrage `authenticated: yes`; `rp_filter=2`; Proton-Resolver (10.2.0.1) validiert DNSSEC nicht (`dnssec-failed.org` → `NOERROR` ohne `ad`-Flag, `. DNSKEY`-Anfrage mit `+dnssec` scheitert `NOTIMP` → 0 RRSIG) und filtert `doubleclick.net` nicht (DNS-seitig kein NetShield-Effekt); Quad9 löst `doubleclick.net` normal auf. Empfehlung: DNS vorerst bei Quad9/Mullvad belassen, nicht auf Proton umstellen. |
 | 3 Status + Direkt | erledigt | `8fa0ab0`, `a089a79`; Statusdatei `/run/vpn/status.json` 644 root, Felder vollständig (Slot, Name, Handshake-Alter, rx/tx, direkt, killswitch); Tunnel weg → `slot` null, danach wieder verbunden; Zustand „Direkt“ ohne Passwortabfrage gestartet/gestoppt (Tool-Bash in aktiver Sitzung); nftables-Neustart leert die Chain `direkt`, die Unit meldet danach weiterhin `active` → Wahrheit ist die Chain, nicht der Unit-Zustand (Verfeinerung 2), bestätigt. |
-| 4 `vpn`-Befehl | offen | |
+| 4 `vpn`-Befehl | erledigt | `f28ebb1`, `ab5eab3`; Review-Korrektur (gescheitertes Trennen/`vpn-direkt` jetzt gemessen statt vertraut, sichtbare Meldung, Exit-Code 1) im Re-Review ADDRESSED bestätigt. Nach Rebuild alle neun Slots einzeln geschaltet: acht von neun Slots mit passendem Exit-Land bestätigt, ein Slot (3) scheiterte an der Exit-IP-Prüfung nach zwei Versuchen (Profil blieb aktiv, kein Handshake-Nachweis) — Ursache noch offen, kein Blocker für die übrigen acht. Sperre gegen parallele Umschaltung hält (`exit=3`, nur ein Tunnel aktiv). `aus`/`direkt`/Rückkehr/`login` liefern exakt die erwarteten Statuswerte (`slot`/`direkt`), zweites `login` ohne erneute Umschaltung. Alltags-Slot 1 gesetzt (`direkt` false, genau ein Tunnel aktiv). |
 | 5 Leiste, Kürzel, Login | offen | |
 | 6 GUI raus | offen | |
 | 7 Kill-Switch | offen | |
@@ -727,14 +727,14 @@ Verfeinerung 2. Danach Unit gestoppt.
   `$XDG_RUNTIME_DIR/vpn/exit.json` = `{ "slot": int, "ip": string, "zeit": int }`;
   `${XDG_STATE_HOME:-~/.local/state}/vpn/letzter` = eine Ziffer 1–9.
 
-- [ ] **Schritt 1: Roter Test**
+- [x] **Schritt 1: Roter Test**
 
 ```bash
 command -v vpn || echo fehlt
 ```
 Erwartet: `fehlt`.
 
-- [ ] **Schritt 2: `modules/vpn/vpn.sh` anlegen**
+- [x] **Schritt 2: `modules/vpn/vpn.sh` anlegen**
 
 ```bash
 # vpn — einziger Umschaltpfad für die WireGuard-Slots (Tastenkürzel, Leiste, Terminal).
@@ -881,7 +881,7 @@ case "${1:-}" in
 esac
 ```
 
-- [ ] **Schritt 3: In `modules/vpn.nix` einbinden**
+- [x] **Schritt 3: In `modules/vpn.nix` einbinden**
 
 Im `let`-Block nach `direktAn`:
 
@@ -895,7 +895,7 @@ Im `let`-Block nach `direktAn`:
 
 `environment.systemPackages = [ pkgs.wireguard-tools vpnBefehl ];`
 
-- [ ] **Schritt 4: Bau und Aufruftests ohne Netz**
+- [x] **Schritt 4: Bau und Aufruftests ohne Netz**
 
 Der Bau des Systems baut das Paket mit; danach seinen Pfad aus der Konfiguration holen:
 
@@ -908,20 +908,20 @@ v=$(nix eval --raw .#nixosConfigurations.nixos.config.environment.systemPackages
 ```
 Erwartet: Bau ohne shellcheck-Fehler; zweimal Aufrufzeile mit `exit=2`; Status als JSON.
 
-- [ ] **Schritt 5: Commit**
+- [x] **Schritt 5: Commit**
 
 ```bash
 git add modules/vpn.nix modules/vpn/vpn.sh
 git commit -m "vpn: Befehl vpn — Slot wählen mit Exit-IP-Prüfung, aus, direkt, login, status"
 ```
 
-- [ ] **Schritt 6: [Nutzer] Aktivieren**
+- [x] **Schritt 6: [Nutzer] Aktivieren**
 
 ```nu
 sudo nixos-rebuild switch --flake /home/achim/nixos-config#nixos
 ```
 
-- [ ] **Schritt 7: Alle neun Slots — Wirkung messen (keine IPs notieren)**
+- [x] **Schritt 7: Alle neun Slots — Wirkung messen (keine IPs notieren)**
 
 ```bash
 for n in 1 2 3 4 5 6 7 8 9; do
@@ -939,7 +939,7 @@ Erwartet: je Slot genau ein aktives Profil `wg-<n>`, das Land passt zum Serverna
 Namen), `letzter` = 9, `exit.json` Slot 9. Die zweite Abfrage läuft **ohne** `--interface` —
 sie belegt, dass auch normaler Verkehr durch den Tunnel geht.
 
-- [ ] **Schritt 8: Sperre gegen parallele Umschaltung**
+- [x] **Schritt 8: Sperre gegen parallele Umschaltung**
 
 ```bash
 vpn 2 & sleep 0.5; vpn 3; echo "exit=$?"; wait
@@ -947,7 +947,7 @@ nmcli -t -f NAME connection show --active | rg '^wg-'
 ```
 Erwartet: `exit=3`, danach nur `wg-2` aktiv.
 
-- [ ] **Schritt 9: `aus`, `direkt`, Rückkehr aus `direkt`, `login`**
+- [x] **Schritt 9: `aus`, `direkt`, Rückkehr aus `direkt`, `login`**
 
 ```bash
 vpn aus; sleep 3; jq -c '{slot, direkt}' /run/vpn/status.json; test -e "$XDG_RUNTIME_DIR/vpn/exit.json" && echo exit-da || echo exit-weg
@@ -960,7 +960,7 @@ Erwartet: `{"slot":null,"direkt":false}` + `exit-weg`; `{"slot":null,"direkt":tr
 `{"slot":4,"direkt":false}`; Slot 6; `zweites login exit=0` ohne neue Umschaltung.
 Fragt polkit im Tool-Bash nach einem Passwort: Schritt 9 **[Nutzer]** in GNOME Console.
 
-- [ ] **Schritt 10: Nutzer wählt seinen Alltags-Slot** (`vpn <n>`), Fortschritt eintragen, committen.
+- [x] **Schritt 10: Nutzer wählt seinen Alltags-Slot** (`vpn <n>`), Fortschritt eintragen, committen.
 
 ---
 
