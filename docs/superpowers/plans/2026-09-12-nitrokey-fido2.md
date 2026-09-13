@@ -22,8 +22,7 @@ vorher auf das Swap-Gerät eingeschränkt.
 ## Fortschritt
 
 **Stand 2026-09-13, nach dem Neustart-Test von Aufgabe 4.** Aufgabe 7 ist ungeplant zur Hälfte
-vorgezogen (siehe unten). Nächster Schritt: Aufgabe 5. Offen sind zwei Entscheidungen des Benutzers:
-Swap mit Zufallsschlüssel und FIDO2 mit oder ohne PIN.
+vorgezogen (siehe unten). Nächster Schritt: Aufgabe 5.
 
 | Aufgabe | Stand | Beleg |
 |---|---|---|
@@ -48,9 +47,13 @@ Messung am aktiven System: Root-UUID im Dienstskript 0, Swap-UUID 1. Der `switch
 `systemd-tty-ask-password-agent --query`, danach `New TPM2 token enrolled as key slot 1`,
 `Result=success`.
 
-**Ungeklärt:** Ob die Header-Sicherung `/root/luks-header-root-vor-fido2.img` angelegt wurde, hat
-der Benutzer nicht bestätigt. **Vor Aufgabe 5 zwingend nachfragen.** Existiert sie, enthält sie
-noch den TPM2-Slot der Root-Partition: Wer sie einspielt, stellt die automatische Entsperrung wieder her.
+**Header-Sicherung existiert:** `/root/luks-header-root-vor-fido2.img`, 16 MiB, `-rw------- root`,
+12. Sep 16:59. Sie enthält noch den alten TPM2-Slot und die alte Passphrase der Root-Partition.
+Wer sie einspielt, stellt beides wieder her. Aufgabe 5 Schritt 6 vernichtet sie.
+
+**Neue Anforderung (2026-09-13):** Swap soll sich ebenfalls per FIDO2 entsperren lassen. Entschieden:
+FIDO2 + Passphrase, eigene Berührung, PIN bleibt. Eingeplant als Aufgabe 7b. Aufgabe 5 gilt
+jetzt für beide Geräte. Reihenfolge: 5 → 7b (mit beiden Neustart-Tests) → 6 → 8.
 
 ### Außerplanmäßig erledigt
 
@@ -117,7 +120,7 @@ noch den TPM2-Slot der Root-Partition: Wer sie einspielt, stellt die automatisch
 | `configuration.nix` | `hardware.nitrokey.enable`, Benutzergruppe, Pakete, LUKS-`crypttabExtraOpts` | 1, 4 |
 | `modules/sops.nix` | Secret `u2f/mappings` einbinden | 3 |
 | `secrets/secrets.yaml` | verschlüsselte Zuordnungszeile | 3 |
-| `modules/secureboot.nix` | `tpm2-reenroll` auf Swap einschränken | 7 |
+| `modules/secureboot.nix` | `tpm2-reenroll` auf Swap einschränken, dann entfernen | 7, 7b |
 | `docs/TPM-ENROLLMENT.md` | Root wird nicht mehr per TPM2 entsperrt | 8 |
 | `docs/SECRET-ROTATION-LOG.md` | Rotation von LUKS-Passphrase, Benutzerpasswort, FIDO2-PIN | 5, 6 |
 
@@ -599,82 +602,83 @@ git commit -m "Root-LUKS: FIDO2-Slot fuer den Nitrokey 3, Passphrase bleibt Ruec
 
 ---
 
-## Aufgabe 5: Neue LUKS-Passphrase
+## Aufgabe 5: Neue LUKS-Passphrase für Root und Swap
+
+**Überarbeitet 2026-09-13.** Das Rückfallpasswort gilt jetzt für **beide** Geräte. Eine Passphrase
+ist nur einmal aufzuschreiben. `systemd-cryptsetup` merkt sich eine eingegebene Passphrase und
+probiert sie am zweiten Gerät; beim Neustart-Test wird gemessen, ob sie wirklich nur einmal
+abgefragt wird. Den Neustart-Test übernimmt Aufgabe 7b.
 
 **Dateien:**
 - Ändern: `docs/SECRET-ROTATION-LOG.md`
 
 **Schnittstellen:**
-- Verbraucht: funktionierenden FIDO2-Slot (Aufgabe 4) als zweiten Weg, falls beim
-  Passphrase-Wechsel etwas schiefgeht.
-- Liefert: nichts, was Folgeaufgaben brauchen.
+- Verbraucht: funktionierenden FIDO2-Slot der Root-Partition (Aufgabe 4) als zweiten Weg.
+- Liefert: die neue Passphrase, mit der Aufgabe 7b den FIDO2-Slot am Swap-Gerät anlegt.
 
-- [ ] **Schritt 1: Passphrase erzeugen — im eigenen Terminal, nicht über `!`**
+- [ ] **Schritt 1: Passphrase erzeugen, im eigenen Terminal, nicht über `!`**
 
-**Tastaturlayout beachten:** `console.keyMap = "us"`. Die Initrd-Abfrage läuft auf US-Layout;
-auf der deutschen ThinkPad-Tastatur sind `y` und `z` vertauscht und Umlaute unerreichbar.
-Deshalb nur Kleinbuchstaben, Ziffern und Bindestriche:
+**Layoutfest statt Diceware-Standard.** Das Initrd tippt auf `us`, die Sitzung auf
+`us-umlaut,de`. Zwischen US und DE liegen `y`/`z` vertauscht, und `-` sitzt woanders. Deshalb:
+nur Wörter aus `a`–`x`, Leerzeichen als Trenner. Aus der EFF-Liste (7776 Wörter) bleiben 6500,
+das sind 12,67 Bit pro Wort; **8 Wörter ≈ 101 Bit**. `secrets.choice` nutzt den
+Zufallsgenerator des Kernels:
 
 ```nu
-nix shell .#nixosConfigurations.nixos.pkgs.diceware -c diceware --no-caps --delimiter "-" --num 7
+python3 -c 'import secrets,re; w=[l.split("\t")[1].strip() for l in open("/nix/store/1i1nmd6p6vb4smz20ncaqprkfn3sj2ah-python3.14-diceware-1.0.1/lib/python3.14/site-packages/diceware/wordlists/wordlist_en_eff.txt")]; w=[x for x in w if re.fullmatch("[a-x]+",x)]; print(" ".join(secrets.choice(w) for _ in range(8)))'
 ```
 
-Sieben Wörter aus der EFF-Liste sind rund 90 Bit — deutlich mehr, als gegen einen
-LUKS2-Argon2id-Header je durchprobiert werden kann.
+Fehlt der Store-Pfad (nach einer Garbage Collection), vorher
+`nix build --no-link .#nixosConfigurations.nixos.pkgs.diceware` ausführen.
 
 Die Passphrase in den Passwortspeicher legen **und zusätzlich auf Papier**, zusammen mit dem
-Rettungsmedium. Wenn Stick und Passphrase gleichzeitig weg sind, ist die Platte verloren.
+Rettungsmedium. Wenn Stick und Passphrase gleichzeitig weg sind, sind die Daten verloren.
 
-- [ ] **Schritt 2: Slot-Belegung vorher notieren**
-
-```nu
-sudo cryptsetup luksDump /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a | grep -E "^\s+[0-9]+: luks2" 
-```
-
-Die Nummern aufschreiben — nach dem Hinzufügen muss klar sein, welcher Slot der neue ist.
-
-- [ ] **Schritt 3: Neue Passphrase als zusätzlichen Slot anlegen**
+- [ ] **Schritt 2: Neue Passphrase an beiden Geräten als zusätzlichen Slot anlegen**
 
 ```nu
 sudo cryptsetup luksAddKey /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a
+sudo cryptsetup luksAddKey /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
 ```
 
-Fragt erst nach einer **vorhandenen** Passphrase (der alten), dann zweimal nach der neuen.
-Der alte Slot bleibt vorerst bestehen — das ist Absicht.
+Jeweils zuerst eine **vorhandene** Passphrase (die alte des Geräts), dann zweimal die neue.
 
-- [ ] **Schritt 4: Neuen Slot prüfen, bevor der alte fällt**
+- [ ] **Schritt 3: Belegung messen und neue Passphrase prüfen, bevor der alte Slot fällt**
 
 ```nu
-sudo cryptsetup luksDump /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a | grep -E "^\s+[0-9]+: luks2"
-sudo cryptsetup open --test-passphrase /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a
+for dev in [fcef0557-8a09-4f30-b78e-aecc458a975a f8e58c55-8cf8-4781-bdfd-a0e4c078a70b] {
+  print $"== ($dev)"
+  sudo cryptsetup luksDump $"/dev/disk/by-uuid/($dev)" | rg '^\s+[0-9]+: |Keyslot:'
+}
 ```
 
-Beim zweiten Befehl die **neue** Passphrase eingeben. Exit 0 und keine Ausgabe heisst: sie
-trägt. Ein Fehler hier heisst: **den alten Slot nicht anfassen**, Schritt 3 wiederholen.
-
-- [ ] **Schritt 5: Alten Slot entfernen**
-
-Mit der Slot-Nummer aus Schritt 2, die *nicht* neu hinzugekommen ist:
+Erwartet: Root 0 = alt, 1 = neu, 2 = FIDO2. Swap 0 = alt, 1 = TPM2, 2 = neu. Dann für jedes Gerät
+den **neuen** Slot mit der neuen Passphrase prüfen (Slot-Nummer aus der Messung):
 
 ```nu
-sudo cryptsetup luksKillSlot /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a <alte-slot-nummer>
+sudo cryptsetup open --test-passphrase --key-slot <neu> /dev/disk/by-uuid/<uuid>; print $"exit=($env.LAST_EXIT_CODE)"
 ```
 
-`luksKillSlot` fragt zur Bestätigung nach einer noch gültigen Passphrase — dort die **neue**
-eingeben. Fragt es nach der alten, wurde die falsche Nummer gewählt: abbrechen.
+Erwartet `exit=0` an beiden. Sonst **den alten Slot nicht anfassen**.
 
-- [ ] **Schritt 6: Messen**
+- [ ] **Schritt 4: Alte Slots entfernen**
 
 ```nu
-sudo cryptsetup luksDump /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a | grep -E "^\s+[0-9]+: luks2"
+sudo cryptsetup luksKillSlot /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a 0
+sudo cryptsetup luksKillSlot /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b 0
 ```
 
-Erwartet: der alte Slot ist weg, neuer Slot und FIDO2-Slot sind da.
+Nur mit `0`, wenn Schritt 3 den alten Slot dort gezeigt hat. Zur Bestätigung die **neue**
+Passphrase eingeben.
 
-- [ ] **Schritt 7: Alte Header-Sicherung vernichten und neu anlegen**
+- [ ] **Schritt 5: Messen**
 
-Die Sicherung aus Aufgabe 4 enthält noch den **alten** Slot. Wer sie einspielt, macht die alte
-Passphrase wieder gültig — die Rotation wäre damit rückgängig zu machen:
+Die Schleife aus Schritt 3 erneut. Erwartet: Slot 0 an beiden Geräten weg.
+
+- [ ] **Schritt 6: Alte Header-Sicherung vernichten und neu anlegen**
+
+Die Sicherung aus Aufgabe 4 enthält noch den **alten** Passphrase-Slot und den TPM2-Slot der
+Root-Partition. Wer sie einspielt, macht beides wieder gültig:
 
 ```nu
 sudo shred -u /root/luks-header-root-vor-fido2.img
@@ -682,25 +686,17 @@ sudo cryptsetup luksHeaderBackup /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc4
 sudo chmod 600 /root/luks-header-root-nach-rotation.img
 ```
 
-- [ ] **Schritt 8: Neustart als Test**
+- [ ] **Schritt 7: Rotation protokollieren**
 
-```nu
-sudo reboot
-```
+In `docs/SECRET-ROTATION-LOG.md` einen Eintrag nach vorhandenem Muster: Datum, Gegenstand
+„LUKS-Passphrase Root- und Swap-Partition“, Grund „Wechsel auf Nitrokey 3, Rotation bei der
+Gelegenheit“. **Kein Wert, nur die Tatsache.**
 
-Erwartet: FIDO2 greift; mit Esc auf die Passphrase durchschalten, die **neue** muss entsperren.
-
-- [ ] **Schritt 9: Rotation protokollieren**
-
-In `docs/SECRET-ROTATION-LOG.md` einen Eintrag nach vorhandenem Muster ergänzen: Datum
-2026-09-12, Gegenstand „LUKS-Passphrase Root-Partition", Grund „Wechsel auf Nitrokey 3,
-Rotation bei der Gelegenheit". **Kein Wert, nur die Tatsache.**
-
-- [ ] **Schritt 10: Committen**
+- [ ] **Schritt 8: Committen**
 
 ```nu
 git add docs/SECRET-ROTATION-LOG.md
-git commit -m "LUKS-Passphrase der Root-Partition rotiert"
+git commit -m "LUKS-Passphrase von Root und Swap rotiert"
 ```
 
 ---
@@ -858,7 +854,8 @@ sudo systemd-cryptenroll --wipe-slot=tpm2 /dev/disk/by-uuid/fcef0557-8a09-4f30-b
 sudo cryptsetup luksDump /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a | grep -c "systemd-tpm2"
 ```
 
-Erwartet: `0`. Und zur Gegenprobe, dass Swap seinen behalten hat:
+Erwartet: `0`. **Die folgende Gegenprobe ist durch Aufgabe 7b überholt.** Swap verliert seinen
+TPM2-Slot dort absichtlich. Sie gilt nur, solange 7b nicht umgesetzt ist:
 
 ```nu
 sudo cryptsetup luksDump /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b | grep -c "systemd-tpm2"
@@ -892,6 +889,109 @@ sudo cryptsetup luksDump /dev/disk/by-uuid/fcef0557-8a09-4f30-b78e-aecc458a975a 
 
 Erwartet weiterhin `0`. Das ist die Messung, die belegt, dass Schritt 2 gewirkt hat — vorher
 ist es nur eine Behauptung.
+
+---
+
+## Aufgabe 7b: Swap per FIDO2 statt TPM2
+
+**Hinzugekommen 2026-09-13** auf Wunsch des Benutzers. Entschieden: Swap wird mit FIDO2 oder
+Passphrase entsperrt, **eigene Berührung, PIN bleibt**. Der TPM2-Slot am Swap-Gerät und der
+Dienst `tpm2-reenroll` entfallen ganz, damit auch sein Hänger nach Kernel-Updates. Beim Start:
+voraussichtlich eine PIN-Abfrage (zu messen), zwei Berührungen.
+
+**Dateien:**
+- Ändern: `configuration.nix` (Swap-Block, `crypttabExtraOpts` und Kommentar)
+- Ändern: `modules/secureboot.nix` (`systemd.services.tpm2-reenroll` samt Kommentarblock entfernen)
+
+**Schnittstellen:**
+- Verbraucht: neue Passphrase an beiden Geräten (Aufgabe 5), TPM2-freie Root-Partition (Aufgabe 7).
+- Liefert: ein System, das TPM2 für LUKS nicht mehr benutzt. Aufgabe 8 zieht
+  `docs/TPM-ENROLLMENT.md` entsprechend nach.
+
+- [ ] **Schritt 1: FIDO2-Slot am Swap-Gerät anlegen**
+
+```nu
+sudo systemd-cryptenroll --fido2-device=auto --fido2-with-client-pin=yes /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
+```
+
+Fragt nach der neuen Passphrase, dann nach der PIN, dann nach einer Berührung.
+
+- [ ] **Schritt 2: `configuration.nix`: Swap auf FIDO2 schalten**
+
+Im Swap-Block `crypttabExtraOpts = [ "tpm2-device=auto" ];` durch
+`crypttabExtraOpts = [ "fido2-device=auto" ];` ersetzen und den TPM2-Kommentar (PCR-Policy,
+Trade-off, Enrollment) durch einen Verweis auf den Root-Block und diesen Plan ersetzen.
+`allowDiscards = false` bleibt.
+
+- [ ] **Schritt 3: `modules/secureboot.nix`: `tpm2-reenroll` entfernen**
+
+Den Kommentarblock „TPM2 AUTOMATISCHES RE-ENROLLMENT“ und `systemd.services.tpm2-reenroll`
+vollständig löschen. Messen:
+
+```nu
+rg -n 'tpm2-reenroll|f8e58c55|fcef0557' modules/secureboot.nix
+```
+
+Erwartet: keine Treffer.
+
+- [ ] **Schritt 4: Bauen und schalten**
+
+```nu
+nix build .#nixosConfigurations.nixos.config.system.build.toplevel --no-link
+sudo nixos-rebuild switch --flake .#nixos
+```
+
+Messen, an der erzeugten Datei und nicht an der Option. Ein `/etc/crypttab` gibt es auf dem
+laufenden System nicht, die Zeilen stehen nur im Initrd:
+
+```nu
+let ct = (nix build --no-link --print-out-paths '.#nixosConfigurations.nixos.config.boot.initrd.systemd.contents."/etc/crypttab".source' | str trim)
+open --raw $ct | rg -o 'luks-[0-9a-f]{8}|\S*-device=auto'
+systemctl cat tpm2-reenroll
+```
+
+Erwartet: `fido2-device=auto` bei `luks-f8e58c55` **und** bei `luks-fcef0557`, nirgends mehr
+`tpm2-device`. `systemctl cat` meldet `No files found`.
+
+- [ ] **Schritt 5: TPM2-Slot am Swap-Gerät löschen**
+
+Erst jetzt, weil ab hier kein Dienst ihn wieder anlegt:
+
+```nu
+sudo systemd-cryptenroll --wipe-slot=tpm2 /dev/disk/by-uuid/f8e58c55-8cf8-4781-bdfd-a0e4c078a70b
+for dev in [fcef0557-8a09-4f30-b78e-aecc458a975a f8e58c55-8cf8-4781-bdfd-a0e4c078a70b] {
+  print $"== ($dev)"
+  sudo cryptsetup luksDump $"/dev/disk/by-uuid/($dev)" | rg '^\s+[0-9]+: |Keyslot:'
+}
+```
+
+Erwartet an beiden Geräten: genau ein Passphrase-Slot, ein `systemd-fido2`-Token, kein
+`systemd-tpm2`.
+
+- [ ] **Schritt 6: Neustart mit Stick**
+
+Erwartet: keine Passphrase-Abfrage, PIN, Berührungen. Danach aus dem Journal belegen:
+
+```nu
+journalctl -b -o short-monotonic | rg 'Asking FIDO2|Password query on|Finished Cryptography Setup|TPM'
+```
+
+Erwartet: zweimal `Asking FIDO2`, keine TPM-Zeile aus `systemd-cryptsetup`, beide
+`Finished Cryptography Setup`. Die Zahl der `Password query`-Paare zeigt, wie oft die PIN
+abgefragt wurde.
+
+- [ ] **Schritt 7: Neustart ohne Stick**
+
+Erwartet: Nach dem FIDO2-Versuch kommt die Passphrase-Abfrage, die **neue** Passphrase
+entsperrt beide Geräte. Das ist zugleich Aufgabe 7 Schritt 7 und der ausstehende
+Passphrase-Test beim Start aus Aufgabe 4.
+
+- [ ] **Schritt 8: Committen**
+
+```nu
+git add configuration.nix modules/secureboot.nix
+git commit -m "Swap per FIDO2 statt TPM2, tpm2-reenroll entfernt"
+```
 
 ---
 
