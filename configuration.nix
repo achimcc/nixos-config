@@ -207,6 +207,7 @@
     fzf # Fuzzy Finder
     htop # Interaktiver Process Viewer
     dnsutils # dig, nslookup, host (DNS-Tools)
+    wget # Dateien per HTTP/FTP herunterladen
 
     # FIDO2 / Nitrokey 3
     # pynitrokey bewusst NICHT: es zieht python-ecdsa mit CVE-2024-23342
