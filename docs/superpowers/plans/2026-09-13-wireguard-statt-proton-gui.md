@@ -27,11 +27,69 @@ bash (`writeShellApplication` → shellcheck beim Bau).
 | 1 Serverdaten | erledigt | `771034b`; homeserver-secrets `a6a3ee8` |
 | 2 Profile + Messungen | erledigt | `dec3511`; Tunnel trägt (Exit-Land/-Organisation ≠ Heimanbieter); resolved ohne eigenes DNS/`~.` am Link, Abfrage `authenticated: yes`; `rp_filter=2`; Proton-Resolver (10.2.0.1) validiert DNSSEC nicht (`dnssec-failed.org` → `NOERROR` ohne `ad`-Flag, `. DNSKEY`-Anfrage mit `+dnssec` scheitert `NOTIMP` → 0 RRSIG) und filtert `doubleclick.net` nicht (DNS-seitig kein NetShield-Effekt); Quad9 löst `doubleclick.net` normal auf. Empfehlung: DNS vorerst bei Quad9/Mullvad belassen, nicht auf Proton umstellen. |
 | 3 Status + Direkt | erledigt | `8fa0ab0`, `a089a79`; Statusdatei `/run/vpn/status.json` 644 root, Felder vollständig (Slot, Name, Handshake-Alter, rx/tx, direkt, killswitch); Tunnel weg → `slot` null, danach wieder verbunden; Zustand „Direkt“ ohne Passwortabfrage gestartet/gestoppt (Tool-Bash in aktiver Sitzung); nftables-Neustart leert die Chain `direkt`, die Unit meldet danach weiterhin `active` → Wahrheit ist die Chain, nicht der Unit-Zustand (Verfeinerung 2), bestätigt. |
-| 4 `vpn`-Befehl | erledigt | `f28ebb1`, `ab5eab3`; Review-Korrektur (gescheitertes Trennen/`vpn-direkt` jetzt gemessen statt vertraut, sichtbare Meldung, Exit-Code 1) im Re-Review ADDRESSED bestätigt. Nach Rebuild alle neun Slots einzeln geschaltet: acht von neun Slots mit passendem Exit-Land bestätigt, ein Slot (3) scheiterte an der Exit-IP-Prüfung nach zwei Versuchen (Profil blieb aktiv, kein Handshake-Nachweis) — Ursache noch offen, kein Blocker für die übrigen acht. Sperre gegen parallele Umschaltung hält (`exit=3`, nur ein Tunnel aktiv). `aus`/`direkt`/Rückkehr/`login` liefern exakt die erwarteten Statuswerte (`slot`/`direkt`), zweites `login` ohne erneute Umschaltung. Alltags-Slot 1 gesetzt (`direkt` false, genau ein Tunnel aktiv). |
-| 5 Leiste, Kürzel, Login | offen | |
-| 6 GUI raus | offen | |
-| 7 Kill-Switch | offen | |
+| 4 `vpn`-Befehl | erledigt | `f28ebb1`, `ab5eab3`, `88d9101`; Review-Korrektur (gescheitertes Trennen/`vpn-direkt` gemessen statt vertraut, sichtbare Meldung, Exit-Code 1). Alle neun Slots einzeln geschaltet. Slot 3 meldete zunächst „Tunnel trägt nicht“, obwohl er trug (Handshake frisch, rx/tx steigen, `example.com` 200): `am.i.mullvad.net` ist von diesem Exit aus per TCP gesperrt → zweiter Prüfdienst `api.ipify.org` (`88d9101`), danach `vpn 3` exit 0. Sperre gegen parallele Umschaltung hält (`exit=3`). `aus`/`direkt`/Rückkehr/`login` wie erwartet. |
+| 5 Leiste, Kürzel, Login | Code erledigt, Sichtprüfung offen | `22f9757`; Test der Zustandslogik läuft beim Bau (12/12). Nach Rebuild gemessen: 10 VPN-Kürzel in dconf, `vpn-indikator@local` in `enabled-extensions` und installiert, User-Unit `vpn-login` vorhanden. Die laufende GNOME-Sitzung (seit 2026-09-13 08:43) kennt die Erweiterung noch nicht → Neuanmeldung steht aus, siehe „Offene Nutzer-Tests“ N1. |
+| 6 GUI raus | erledigt | `c8c15e4`, `c138dd5`; nach Rebuild gemessen: kein `protonvpn-app`, keine Proton-Units, keine `pvpn*`-Profile/Interfaces, Seed-Datei gelöscht, `vpn 3`/`vpn 1` exit 0; `~/.config/Proton` und `~/.cache/Proton` nach Zustimmung gelöscht. Zusatz 6b: Notfall-Skripte `disable-/enable-firewall.sh` auf WireGuard-Slots umgestellt, `fix-firewall.sh`/`restore-vpn.sh` entfernt; Stub-Test: `disable-firewall.sh` erreicht das Leeren von nftables auch bei scheiterndem `nmcli`/`ip`/`systemctl`. |
+| 7 Kill-Switch | aktiv per `nixos-rebuild test`, Nutzer-Tests + `switch` offen | `5917d9b`, `0762571`, `73bbbcf`. Review-Korrekturen: Tailscale-Altregeln nur für `meta skuid 0` (sonst STUN/TURN-Leck ohne Tunnel); Log-Regel durch Zähler `vpn-sperre` ersetzt — die erste Aktivierung scheiterte, weil `kernel.modules_disabled=1` das Nachladen von `nft_log` verhindert (nftables `failed`, altes Ruleset blieb). Zweite Aktivierung: `killswitch` true. Automatisch geprüft: gesperrt → Internet Timeout, Fritz!Box 200, Tailscale-Peer antwortet; mit Tunnel → TCP/DoT/QUIC außen herum blockiert, DNS an Fritz!Box Timeout; Direkt → offen, fremdes DoT blockiert, `vpn 5` beendet Direkt. Offen: „Offene Nutzer-Tests“ K1–K7. |
 | 8 Doku | offen | |
+
+## Offene Nutzer-Tests und Aufgaben (Stand 2026-09-14)
+
+Diese Schritte brauchen sudo, eine Neuanmeldung, einen Neustart oder schneiden das Internet ab —
+auch das der Claude-Sitzung. Deshalb macht sie der Nutzer und meldet die Ergebnisse. Statusdatei
+ohne Leiste lesen: `open /run/vpn/status.json | select slot handshake_alter killswitch direkt` (Nushell).
+
+- [ ] **N1 — Leiste nach Neuanmeldung (Aufgabe 5, Schritte 13–14).** Ab- und anmelden. Dann
+  `gnome-extensions info vpn-indikator@local` → `State: ACTIVE`;
+  `journalctl --user -b -o cat | lines | where $it =~ 'vpn-indikator|VpnIndikator'` → keine JS-Fehler;
+  `systemctl --user status vpn-login --no-pager` → `status=0/SUCCESS`. Sichtprüfung:
+  `Super+Alt+3` → `🔒 <Name>` grün mit Haken bei 3, Handshake, Exit-IP, ↓↑ im Menü;
+  `Super+Alt+0` → `⛔ gesperrt` grau (Kill-Switch aktiv); Menü → „⚠ Direkt …“ → Abbrechen ändert nichts,
+  Bestätigen → `⚠ DIREKT` rot; Menü → Slot 5 → grün; `sudo systemctl stop vpn-status` → nach ≤ 15 s
+  `? VPN` grau; `sudo systemctl start vpn-status` → wieder grün; am Ende `Super+Alt+1`.
+- [ ] **K1 — Leck-Mitschnitt mit Tunnel (Aufgabe 7, Schritt 9).** 60 s surfen (Video, mehrere Seiten), parallel
+  `sudo timeout 60 tcpdump -ni wlp0s20f3 -c 200 'not udp port 51820 and not net 192.168.178.0/24 and not net 192.168.188.0/24'`
+  → nur Tailscale-Verkehr oder nichts. LibreWolf `https://browserleaks.com/webrtc` → keine Heim-IP.
+- [ ] **K2 — WebRTC ohne Tunnel.** `Super+Alt+0` (bzw. `vpn aus`), Status: `slot` leer, `killswitch` true.
+  `browserleaks.com/webrtc` neu laden → lädt nicht, keine Heim-IP. Zurück: `Super+Alt+1`.
+- [ ] **K3 — Tunnel bricht weg (Schritt 10).** `sudo nft insert rule inet filter output oifname "wlp0s20f3" udp dport 51820 drop`
+  → Browser lädt nicht; nach 3–4 min `handshake_alter` > 180 bzw. Leiste `⚠ <Name>` orange.
+  Aufräumen: `sudo systemctl reload nftables` → nach ~30 s Handshake frisch.
+- [ ] **K4 — Sperrzähler.** `sudo nft list chain inet filter output | lines | where $it =~ 'vpn-sperre|skuid'`
+  → nach K2 zählt `vpn-sperre` Pakete.
+- [ ] **K5 — Übernehmen (Schritt 12), erst wenn K1–K4 bestanden:**
+  `sudo nixos-rebuild switch --flake /home/achim/nixos-config#nixos`.
+  Vorher, falls nachts `nix-gc` lief: als Nutzer `nix flake update identity` bzw. den Input neu holen
+  (Fehler „failed to fetch git repository homeserver-secrets“, siehe O1).
+- [ ] **K6 — Neustart, Suspend, WLAN (Schritt 13).**
+  Neustart → vor dem Login (per SSH, sonst danach `journalctl -b -u vpn-boot`): `slot` 1, frischer Handshake,
+  `killswitch` true, `direkt` false. Anmelden → gemerkter Slot. `vpn direkt`, Neustart, anmelden → nicht
+  `DIREKT`. Deckel 2 min zu/auf → nach ≤ 30 s Handshake frisch. Anderes WLAN (Hotspot) → Tunnel trägt.
+  **Gezielt prüfen:** Am Morgen des 2026-09-14 war kein Tunnel aktiv (`slot` null); gegen 05:05 meldete
+  tailscaled einen Netzwechsel. Verbindet NetworkManager `wg-N` nach WLAN-Verlust/Suspend nicht neu,
+  sperrt der Kill-Switch bis zum nächsten Kürzel → Befund an Claude, Gegenmaßnahme planen.
+  Diese Neustarts laufen parallel zu den offenen Nitrokey-Neustarts (Plan 2026-09-12, 7b) — vom
+  Nutzer so entschieden; scheitert ein Boot, zuerst per Passphrase entsperren.
+- [ ] **K7 — Tailscale-Altregeln (Schritt 14), nach ≥ 30 min Betrieb:**
+  `sudo nft list chain inet filter output | lines | where $it =~ 'counter'`. Stehen die drei
+  `skuid 0`-Regeln auf `packets 0`, obwohl Tailscale Peers erreicht hat → Regel 5 (Socket-Markierung)
+  reicht, die drei Regeln können entfallen. Zählt eine: bleiben.
+
+### Offene Punkte außerhalb der Tests
+
+- **O1 — `homeserver-secrets` nach nächtlicher Garbage Collection.** `nix-gc` (00:29, 2026-09-14)
+  hat den Store-Pfad des Flake-Inputs `identity` entfernt; `sudo nixos-rebuild` kann ihn nicht neu holen
+  (root hat den SSH-Schlüssel nicht). Heute von Hand als Nutzer nachgeholt. Deklarativ lösen (z. B.
+  Input als GC-Root halten) — eigener kleiner Schritt.
+- **O2 — Media Controls nie aktiv.** dconf nennt `media-controls@cliffniff.github.com`, die installierte
+  Erweiterung heißt `mediacontrols@cliffniff.github.com` (gemessen mit `gnome-extensions list`).
+- **O3 — Aufgabe 8 (Doku)** läuft nach K5.
+- Zurückgestellte Kleinigkeiten aus den Reviews: `grep` fehlt in `runtimeInputs` von `vpn`;
+  `extension.js` `wait_async`-Callback ohne `try/catch`, `mib(status.tx)` nur über `rx` abgesichert;
+  `vpn-status` erkennt „Direkt“ am Wort `accept`; `iifname "tun*"` in der Input-Chain; doppelte
+  `established`-Regeln für `wg*`/`tailscale0`; `tailscale-api-update` löst ohne Tunnel nicht auf;
+  Modulkopf nennt `nixos-firewall.service`; verwaiste SOPS-Felder `protonvpn-*`; `vpn status` gibt
+  Exit-IP und Servernamen ungefiltert aus.
 
 ## Globale Randbedingungen
 
