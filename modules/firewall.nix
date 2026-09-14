@@ -244,8 +244,13 @@ in
           # 10. Zustand "Direkt" — leer, außer vpn-direkt.service ist aktiv
           jump direkt
 
-          # 11. Sichtbar machen, was gesperrt wird (danach greift policy drop)
-          limit rate 10/minute log prefix "vpn-sperre: "
+          # 11. Sichtbar machen, was gesperrt wird (danach greift policy drop).
+          #     Kein "log" hier: modules_disabled=1 (Härtung, kein Nachladen nach dem Boot)
+          #     verhindert nft_log/nf_log_syslog (gemessen 2026-09-14, lsmod leer trotz
+          #     vorhandener .ko.xz) — deshalb schon der alte Kommentar "logging temporarily
+          #     disabled". Zähler statt Log, ablesbar mit
+          #     "sudo nft list chain inet filter output".
+          counter comment "vpn-sperre"
         }
 
         # FORWARD CHAIN
