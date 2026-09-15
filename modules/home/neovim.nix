@@ -201,6 +201,9 @@
             claude = {
               model = "claude-sonnet-4-20250514",
               max_tokens = 4096,
+              -- Direkt aus dem sops-Secret statt aus $ANTHROPIC_API_KEY: Der steht
+              -- seit 2026-09-15 nicht mehr global in der Shell (home.nix).
+              api_key_name = "cmd:cat /run/secrets/anthropic-api-key",
             },
             mappings = {
               ask = "<leader>aa",

@@ -1821,9 +1821,21 @@ in
       $env.config.show_banner = false
       $env.PATH = ($env.PATH | prepend $"($env.HOME)/.npm-global/bin" | prepend $"($env.HOME)/.cargo/bin")
 
-      # Anthropic API Key aus sops Secret laden (für avante.nvim, crush, etc.)
-      if ("/run/secrets/anthropic-api-key" | path exists) {
-        $env.ANTHROPIC_API_KEY = (open /run/secrets/anthropic-api-key | str trim)
+      # Anthropic API Key NUR für die Werkzeuge, die ihn brauchen — nicht global.
+      #
+      # Bis 2026-09-15 stand er als $env.ANTHROPIC_API_KEY in JEDER Shell, und
+      # damit erbte ihn auch jede Claude-Code-Sitzung samt ihren Hooks. Das Plugin
+      # security-guidance hat darüber bei jedem Stop eine Opus-4.7-Review auf die
+      # API-Rechnung gestellt: rund 50 USD in zwei Tagen, Guthaben leer, und das
+      # Meldungssignal auf dem Server fiel mit aus. Claude Code selbst läuft übers
+      # Abo und braucht den Schlüssel nicht.
+      #
+      # avante.nvim holt ihn sich per `api_key_name = "cmd:…"` (modules/home/neovim.nix).
+      def --wrapped crush [...rest] {
+        with-env { ANTHROPIC_API_KEY: (open /run/secrets/anthropic-api-key | str trim) } { ^crush ...$rest }
+      }
+      def --wrapped aider [...rest] {
+        with-env { ANTHROPIC_API_KEY: (open /run/secrets/anthropic-api-key | str trim) } { ^aider ...$rest }
       }
 
       # GitHub Token aus sops Secret laden (für gh CLI, octo.nvim)
