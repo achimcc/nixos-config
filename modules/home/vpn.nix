@@ -30,9 +30,13 @@ in
     "org/gnome/settings-daemon/plugins/media-keys".custom-keybindings = map pfad ziffern;
   } // lib.listToAttrs (map
     (n: lib.nameValuePair "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/vpn${toString n}" {
+      # Super+Shift, nicht Super+Alt: das Layout us-umlaut macht die linke Alt zur
+      # Umlaut-Ebene (nur Gruppe 1 definiert → gilt auch im de-Layout), im de-Layout ist
+      # die rechte Alt AltGr — auf der ThinkPad-Tastatur gibt es also keine Alt-Taste.
+      # Super+N ist App-Wechsel, Super+Strg+N neues App-Fenster, Super+Alt+8 die Lupe.
       name = if n == 0 then "VPN aus" else "VPN Slot ${toString n}";
       command = "/run/current-system/sw/bin/vpn ${if n == 0 then "aus" else toString n}";
-      binding = "<Super><Alt>${toString n}";
+      binding = "<Super><Shift>${toString n}";
     })
     ziffern);
 

@@ -15,7 +15,7 @@
 Die ProtonVPN-GUI fliegt komplett raus. An ihre Stelle treten:
 
 1. **Neun feste WireGuard-Profile** (Proton-Konfigurationen), per Tastenkürzel umschaltbar:
-   `Super+Alt+1…9` wählt Server 1–9, `Super+Alt+0` trennt.
+   `Super+Shift+1…9` wählt Server 1–9, `Super+Shift+0` trennt.
 2. **Eine Anzeige oben in der GNOME-Leiste**, die den aktiven Server zeigt und per Klick ein Menü
    mit allen Servern, „Aus“, „Direkt“ und dem gemessenen Zustand (Handshake-Alter, Exit-IP,
    rx/tx) öffnet.
@@ -63,7 +63,7 @@ günstig (`default=2` → loose, nichts zu tun); für die physischen gehört es 
 | Start und Tunnelausfall | **Autoconnect + Kill-Switch** | – |
 | Bedeutung von „Aus“ | **trennt und sperrt**; ungeschützt nur über „Direkt“ | Ein versehentliches „Aus“ darf nicht ungeschützt sein |
 | „Direkt“ | eigener Zustand, nur per Menü mit Bestätigung, **überlebt weder Reboot noch nftables-Neustart** | Captive Portals brauchen ihn; vergessen darf man ihn nicht |
-| Tastenkürzel | fest pro Slot, `Super+Alt+1…9`, `Super+Alt+0` = Aus, kein Kürzel für Direkt | `Super+1…9` ist in GNOME belegt; Durchschalten baut bei jedem Schritt einen Tunnel auf |
+| Tastenkürzel | fest pro Slot, `Super+Shift+1…9`, `Super+Shift+0` = Aus, kein Kürzel für Direkt | `Super+1…9` ist in GNOME belegt; Durchschalten baut bei jedem Schritt einen Tunnel auf; Super+Alt scheidet aus, weil das Layout us-umlaut die linke Alt zur Umlaut-Ebene macht und das de-Layout keine Alt-Taste hat (gemessen 2026-09-16) |
 | Anzeige-Technik | **eigene GNOME-Shell-Erweiterung im Repo** | Ereignisgesteuert über `NM.Client`, farbige Beschriftung; Aufwand bei GNOME-Upgrades vertretbar, weil eigener kleiner Code |
 | Ort der Serverdaten | **privates Repo** `homeserver-secrets`, über den Flake-Input `identity` | Das öffentliche Repo soll nicht zeigen, welche Server/Länder genutzt werden; die Endpunkte werden zur Bauzeit gebraucht, SOPS scheidet dafür aus |
 | Private Schlüssel | SOPS, `secrets/secrets.yaml` → `wireguard/slot1…9` | – |
@@ -83,7 +83,7 @@ günstig (`default=2` → loose, nichts zu tun); für die physischen gehört es 
 | 7 | `vpn`-Befehl | `modules/vpn.nix`, `writeShellApplication` | `vpn 1…9`, `vpn aus`, `vpn direkt`, `vpn status`; einziger Umschaltpfad für Menü, Kürzel und Terminal |
 | 8 | Login-Autoconnect | `home.nix`, User-Unit `vpn-login` | wechselt auf den zuletzt benutzten Slot, falls ≠ 1 |
 | 9 | Leisten-Erweiterung | `home/vpn-indikator/` (`vpn-indikator@local`) | liest nur Statusdateien, ruft nur `vpn` auf |
-| 10 | Tastenkürzel | `home.nix`, `dconf.settings` custom-keybindings | `Super+Alt+1…9` → `vpn n`, `Super+Alt+0` → `vpn aus` |
+| 10 | Tastenkürzel | `home.nix`, `dconf.settings` custom-keybindings | `Super+Shift+1…9` → `vpn n`, `Super+Shift+0` → `vpn aus` |
 
 ### Serverliste (Form, Beispielwerte)
 

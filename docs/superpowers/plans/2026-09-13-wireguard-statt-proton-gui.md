@@ -4,7 +4,7 @@
 > (empfohlen) oder `superpowers:executing-plans`, Aufgabe für Aufgabe. Schritte nutzen
 > Checkbox-Syntax (`- [ ]`).
 
-**Ziel:** Neun Proton-WireGuard-Profile im NetworkManager, per `Super+Alt+1…9` / `Super+Alt+0`
+**Ziel:** Neun Proton-WireGuard-Profile im NetworkManager, per `Super+Shift+1…9` / `Super+Shift+0`
 und per Klick-Menü in der GNOME-Leiste umschaltbar, mit gemessenem Zustand in der Leiste und einem
 Kill-Switch; die ProtonVPN-GUI verschwindet vollständig.
 
@@ -43,15 +43,15 @@ ohne Leiste lesen: `open /run/vpn/status.json | select slot handshake_alter kill
   `gnome-extensions info vpn-indikator@local` → `State: ACTIVE`;
   `journalctl --user -b -o cat | lines | where $it =~ 'vpn-indikator|VpnIndikator'` → keine JS-Fehler;
   `systemctl --user status vpn-login --no-pager` → `status=0/SUCCESS`. Sichtprüfung:
-  `Super+Alt+3` → `🔒 <Name>` grün mit Haken bei 3, Handshake, Exit-IP, ↓↑ im Menü;
-  `Super+Alt+0` → `⛔ gesperrt` grau (Kill-Switch aktiv); Menü → „⚠ Direkt …“ → Abbrechen ändert nichts,
+  `Super+Shift+3` → `🔒 <Name>` grün mit Haken bei 3, Handshake, Exit-IP, ↓↑ im Menü;
+  `Super+Shift+0` → `⛔ gesperrt` grau (Kill-Switch aktiv); Menü → „⚠ Direkt …“ → Abbrechen ändert nichts,
   Bestätigen → `⚠ DIREKT` rot; Menü → Slot 5 → grün; `sudo systemctl stop vpn-status` → nach ≤ 15 s
-  `? VPN` grau; `sudo systemctl start vpn-status` → wieder grün; am Ende `Super+Alt+1`.
+  `? VPN` grau; `sudo systemctl start vpn-status` → wieder grün; am Ende `Super+Shift+1`.
 - [ ] **K1 — Leck-Mitschnitt mit Tunnel (Aufgabe 7, Schritt 9).** 60 s surfen (Video, mehrere Seiten), parallel
   `sudo timeout 60 tcpdump -ni wlp0s20f3 -c 200 'not udp port 51820 and not net 192.168.178.0/24 and not net 192.168.188.0/24'`
   → nur Tailscale-Verkehr oder nichts. LibreWolf `https://browserleaks.com/webrtc` → keine Heim-IP.
-- [ ] **K2 — WebRTC ohne Tunnel.** `Super+Alt+0` (bzw. `vpn aus`), Status: `slot` leer, `killswitch` true.
-  `browserleaks.com/webrtc` neu laden → lädt nicht, keine Heim-IP. Zurück: `Super+Alt+1`.
+- [ ] **K2 — WebRTC ohne Tunnel.** `Super+Shift+0` (bzw. `vpn aus`), Status: `slot` leer, `killswitch` true.
+  `browserleaks.com/webrtc` neu laden → lädt nicht, keine Heim-IP. Zurück: `Super+Shift+1`.
 - [ ] **K3 — Tunnel bricht weg (Schritt 10).** `sudo nft insert rule inet filter output oifname "wlp0s20f3" udp dport 51820 drop`
   → Browser lädt nicht; nach 3–4 min `handshake_alter` > 180 bzw. Leiste `⚠ <Name>` orange.
   Aufräumen: `sudo systemctl reload nftables` → nach ~30 s Handshake frisch.
@@ -136,6 +136,11 @@ ohne Leiste lesen: `open /run/vpn/status.json | select slot handshake_alter kill
 6. **NetShield:** Konfigurationen werden mit NetShield Stufe 2 heruntergeladen (wirkt nur über
    Protons DNS, also vorerst nicht). Aufgabe 2 misst, ob `10.2.0.1` strenges DNSSEC trägt; die
    Entscheidung DNS = Quad9 oder Proton trifft danach der Nutzer.
+7. **Kürzel `Super+Shift+0…9` statt `Super+Alt`** (2026-09-16). Das Layout `us-umlaut`
+   belegt die linke Alt mit der Umlaut-Ebene, und zwar nur für Gruppe 1 — XKB wendet das
+   auf beide Layouts an; im `de`-Layout ist die rechte Alt AltGr. Auf der ThinkPad-Tastatur
+   gab es damit keine Alt-Taste, `Super+Alt+N` löste nichts aus. `Super+Alt+8` kollidierte
+   zudem mit der Bildschirmlupe. `Super+Shift+Ziffer` ist in GNOME 50 frei (gemessen).
 
 ## Dateiübersicht
 
@@ -1379,7 +1384,7 @@ in
     (n: lib.nameValuePair "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/vpn${toString n}" {
       name = if n == 0 then "VPN aus" else "VPN Slot ${toString n}";
       command = "/run/current-system/sw/bin/vpn ${if n == 0 then "aus" else toString n}";
-      binding = "<Super><Alt>${toString n}";
+      binding = "<Super><Shift>${toString n}";
     })
     ziffern);
 
@@ -1408,13 +1413,13 @@ nix eval --json .#nixosConfigurations.nixos.config.home-manager.users --apply 'u
 nix build --no-link -L .#nixosConfigurations.nixos.config.system.build.toplevel 2>&1 | rg 'ok      |FEHLER' ; echo "bau=${PIPESTATUS[0]}"
 ```
 Erwartet: `ext` enthält `vpn-indikator@local` neben den vier bisherigen; `keys` die drei
-bisherigen plus `vpn0`…`vpn9`; `vpn3` mit `binding "<Super><Alt>3"`, `command "…/vpn 3"`;
+bisherigen plus `vpn0`…`vpn9`; `vpn3` mit `binding "<Super><Shift>3"`, `command "…/vpn 3"`;
 12 `ok`-Zeilen, `bau=0`. (Ist das Paket schon gebaut, fehlen die `ok`-Zeilen — dann zählt `bau=0`.)
 
 - [ ] **Schritt 10: [Nutzer] Kollisionen der Kürzel prüfen — vor dem Aktivieren**
 
 ```nu
-gsettings list-recursively | lines | where $it =~ '(?i)<super><alt>|<alt><super>'
+gsettings list-recursively | lines | where $it =~ '(?i)<super><shift>|<shift><super>'
 ```
 Erwartet: leer. Sonst: Befund melden, Kürzel nicht aktivieren.
 
@@ -1422,7 +1427,7 @@ Erwartet: leer. Sonst: Befund melden, Kürzel nicht aktivieren.
 
 ```bash
 git add modules/home/vpn.nix modules/home/vpn-indikator home.nix
-git commit -m "vpn: Leisten-Erweiterung mit getesteter Zustandslogik, Super+Alt+0…9, Login-Wechsel"
+git commit -m "vpn: Leisten-Erweiterung mit getesteter Zustandslogik, Super+Shift+0…9, Login-Wechsel"
 ```
 
 - [ ] **Schritt 12: [Nutzer] Aktivieren, dann ab- und wieder anmelden**
@@ -1446,8 +1451,8 @@ zeigt den gemerkten Slot.
 
 | Handlung | Erwartung in der Leiste (≤ 3 s) |
 |---|---|
-| `Super+Alt+3` | `🔒 <Name Slot 3>` grün; Menü: Haken bei 3, Handshake, Exit-IP, ↓↑ |
-| `Super+Alt+0` | `⚠ OFFEN` rot (Stufe 1, noch kein Kill-Switch) |
+| `Super+Shift+3` | `🔒 <Name Slot 3>` grün; Menü: Haken bei 3, Handshake, Exit-IP, ↓↑ |
+| `Super+Shift+0` | `⚠ OFFEN` rot (Stufe 1, noch kein Kill-Switch) |
 | Menü → „⚠ Direkt …“ → Abbrechen | nichts ändert sich |
 | Menü → „⚠ Direkt …“ → Direkt verbinden | `⚠ DIREKT` rot |
 | Menü → Slot 5 | `🔒 <Name Slot 5>` |
@@ -1942,7 +1947,7 @@ Erwartet: Treffer in allen fünf Dateien, TODO-Datei vorhanden.
 - [ ] **Schritt 2: `README.md`**
 
 Zeile 28: `| **VPN** | ProtonVPN GUI (WireGuard, Auto-Connect, Kill-Switch) |` →
-`| **VPN** | Neun WireGuard-Slots (Proton), Umschalten per Super+Alt+0…9 und Leiste, Kill-Switch |`
+`| **VPN** | Neun WireGuard-Slots (Proton), Umschalten per Super+Shift+0…9 und Leiste, Kill-Switch |`
 
 Zeile 50: `├── protonvpn.nix     # WireGuard Auto-Connect` →
 `├── vpn.nix           # WireGuard-Slots, vpn-Befehl, Status, Direkt`
@@ -1968,7 +1973,7 @@ Neun Proton-WireGuard-Server als NetworkManager-Profile `wg-1`…`wg-9`:
 - Serverliste aus dem privaten Flake-Input `identity`, Schlüssel aus SOPS
 - `vpn 1…9 | aus | direkt | login | status` — prüft jede Umschaltung an der Exit-IP
 - `vpn-status` misst Handshake und Kill-Switch nach `/run/vpn/status.json`
-- Leiste: Erweiterung `vpn-indikator@local` (`modules/home/vpn.nix`), Kürzel Super+Alt+0…9
+- Leiste: Erweiterung `vpn-indikator@local` (`modules/home/vpn.nix`), Kürzel Super+Shift+0…9
 - Beim Boot Slot 1, nach dem Login der zuletzt benutzte Slot
 ```
 
