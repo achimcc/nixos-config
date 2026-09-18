@@ -128,6 +128,27 @@
         "type": "github"
       }
     },
+    "gestalt": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1789738469,
+        "narHash": "sha256-Yz3quQyfUReWJW//UTUYLvMbjwuRu0EEoWzp/g2LwxI=",
+        "owner": "achimcc",
+        "repo": "gestalt",
+        "rev": "aeacf34cd6f070f6b587ecb66cfa2a6311a1838c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "achimcc",
+        "ref": "v0.1.0",
+        "repo": "gestalt",
+        "type": "github"
+      }
+    },
     "gitignore": {
       "inputs": {
         "nixpkgs": [
@@ -356,6 +377,7 @@
     },
     "root": {
       "inputs": {
+        "gestalt": "gestalt",
         "home-manager": "home-manager",
         "identity": "identity",
         "lanzaboote": "lanzaboote",

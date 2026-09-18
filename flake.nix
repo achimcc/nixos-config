@@ -44,6 +44,13 @@
     # RCU - reMarkable Connection Utility (gepinnt auf geprüften Commit)
     rcu.url = "git+https://github.com/thozza/rcu.git?rev=0dc42d188af723569a07f827b43713e9c56ef6c7";
 
+    # gestalt - JSON-Form ohne Werte (modules/gestalt.nix). Auf den TAG gepinnt:
+    # ein Zweig liefe bei jedem `flake update` still weiter.
+    gestalt = {
+      url = "github:achimcc/gestalt/v0.1.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Identität des Rechners (Username, Klarname, Mailadresse) aus dem PRIVATEN
     # Repo. Diese Werte werden zur BAUZEIT gebraucht — users.users.<name>,
     # /home/<name>/… und die Mailadresse stehen im Nix-Ausdruck selbst.
