@@ -226,6 +226,9 @@ in
           ip daddr ${localNetwork.gateway} tcp dport { 80, 443 } accept
           ip daddr ${localNetwork.printerIP} tcp dport 631 accept
           ip daddr ${localNetwork.printerIP} tcp dport 9100 accept
+          # DoT zum Blocky des Flint-Routers (modules/network.nix). Nur 853 und nur
+          # diese Adresse — steht vor "jump direkt", dessen 853-Sperre sie sonst träfe.
+          ip daddr 192.168.30.1 tcp dport 853 accept
           ip daddr 192.168.178.100 tcp dport { 22, 8006 } accept
           ip daddr 192.168.178.49 tcp dport { 22, 8096, 8920 } accept
           ip daddr ${localNetwork.subnet} icmp type echo-request accept

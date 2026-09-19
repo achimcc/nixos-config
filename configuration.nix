@@ -436,6 +436,10 @@
   # Siehe: https://github.com/signalapp/Signal-Desktop/issues/6707
   security.pki.certificateFiles = [
     ./ca-certificates/signal-messenger.pem
+    # Eigene CA des Flint-Routers (homeserver: hosts/router/dns-ca.pem). resolved
+    # kennt keine CA je Server, nur den System-Speicher — ohne sie scheitert der
+    # DoT-Handschlag zu 192.168.30.1#flint.lan (modules/network.nix).
+    ./ca-certificates/flint-router-dns.pem
   ];
 
   # ==========================================

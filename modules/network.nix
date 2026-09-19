@@ -248,9 +248,16 @@ in
         DNSSEC = "yes";
         Domains = [ "~." ];
         DNSOverTLS = "true";
-        # Primary DNS: Quad9 (Bootstrap) + Mullvad (über VPN, für Domains die Quad9 blockiert)
-        # Mullvad hat keine Malware-Filterung wie Quad9, daher Quad9 first
-        DNS = "9.9.9.9#dns.quad9.net 194.242.2.2#dns.mullvad.net";
+        # Zuerst das Blocky des Flint-Routers (2026-09-19): Werbe- und Tracker-Sperre
+        # wie für alle anderen Geräte zu Hause, ebenfalls per DoT, Zertifikat aus der
+        # eigenen Router-CA (configuration.nix). Unterwegs ist 192.168.30.1 nicht
+        # erreichbar, resolved wechselt dann zu Quad9 + Mullvad (über VPN, für Domains
+        # die Quad9 blockiert; Mullvad filtert keine Malware, daher Quad9 davor).
+        #
+        # EINE globale Liste, KEIN Link-DNS mit ~. am WLAN: Dann fragte resolved
+        # Router und Quad9 parallel, und die schnellere Antwort gewönne — ob gefiltert
+        # wird, wäre Zufall (man systemd-resolved, "PROTOCOLS AND ROUTING").
+        DNS = "192.168.30.1#flint.lan 9.9.9.9#dns.quad9.net 194.242.2.2#dns.mullvad.net";
         # SICHERHEIT: Kein Fallback-DNS (verhindert DNS-Leaks wenn VPN down)
         FallbackDNS = "";
         DNSStubListener = "yes";
