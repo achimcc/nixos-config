@@ -115,6 +115,19 @@ in
           '';
           type = "basic";
         }
+        {
+          # resolved bleibt beim Server, der zuletzt antwortete, und kehrt nie von
+          # selbst zum ersten der Liste zurück — auch nicht nach Reload oder
+          # "resolvectl reset-server-features" (beides 2026-09-19 gemessen: blieb
+          # bei Mullvad). Wer von unterwegs heimkommt, bliebe also ungefiltert.
+          # Nur ein Neustart fängt wieder bei 192.168.30.1#flint.lan an.
+          source = pkgs.writeText "resolved-zu-hause" ''
+            if [ "$2" = "up" ] && [ "$CONNECTION_ID" = "rusty" ]; then
+              ${pkgs.systemd}/bin/systemctl restart systemd-resolved.service
+            fi
+          '';
+          type = "basic";
+        }
       ];
 
       # Deklaratives Home-Netzwerk (wird automatisch verbunden)
@@ -156,6 +169,35 @@ in
               method = "disabled";
             };
           };
+
+          # Der Flint-Router (homeserver H18), WPA3. Bis 2026-09-19 ein von Hand
+          # angelegtes Profil mit DHCP-DNS und ipv6.method=auto: NM hängte
+          # 192.168.30.1 als LINK-DNS mit Default-Route ans WLAN, resolved fragte
+          # dann Link und Global parallel — ob Blocky filterte, war Zufall. Der
+          # Router kommt jetzt allein über die globale DoT-Liste (services.resolved).
+          "rusty" = {
+            connection = {
+              id = "rusty";
+              type = "wifi";
+              autoconnect = true;
+              autoconnect-priority = 200;
+            };
+            wifi = {
+              ssid = "rusty";
+              mode = "infrastructure";
+            };
+            wifi-security = {
+              key-mgmt = "sae";
+              psk = "$WIFI_RUSTY_PSK";
+            };
+            ipv4 = {
+              method = "auto";
+              ignore-auto-dns = true;
+            };
+            ipv6 = {
+              method = "disabled";
+            };
+          };
         };
       };
     };
@@ -183,7 +225,9 @@ in
     script = ''
       # Stale WiFi Profiles entfernen (ensureProfiles erstellt frische nach NM-Start)
       # WICHTIG: Löscht ALLE Greenside4-Dateien, damit ensureProfiles die einzige Quelle ist
-      for f in /etc/NetworkManager/system-connections/Greenside4*; do
+      # rusty*: das Hand-Profil von vor 2026-09-19 — neben dem deklarativen
+      # (unter /run) gäbe es sonst zwei Profile mit derselben SSID.
+      for f in /etc/NetworkManager/system-connections/Greenside4* /etc/NetworkManager/system-connections/rusty*; do
         if [ -f "$f" ]; then
           rm -f "$f"
           echo "Gelöscht (stale wifi): $f"

@@ -32,6 +32,8 @@
 
     # WLAN Passwort
     secrets."wifi/home" = {};
+    # Flint-Router (WPA3), derselbe Wert wie wlan-vertraut in homeserver-secrets
+    secrets."wifi/rusty" = {};
 
     # E-Mail Passwort für Posteo
     secrets."email/posteo" = {
@@ -97,6 +99,7 @@
     templates."nm-wifi-env" = {
       content = ''
         WIFI_HOME_PSK=${config.sops.placeholder."wifi/home"}
+        WIFI_RUSTY_PSK=${config.sops.placeholder."wifi/rusty"}
       '';
       owner = "root";
       group = "root";
