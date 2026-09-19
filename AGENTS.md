@@ -184,7 +184,7 @@ Default shell is **nushell** (`nu`). Configured aliases:
 
 ### Auto-Updates
 
-System auto-upgrades are enabled (daily at 04:00) but **no automatic reboot**. User decides when to reboot.
+System auto-upgrades are **disabled** (`system.autoUpgrade.enable = false`). `notify-updates.timer` updates `flake.lock` daily (commit included) and sends a desktop notification; the user rebuilds manually.
 
 ### Testing Changes
 

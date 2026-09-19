@@ -388,31 +388,49 @@
   system.autoUpgrade.enable = false;
 
   # Systemd-Service: Prüft täglich auf Updates und benachrichtigt
+  #
+  # Bis 2026-09-19 war der Dienst tot und meldete Erfolg:
+  # 1. `git` fehlte im Unit-PATH → `nix flake update` brach ab, das Skript lief
+  #    ohne `set -e` weiter bis "No updates available". home-manager, sops-nix,
+  #    lanzaboote und nixpkgs-unstable blieben so auf dem Stand vom 22.06.
+  # 2. `--commit-lock-file` committet die Lock-Datei — der anschließende
+  #    `git diff --quiet flake.lock` war danach IMMER sauber. Auch mit git hätte
+  #    der Dienst nie ein Update gemeldet. Jetzt: Hash vorher/nachher.
+  # Die Inputs sind namentlich genannt: `identity` (git+ssh, privates Repo)
+  # bleibt draußen — der Dienst soll nicht am SSH-Schlüssel hängen. `rcu`,
+  # `gestalt` und `lotse` sind bewusst gepinnt (Commit bzw. Tag).
   systemd.services.notify-updates = {
     description = "Check for NixOS Updates and Notify";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    # openssh: der Commit der Lock-Datei wird per SSH signiert (gpg.format = ssh),
+    # git ruft dafür ssh-keygen.
+    path = [ pkgs.git pkgs.openssh pkgs.nix pkgs.coreutils ];
     serviceConfig = {
       Type = "oneshot";
       User = id.username;
     };
 
     script = ''
+      set -euo pipefail
       cd /home/${id.username}/nixos-config
 
-      # Flake-Inputs aktualisieren (nur lokal, kein rebuild)
-      ${pkgs.nix}/bin/nix flake update --commit-lock-file 2>&1 | tee /tmp/flake-update.log
+      VORHER=$(sha256sum flake.lock)
 
-      # Prüfe ob Updates verfügbar sind
-      if ${pkgs.git}/bin/git diff --quiet flake.lock; then
-        # Keine Updates
+      # Flake-Inputs aktualisieren (nur lokal, kein rebuild)
+      nix flake update --commit-lock-file \
+        nixpkgs nixpkgs-unstable home-manager llm-agents sops-nix lanzaboote nix-flatpak
+
+      if [ "$VORHER" = "$(sha256sum flake.lock)" ]; then
         echo "No updates available"
       else
         # Updates verfügbar - Benachrichtigung senden
-        DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+        DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
           ${pkgs.libnotify}/bin/notify-send \
           --urgency=normal \
           --icon=software-update-available \
           "NixOS Updates verfügbar" \
-          "Neue Flake-Updates wurden heruntergeladen. Rebuild mit: sudo nixos-rebuild switch"
+          "flake.lock wurde aktualisiert. Rebuild mit: sudo nixos-rebuild switch" || true
 
         echo "Updates available - notification sent"
       fi

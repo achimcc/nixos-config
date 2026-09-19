@@ -7,12 +7,11 @@
 # Diese Datei implementiert die Zonen-Regeln mit nftables
 # Migriert von iptables zu nftables am 2026-02-05
 #
-# SERVICE-REIHENFOLGE (KRITISCH!):
-# 1. network-pre.target (Kernel-Module laden)
-# 2. NetworkManager.service (Netzwerk-Interfaces aktivieren, DHCP)
-# 3. network-online.target (Netzwerk ist online)
-# 4. nixos-firewall.service (Firewall aktivieren - MUSS NACH network-online sein!)
-# 5. vpn-boot.service (wg-1) - verbindet Slot 1 (modules/vpn.nix)
+# SERVICE-REIHENFOLGE:
+# 1. nftables.service — VOR network-pre.target, also bevor ein Interface hochkommt
+# 2. NetworkManager.service (Interfaces, DHCP)
+# 3. vpn-boot.service (wg-1, modules/vpn.nix)
+# 4. firewall-heimnetz.service füllt heim_in/heim_out, sobald ein Heimnetz-Profil aktiv ist
 
 let
   # WireGuard-Endpunkte der neun Slots als nft-Konkatenation "ip . port, …".
@@ -45,6 +44,63 @@ let
     subnet = "10.11.99.0/24";
     deviceIP = "10.11.99.1";
   };
+  # Freigaben, die NUR im eigenen Netz gelten — siehe firewall-heimnetz.service.
+  # Eine Transaktion: erst leeren, dann füllen, nie ein halber Zustand.
+  heimLeer = pkgs.writeText "heim-leer.nft" ''
+    flush chain inet filter heim_in
+    flush chain inet filter heim_out
+  '';
+
+  # Profil "Greenside4" (Fritz!Box, ${localNetwork.subnet}). Inhaltlich unverändert
+  # aus den Chains input/output vor 2026-09-19 übernommen.
+  heimGreenside = pkgs.writeText "heim-greenside4.nft" ''
+    flush chain inet filter heim_in
+    flush chain inet filter heim_out
+
+    # DHCP responses (server:67 -> client:68) - only from gateway
+    add rule inet filter heim_in ip saddr ${localNetwork.gateway} udp sport 67 udp dport 68 accept
+    # Printer (Brother MFC-7360N) - IPP/CUPS and Raw Printing
+    add rule inet filter heim_in ip saddr ${localNetwork.printerIP} tcp sport 631 accept
+    # Syncthing - Local network
+    add rule inet filter heim_in ip saddr ${localNetwork.subnet} tcp dport ${toString syncthingPorts.tcp} accept
+    add rule inet filter heim_in ip saddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.quic} accept
+    add rule inet filter heim_in ip saddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.discovery} accept
+    # Workstation 192.168.178.51 - nur benötigte Dienste
+    add rule inet filter heim_in ip saddr 192.168.178.51 tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
+    add rule inet filter heim_in ip saddr 192.168.178.51 udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
+    add rule inet filter heim_in ip saddr 192.168.178.51 icmp type echo-request accept
+    # Second local network (server network) - restricted ports
+    add rule inet filter heim_in ip saddr ${secondLocalNetwork.subnet} tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
+    add rule inet filter heim_in ip saddr ${secondLocalNetwork.subnet} udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
+
+    add rule inet filter heim_out ip daddr ${localNetwork.gateway} tcp dport { 80, 443 } accept
+    add rule inet filter heim_out ip daddr ${localNetwork.printerIP} tcp dport 631 accept
+    add rule inet filter heim_out ip daddr ${localNetwork.printerIP} tcp dport 9100 accept
+    add rule inet filter heim_out ip daddr 192.168.178.100 tcp dport { 22, 8006 } accept
+    add rule inet filter heim_out ip daddr 192.168.178.49 tcp dport { 22, 8096, 8920 } accept
+    add rule inet filter heim_out ip daddr ${localNetwork.subnet} icmp type echo-request accept
+    add rule inet filter heim_out ip daddr 192.168.178.51 tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
+    add rule inet filter heim_out ip daddr 192.168.178.51 udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
+    add rule inet filter heim_out ip daddr 192.168.178.51 icmp type echo-request accept
+    add rule inet filter heim_out ip daddr ${localNetwork.subnet} tcp dport ${toString syncthingPorts.tcp} accept
+    add rule inet filter heim_out ip daddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.quic} accept
+    add rule inet filter heim_out ip daddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.discovery} accept
+    add rule inet filter heim_out ip daddr 255.255.255.255 udp dport ${toString syncthingPorts.discovery} accept
+    add rule inet filter heim_out ip daddr 192.168.178.255 udp dport ${toString syncthingPorts.discovery} accept
+    add rule inet filter heim_out ip daddr ${secondLocalNetwork.subnet} tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
+    add rule inet filter heim_out ip daddr ${secondLocalNetwork.subnet} udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
+  '';
+
+  heimnetzSetzen = pkgs.writeShellScript "firewall-heimnetz" ''
+    # Vor dem NM-Start (Boot) scheitert nmcli → kein Heimnetz → leere Chains.
+    aktiv=$(${pkgs.networkmanager}/bin/nmcli -t -f NAME connection show --active 2>/dev/null || true)
+    if printf '%s\n' "$aktiv" | ${pkgs.gnugrep}/bin/grep -qx 'Greenside4'; then
+      echo "Heimnetz Greenside4 aktiv: Freigaben gesetzt"
+      exec ${pkgs.nftables}/bin/nft -f ${heimGreenside}
+    fi
+    echo "kein Heimnetz aktiv: heim_in/heim_out leer"
+    exec ${pkgs.nftables}/bin/nft -f ${heimLeer}
+  '';
 in
 {
   # ==========================================
@@ -64,26 +120,6 @@ in
     "tun"       # Tailscale (und andere userspace VPNs) brauchen TUN-Devices
     "xt_connmark"  # Tailscale Policy-Routing
   ];
-
-  # ==========================================
-  # FIREWALL SERVICE ORDERING (KRITISCH!)
-  # ==========================================
-  # NixOS manages nftables.service automatically when networking.nftables.enable = true
-  #
-  # WICHTIG: Firewall MUSS NACH network-online.target starten!
-  # Grund: systemd-resolved braucht eine funktionierende Netzwerkverbindung (IP, Route)
-  # um DNS-over-TLS zu Quad9 (9.9.9.9:853) aufzubauen.
-  #
-  # Service-Reihenfolge beim Boot:
-  # 1. systemd-resolved.service (DNS-Daemon startet)
-  # 2. NetworkManager.service (Netzwerk-Interfaces, DHCP, IP-Konfiguration)
-  # 3. network-online.target (Netzwerk ist ONLINE mit IP und Route)
-  # 4. nftables.service (Firewall aktivieren - VPN Kill Switch)
-  # 5. vpn-boot.service (Slot 1, modules/vpn.nix)
-  #
-  # Service-Name ist "nftables.service" (NixOS-managed)!
-
-  # Override nftables.service: NACH network-online starten + API-IPs sofort seeden
 
   networking.nftables = {
     enable = true;
@@ -122,35 +158,19 @@ in
           # 2b. Tailscale - eingehender Traffic
           iifname "tailscale0" accept
 
-          # 3. DHCP responses (server:67 -> client:68) - only from gateway
-          ip saddr ${localNetwork.gateway} udp sport 67 udp dport 68 accept
-
           # 4. SECURITY: Block LLMNR/mDNS (Suricata alert mitigation)
           udp dport 5355 drop comment "Block LLMNR (credential theft risk)"
           udp dport 5353 drop comment "Block mDNS (information leakage)"
 
-          # 5. Printer (Brother MFC-7360N) - IPP/CUPS and Raw Printing
-          ip saddr ${localNetwork.printerIP} tcp sport 631 accept
-
-          # 6. Syncthing - Local network
-          ip saddr ${localNetwork.subnet} tcp dport ${toString syncthingPorts.tcp} accept
-          ip saddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.quic} accept
-          ip saddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.discovery} accept
+          # 5. Freigaben des eigenen Netzes (Drucker, Syncthing, Workstation, Servernetz).
+          #    Leer, solange kein Heimnetz-Profil aktiv ist — siehe firewall-heimnetz.service.
+          jump heim_in
 
           # 7. Syncthing - über VPN-Interfaces
           iifname "tun*" tcp dport ${toString syncthingPorts.tcp} accept
           iifname "wg*" tcp dport ${toString syncthingPorts.tcp} accept
           iifname "tun*" udp dport ${toString syncthingPorts.quic} accept
           iifname "wg*" udp dport ${toString syncthingPorts.quic} accept
-
-          # 7b. Workstation 192.168.178.51 - nur benötigte Dienste
-          ip saddr 192.168.178.51 tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
-          ip saddr 192.168.178.51 udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
-          ip saddr 192.168.178.51 icmp type echo-request accept
-
-          # 8. Second local network (server network) - restricted ports
-          ip saddr ${secondLocalNetwork.subnet} tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
-          ip saddr ${secondLocalNetwork.subnet} udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
 
           # 9. reMarkable 2 USB network - SSH and Web only
           ip saddr ${remarkableNetwork.subnet} tcp dport { 22, 80 } accept
@@ -222,27 +242,13 @@ in
           # 8. DHCP (client:68 -> server:67)
           udp sport 68 udp dport 67 accept
 
-          # 9. Lokales Netz (unverändert aus der Chain vor 2026-09-13)
-          ip daddr ${localNetwork.gateway} tcp dport { 80, 443 } accept
-          ip daddr ${localNetwork.printerIP} tcp dport 631 accept
-          ip daddr ${localNetwork.printerIP} tcp dport 9100 accept
+          # 9. Lokales Netz
           # DoT zum Blocky des Flint-Routers (modules/network.nix). Nur 853 und nur
           # diese Adresse — steht vor "jump direkt", dessen 853-Sperre sie sonst träfe.
           ip daddr 192.168.30.1 tcp dport 853 accept
-          ip daddr 192.168.178.100 tcp dport { 22, 8006 } accept
-          ip daddr 192.168.178.49 tcp dport { 22, 8096, 8920 } accept
-          ip daddr ${localNetwork.subnet} icmp type echo-request accept
-          ip daddr 192.168.178.51 tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
-          ip daddr 192.168.178.51 udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
-          ip daddr 192.168.178.51 icmp type echo-request accept
-          ip daddr ${localNetwork.subnet} tcp dport ${toString syncthingPorts.tcp} accept
-          ip daddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.quic} accept
-          ip daddr ${localNetwork.subnet} udp dport ${toString syncthingPorts.discovery} accept
-          ip daddr 255.255.255.255 udp dport ${toString syncthingPorts.discovery} accept
-          ip daddr 192.168.178.255 udp dport ${toString syncthingPorts.discovery} accept
-          ip daddr ${secondLocalNetwork.subnet} tcp dport { 22, 80, 443, ${toString syncthingPorts.tcp} } accept
-          ip daddr ${secondLocalNetwork.subnet} udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
           ip daddr ${remarkableNetwork.subnet} tcp dport { 22, 80 } accept
+          # Freigaben des eigenen Netzes — leer, solange kein Heimnetz-Profil aktiv ist.
+          jump heim_out
 
           # 10. Zustand "Direkt" — leer, außer vpn-direkt.service ist aktiv
           jump direkt
@@ -267,6 +273,12 @@ in
 
         # Zustand "Direkt" — leer, bis vpn-direkt.service sie füllt.
         chain direkt {
+        }
+
+        # Freigaben des eigenen Netzes — leer, bis firewall-heimnetz.service sie füllt.
+        chain heim_in {
+        }
+        chain heim_out {
         }
       }
 
@@ -345,12 +357,61 @@ in
     '';
   };
 
-  # nftables NACH network-online starten (siehe Kommentar oben zur Service-Reihenfolge).
-  systemd.services.nftables = {
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    before = lib.mkForce [ ];
+  # nftables startet mit dem NixOS-Standard: VOR network-pre.target.
+  #
+  # Bis 2026-09-19 stand hier `after = network-online.target` samt
+  # `before = mkForce [ ]`. Gemessen am Boot vom 18.09.: NetworkManager 09:28:59,
+  # vpn-boot 09:28:59, nftables 09:29:04 — 5,5 s mit Netz, aber ohne Kill-Switch
+  # und ohne Input-Filter. Der Grund von damals (ProtonVPN-GUI brauchte DNS, um
+  # API-Adressen ins Set zu lösen) ist mit den IP-festen WireGuard-Endpunkten
+  # entfallen: Das Regelwerk ist statisch und braucht kein Netz zum Laden.
+  # Die Module stehen in boot.kernelModules (oben) und sind über
+  # systemd-modules-load geladen, bevor nftables (After=sysinit.target) startet.
+
+  # ==========================================
+  # HEIMNETZ-FREIGABEN NUR IM HEIMNETZ
+  # ==========================================
+  # Bis 2026-09-19 hingen die Freigaben allein an ${localNetwork.subnet} — dem
+  # Auslieferungszustand jeder Fritz!Box. In jedem fremden Fritz!Box-WLAN (Café,
+  # Hotel) war damit Syncthing aus dem ganzen Subnetz erreichbar, und TCP 80/443
+  # zum Gateway ging am Tunnel vorbei.
+  #
+  # Jetzt entscheidet das NM-Profil: "Greenside4" kommt nur zustande, wenn die
+  # Gegenstelle den PSK kennt (4-Wege-Handshake) — ein Zwilling mit gleicher SSID
+  # und gleichem Subnetz bringt das Profil nicht hoch.
+  #
+  # partOf + PropagatesReloadTo: `flush ruleset` beim nftables-Neustart ODER
+  # -Reload (nixos-rebuild switch) leert die Chains; der Dienst füllt sie danach neu.
+  systemd.services.firewall-heimnetz = {
+    description = "Firewall: Freigaben des eigenen Netzes je nach aktivem NM-Profil";
+    after = [ "nftables.service" ];
+    requires = [ "nftables.service" ];
+    partOf = [ "nftables.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = heimnetzSetzen;
+      ExecReload = heimnetzSetzen;
+    };
   };
+  systemd.services.nftables.unitConfig.PropagatesReloadTo = [ "firewall-heimnetz.service" ];
+
+  networking.networkmanager.dispatcherScripts = [
+    {
+      source = pkgs.writeText "firewall-heimnetz" ''
+        case "$1" in
+          wl*|en*)
+            case "$2" in
+              up|down) ${pkgs.systemd}/bin/systemctl --no-block restart firewall-heimnetz.service ;;
+            esac
+            ;;
+        esac
+        exit 0
+      '';
+      type = "basic";
+    }
+  ];
 
   # ==========================================
   # TAILSCALE API IP UPDATE SERVICE

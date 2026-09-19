@@ -83,7 +83,8 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 
 - **VPN Kill Switch**: Firewall blocks all traffic outside the VPN tunnel (nftables)
 - **Port-Scan Detection**: Blockiert nach 10 Verbindungen in 60 Sekunden
-- **DHCP Snooping**: Nur Antworten vom Gateway (192.168.178.1) akzeptiert - verhindert DHCP spoofing
+- **Heimnetz-Freigaben nur im Heimnetz**: Drucker, Syncthing-LAN, Workstation und Servernetz liegen in den Chains `heim_in`/`heim_out`; `firewall-heimnetz.service` füllt sie nur, solange das NM-Profil `Greenside4` aktiv ist (PSK-gebunden) — ein fremdes Fritz!Box-WLAN mit 192.168.178.0/24 bekommt nichts davon
+- **Firewall vor dem Netz**: `nftables.service` startet vor `network-pre.target`, kein Boot-Fenster ohne Kill-Switch
 - **mDNS Rate Limiting**: 100/minute limit verhindert Flooding-Attacken
 - **DNS-over-TLS NUR über VPN**: Port 853 nur über VPN-Interfaces (verhindert DNS-Leaks)
 - **DNSSEC Strict Validation**: Scheitert bei Validierungsfehlern (keine insecure fallback)
@@ -260,10 +261,11 @@ sudo nixos-rebuild switch --flake .#nixos
 
 VPN Kill Switch mit nftables:
 - Default Policy: DROP
-- Traffic nur über VPN-Interfaces (proton0, tun+, wg+)
+- Traffic nur über VPN-Interfaces (wg*, tailscale0)
+- Lädt vor `network-pre.target`; Heimnetz-Freigaben dynamisch über `firewall-heimnetz.service` (NM-Dispatcher)
 - DNS nur via localhost (127.0.0.53 / ::1)
 - DoT (Port 853) nur zu Mullvad DNS (194.242.2.2)
-- Port-Scan Detection, DHCP Snooping, mDNS Rate Limiting
+- Port-Scan Detection, LLMNR/mDNS gesperrt
 - Per-Interface Reverse Path Filtering (strict für physical, loose für VPN)
 - Firewall-Logging: Verworfene Pakete mit Rate-Limiting
 - Syncthing nur im lokalen Netzwerk + über VPN
@@ -687,7 +689,7 @@ nix store optimise
 **Neue Update-Strategie**:
 - Automatische Updates **deaktiviert** (manuelle Kontrolle)
 - Tägliche **Benachrichtigung** bei verfügbaren Updates
-- Flake-Updates werden heruntergeladen und committed
+- Flake-Updates werden heruntergeladen und committed (`notify-updates`, alle Inputs außer `identity`, `rcu`, `gestalt`, `lotse`); ein gescheiterter Lauf lässt die Unit fehlschlagen statt „keine Updates“ zu melden
 - User entscheidet über Rebuild-Zeitpunkt
 
 ```bash
