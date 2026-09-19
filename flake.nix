@@ -51,6 +51,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # lotse - Koordination der parallelen Claude-Code-Sitzungen: Auswertungen
+    # anstellen statt den Speicher zu fuellen, dazu der PreToolUse-Hook
+    # (modules/lotse.nix). Auf den TAG gepinnt wie gestalt.
+    lotse = {
+      url = "github:achimcc/lotse/v0.2.1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Identität des Rechners (Username, Klarname, Mailadresse) aus dem PRIVATEN
     # Repo. Diese Werte werden zur BAUZEIT gebraucht — users.users.<name>,
     # /home/<name>/… und die Mailadresse stehen im Nix-Ausdruck selbst.

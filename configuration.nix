@@ -24,6 +24,7 @@
     ./modules/ssh-hardening.nix
     ./modules/cve-monitoring.nix
     ./modules/gestalt.nix
+    ./modules/lotse.nix
   ];
 
   # ==========================================

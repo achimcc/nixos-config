@@ -253,6 +253,27 @@
         "type": "github"
       }
     },
+    "lotse": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1789826408,
+        "narHash": "sha256-utqgR27EMIEfyLHZRU67gkldloCHSAkA4DkI45hR9XM=",
+        "owner": "achimcc",
+        "repo": "lotse",
+        "rev": "21694fa24e85fd5801cfa055fcdffa986a4d6509",
+        "type": "github"
+      },
+      "original": {
+        "owner": "achimcc",
+        "ref": "v0.2.1",
+        "repo": "lotse",
+        "type": "github"
+      }
+    },
     "nix-flatpak": {
       "locked": {
         "lastModified": 1780908363,
@@ -382,6 +403,7 @@
         "identity": "identity",
         "lanzaboote": "lanzaboote",
         "llm-agents": "llm-agents",
+        "lotse": "lotse",
         "nix-flatpak": "nix-flatpak",
         "nixpkgs": "nixpkgs_2",
         "nixpkgs-unstable": "nixpkgs-unstable",
