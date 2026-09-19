@@ -121,10 +121,41 @@ in
           # "resolvectl reset-server-features" (beides 2026-09-19 gemessen: blieb
           # bei Mullvad). Wer von unterwegs heimkommt, bliebe also ungefiltert.
           # Nur ein Neustart fängt wieder bei 192.168.30.1#flint.lan an.
+          #
+          # UND ZU HAUSE STEHT NUR DER ROUTER IN DER LISTE (Achim, 2026-09-19):
+          # Blockys Sperrantwort (0.0.0.0) ist unsigniert. Liegt die gesperrte
+          # Domain in einer signierten Zone (app-measurement.com), verwirft
+          # resolved sie mit DNSSEC=yes als "no-signature" und WECHSELT zu Quad9
+          # — die erste solche Domain schaltete den Filter für den Rest der
+          # Sitzung ab (gemessen). Ohne Ausweichserver bleibt es beim SERVFAIL,
+          # und gesperrt ist gesperrt; DNSSEC bleibt strikt. Preis: Fällt Blocky
+          # aus, hat der Laptop zu Hause kein DNS — wie jedes andere Gerät dort.
+          #
+          # Weggenommen wird das Drop-in beim Verlassen von rusty UND wenn ein
+          # anderes WLAN oder Kabel hochkommt — ein verpasstes "down" (Suspend
+          # zu Hause, Aufwachen woanders) ließe den Laptop sonst ohne DNS.
+          # Nicht bei wg-*/tailscale0: Die kommen zu Hause ebenfalls hoch.
           source = pkgs.writeText "resolved-zu-hause" ''
-            if [ "$2" = "up" ] && [ "$CONNECTION_ID" = "rusty" ]; then
-              ${pkgs.systemd}/bin/systemctl restart systemd-resolved.service
-            fi
+            d=/run/systemd/resolved.conf.d
+            f=$d/zu-hause.conf
+            neu() { ${pkgs.systemd}/bin/systemctl restart systemd-resolved.service; }
+            case "$2" in
+              up)
+                if [ "$CONNECTION_ID" = "rusty" ]; then
+                  mkdir -p "$d"
+                  printf '[Resolve]\nDNS=\nDNS=192.168.30.1#flint.lan\n' > "$f"
+                  neu
+                else
+                  case "$1" in
+                    wl*|en*) [ -e "$f" ] && rm -f "$f" && neu ;;
+                  esac
+                fi
+                ;;
+              down)
+                [ "$CONNECTION_ID" = "rusty" ] && [ -e "$f" ] && rm -f "$f" && neu
+                ;;
+            esac
+            exit 0
           '';
           type = "basic";
         }
@@ -297,6 +328,8 @@ in
         # eigenen Router-CA (configuration.nix). Unterwegs ist 192.168.30.1 nicht
         # erreichbar, resolved wechselt dann zu Quad9 + Mullvad (über VPN, für Domains
         # die Quad9 blockiert; Mullvad filtert keine Malware, daher Quad9 davor).
+        # Im WLAN rusty ersetzt ein Drop-in diese Liste durch den Router allein
+        # (Dispatcher "resolved-zu-hause" oben, Grund dort).
         #
         # EINE globale Liste, KEIN Link-DNS mit ~. am WLAN: Dann fragte resolved
         # Router und Quad9 parallel, und die schnellere Antwort gewönne — ob gefiltert
