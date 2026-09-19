@@ -1689,16 +1689,24 @@ in
   };
 
   # --- WEZTERM KONFIGURATION ---
-  # GNOME handelt Fensterdekorationen (Server-Side Decorations)
+  # Bewusst über XWayland, nicht nativ Wayland: Mutter bietet Wayland-Clients
+  # überhaupt keine serverseitigen Dekorationen an (kein zxdg_decoration_manager_v1
+  # in der Registry), und wezterm 2026-08-31 legt seinen eigenen Rahmen zwar an,
+  # zerstört die fünf Subsurfaces aber sofort wieder -- unabhängig vom Wert von
+  # window_decorations. Ergebnis war ein völlig undekoriertes Fenster: weder
+  # verschiebbar noch in der Größe änderbar. Unter XWayland zeichnet Mutter einen
+  # echten Rahmen (_NET_FRAME_EXTENTS = 0,0,37,0, _NET_WM_ACTION_MOVE/RESIZE gesetzt).
+  # Kostet hier nichts, weil alle Monitore auf Skalierung 1 laufen.
+  # Rückbau, sobald wezterm unter Wayland selbst dekoriert: enable_wayland = true.
   home.file.".config/wezterm/wezterm.lua".text = ''
     local wezterm = require 'wezterm'
     local config = {}
 
-    -- Wayland-Support aktivieren, aber GNOME Decorations verwenden
-    config.enable_wayland = true
+    -- Fensterdekorationen: siehe Kommentar in home.nix
+    config.enable_wayland = false
     config.enable_tab_bar = true
     config.use_fancy_tab_bar = true
-    config.window_decorations = "RESIZE"
+    config.window_decorations = "TITLE | RESIZE"
 
     -- Farb-Schema
     config.color_scheme = 'Tokyo Night'
