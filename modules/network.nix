@@ -21,6 +21,40 @@ let
       "$@"
   '';
 
+  # Links aus Obsidian im Browser des WIRTS oeffnen — und nicht im Sandkasten.
+  #
+  # DAS PROBLEM, gemessen am 2026-09-20: Electron ruft `xdg-open`. Im
+  # Sandkasten startet das den Browser DRINNEN, und weil Chrome und LibreWolf
+  # hier selbst Firejail-Wrapper sind, scheitert das an `nonewprivs`:
+  #   /run/current-system/sw/bin/librewolf: /run/wrappers/bin/firejail:
+  #   Die Operation ist nicht erlaubt
+  # Ein Klick auf einen Link tat damit schlicht nichts — beim Anmelden an
+  # ObsidiSync genauso wie bei jedem Link in einer Notiz.
+  #
+  # DER WEG IST DAS DESKTOP-PORTAL: `org.freedesktop.portal.OpenURI` laeuft
+  # AUSSERHALB des Sandkastens und oeffnet dort den eingestellten Browser.
+  # Belegt am selben Tag — der Aufruf aus dem Sandkasten liefert einen
+  # Request-Pfad, und im Portal-Journal des Wirts steht danach:
+  #   com.google.Chrome.desktop[…]: Wird in einer aktuellen Browsersitzung geöffnet.
+  #
+  # ZWEI WEGE WAREN VORHER FALSCH: `GIO_USE_PORTALS=1` allein greift nicht
+  # (xdg-open startete weiter Chrome im Sandkasten), und ein Helfer unter
+  # /tmp ist unsichtbar, weil das Profil `private-tmp` setzt. Deshalb im
+  # Store: den sieht der Sandkasten immer.
+  obsidianPortalOeffner = pkgs.writeShellScriptBin "xdg-open" ''
+    exec ${pkgs.glib}/bin/gdbus call --session \
+      --dest org.freedesktop.portal.Desktop \
+      --object-path /org/freedesktop/portal/desktop \
+      --method org.freedesktop.portal.OpenURI.OpenURI \
+      "" "$1" "{}"
+  '';
+
+  # Der Start: unser `xdg-open` VOR dem des Systems in den PATH, dann Obsidian.
+  obsidianStart = pkgs.writeShellScript "obsidian-start" ''
+    export PATH=${obsidianPortalOeffner}/bin:$PATH
+    exec ${pkgs.obsidian}/bin/obsidian "$@"
+  '';
+
   # Minimales Firejail-Profil für VSCodium (Electron-kompatibel)
   vscodiumProfile = pkgs.writeText "vscodium-minimal.profile" ''
     # Minimales Firejail-Profil für VSCodium
@@ -564,6 +598,43 @@ in
     dbus-user.talk org.freedesktop.secrets
   '';
 
+  # Obsidian - eigenes Profil, weil das mitgelieferte ZU VIEL freigibt.
+  #
+  # `${pkgs.firejail}/etc/firejail/obsidian.profile` enthält `whitelist
+  # ''${DOCUMENTS}` — das ist hier ~/Dokumente, also Depotauszüge, Lebenslauf,
+  # Steuerkram. Obsidian braucht davon genau einen Ordner.
+  #
+  # DIE REIHENFOLGE IST DIE GANZE WIRKUNG, gemessen am 2026-09-20: Steht
+  # `nowhitelist` NACH dem `include`, bleibt ~/Dokumente vollständig sichtbar
+  # (`firejail --profile=… ls ~/Dokumente` listet alles). Davor zeigt derselbe
+  # Aufruf nur noch `Obsidian`. Ein `--whitelist=…`-Argument allein hätte gar
+  # nichts bewirkt: Whitelists sind additiv, eine engere hebt die weitere nicht
+  # auf. (Genau so steht es beim logseq-Wrapper weiter unten — dort ist das
+  # Argument wirkungslos.)
+  environment.etc."firejail/obsidian-custom.profile".text = ''
+    nowhitelist ''${DOCUMENTS}
+    whitelist ''${HOME}/Dokumente/Obsidian
+
+    # Nur das Portal, sonst nichts — und AUCH DIESE ZEILEN VOR DEM `include`.
+    # Steht das `ignore` danach, weist Firejail es ab: „Cannot relax dbus-user
+    # policy, it is already set to block" (das mitgelieferte Profil setzt
+    # `dbus-user none`). Gemessen am 2026-09-20; mit richtiger Reihenfolge
+    # antwortet `OpenURI` aus dem Sandkasten mit `version 5`.
+    ignore dbus-user none
+    dbus-user filter
+    dbus-user.talk org.freedesktop.portal.*
+
+    include ${pkgs.firejail}/etc/firejail/obsidian.profile
+
+    # Was ein nachgeladenes Plugin nicht einmal sehen soll. BRAT führt fremden
+    # JavaScript-Code aus GitHub-Releases mit vollen Electron-Rechten aus —
+    # das ist der Grund, aus dem dieses Programm überhaupt in den Sandkasten
+    # gehört.
+    blacklist ''${HOME}/.ssh
+    blacklist ''${HOME}/.gnupg
+    blacklist /var/lib/sops-nix
+  '';
+
   # Signal Desktop: Firejail-Konfiguration entfernt — läuft jetzt als Flatpak
   # (org.signal.Signal) mit Bubblewrap-Sandbox. Siehe home.nix.
 
@@ -697,6 +768,17 @@ in
         extraArgs = [
           "--whitelist=/home/${id.username}/Dokumente/Logseq"
         ];
+      };
+
+      # Obsidian - Notizen, synchronisiert über obsi-01 (Electron-App)
+      # Eigenes Profil statt des mitgelieferten: siehe obsidian-custom.profile
+      # weiter oben — das Original gäbe ganz ~/Dokumente frei.
+      # Das Paket steckt bewusst NICHT in home.packages; der Menüeintrag zeigt
+      # über xdg.desktopEntries.obsidian (modules/home/obsidian.nix) auf diesen
+      # Wrapper, sonst startete der GNOME-Klick am Sandkasten vorbei.
+      obsidian = {
+        executable = "${obsidianStart}";
+        profile = "/etc/firejail/obsidian-custom.profile";
       };
 
       # VSCodium - Code Editor (Electron-App)

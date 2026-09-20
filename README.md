@@ -110,7 +110,8 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 
 - **Bubblewrap + AppArmor**: Modern sandboxing für kritische Apps
   - Bubblewrap: VSCodium (Electron-kompatibel, minimale Isolation)
-  - Firejail: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, Evince, Newsflash
+  - Firejail: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, Obsidian, Evince, Newsflash
+  - Obsidian laeuft unter einem **eigenen** Profil (`obsidian-custom.profile`): Das mitgelieferte gibt ganz `~/Dokumente` frei, hier sieht die App nur `~/Dokumente/Obsidian`; `~/.ssh`, `~/.gnupg` und `/var/lib/sops-nix` sind zusaetzlich ausgeblendet
   - **AppArmor Custom Profiles**: LibreWolf, Thunderbird, VSCodium, Spotify, Discord (kernel-level MAC)
   - AppArmor Enforcement: `killUnconfinedConfinables = true`
 - **Hardened Kernel**: `linuxPackages_hardened` mit zusätzlichen sysctl-Parametern
@@ -314,6 +315,36 @@ Neovim als Rust IDE:
 - avante.nvim (AI assistance)
 - octo.nvim (GitHub integration)
 - telescope.nvim (Fuzzy finder)
+
+### home/obsidian.nix
+
+Obsidian mit ObsidiSync — Notizen ueber den eigenen Server (`obsi-01`,
+https://obsidian.rusty-vault.de) auf allen Geraeten:
+
+- **Vault**: `~/Dokumente/Obsidian`
+- **Plugins deklarativ**: BRAT (2.2.0) und ObsidiSync (`ios-git-sync`, Release-Tag
+  v0.15.0 — dieselbe Version, die der Server faehrt) als einzelne Symlinks unter
+  `.obsidian/plugins/<id>/`. Einzeln und nicht als Verzeichnis, damit das Plugin
+  sein `data.json` daneben schreiben kann
+- **BRAT verwaltet ObsidiSync NICHT**: Die Version pinnt das Modul. Ein Update durch
+  BRAT schriebe ueber einen Store-Symlink und schluege fehl. BRAT steht fuer andere
+  Beta-Plugins bereit
+- **Startwerte, nur wenn die Datei fehlt** (Aktivierungsskript): Serveradresse in
+  `data.json`, aktive Plugins in `community-plugins.json`, Vault-Eintrag in
+  `~/.config/obsidian/obsidian.json`. Diese Dateien schreibt die Anwendung im Betrieb
+  selbst — ein Symlink darauf wuerde die Anmeldung bei jedem Rebuild wegwerfen
+- **Kein Geheimnis, kein sops-Eintrag**: obsi-01 meldet per OIDC-Device-Flow gegen
+  Authentik an (`/v1/auth/config` nennt Issuer und client_id). Die Anmeldung als
+  `achim` passiert einmal je Geraet im Plugin-Dialog
+- **Start**: Firejail-Wrapper in `network.nix`, Menueeintrag ueber
+  `xdg.desktopEntries.obsidian`
+- **Links oeffnen ueber das Desktop-Portal**: Im Sandkasten startet `xdg-open` den
+  Browser DRINNEN — und weil Chrome und LibreWolf hier selbst Firejail-Wrapper sind,
+  scheitert das an `nonewprivs`. Der Wrapper legt deshalb ein eigenes `xdg-open` in
+  den PATH, das `org.freedesktop.portal.OpenURI` ruft; geoeffnet wird damit
+  ausserhalb des Sandkastens. Das Profil erlaubt dafuer genau einen D-Bus-Namen
+  (`org.freedesktop.portal.*`) — und zwar VOR dem `include`, sonst weist Firejail
+  die Lockerung ab
 
 ## Secrets Management
 

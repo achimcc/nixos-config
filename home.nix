@@ -28,6 +28,7 @@ in
     ./modules/home/gnome-settings.nix
     ./modules/home/keyboard-layout-auto.nix
     ./modules/home/neovim.nix
+    ./modules/home/obsidian.nix
     ./modules/home/sway.nix
     ./modules/home/vpn.nix
   ];
@@ -254,6 +255,7 @@ in
     # --- EDITOREN ---
     apostrophe # Markdown-Editor für GNOME
     # logseq - via Firejail in modules/network.nix
+    # obsidian - via Firejail in modules/network.nix (Plugins: modules/home/obsidian.nix)
 
     # --- RUST ENTWICKLUNG ---
     # Deklarative Rust-Toolchain aus unstable (Rust 1.92+)
