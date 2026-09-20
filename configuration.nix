@@ -26,6 +26,7 @@
     ./modules/gestalt.nix
     ./modules/lotse.nix
     ./modules/mcp-nixos.nix
+    ./modules/claude-obsidian.nix
   ];
 
   # ==========================================

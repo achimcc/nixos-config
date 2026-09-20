@@ -305,6 +305,32 @@ MCP-Server mit echten NixOS-Daten für Claude Code (github.com/utensils/mcp-nixo
   Zustandsdatei; das Skript setzt idempotent genau einen Schlüssel
 - Input auf den Tag `v3.1.0` gepinnt, deshalb nicht Teil von `notify-updates`
 
+### claude-obsidian.nix
+
+Claude Code legt Gelesenes als verlinkte Markdown-Notizen im Obsidian-Vault ab
+(github.com/AgriciDaniel/claude-obsidian):
+
+- Das Projekt ist ein Claude-Code-Plugin **mit eigenem Marktplatz**; der globale
+  Hebel sind `extraKnownMarketplaces` und `enabledPlugins` in
+  `~/.claude/settings.json` — dieselbe Stelle wie bei `thedotmack`. Claude Code
+  klont den Marktplatz daraufhin selbst nach `~/.claude/plugins/marketplaces/`
+- **`CLAUDE_OBSIDIAN_VAULT` ist das, was „global" hier bedeutet**: Ohne die
+  Variable loest das Plugin seinen Vault aus dem aktuellen Verzeichnis auf und
+  bricht bei Unklarheit ab — eine Sitzung in `~/nixos-config` faende nichts.
+  Gesetzt als `environment.sessionVariables` und **nicht** als
+  `home.sessionVariables`, weil letzteres aus GNOME gestartete Anwendungen
+  nicht zuverlaessig erreicht (dieselbe Lehre wie bei `GSK_RENDERER`)
+- Kein Symlink in den Store: `settings.json` schreibt Claude Code selbst; das
+  Skript setzt idempotent genau zwei Schluessel
+- **Nicht deklarativ, und zwar absichtlich**: die Vault-Uebernahme (`adopt`).
+  Sie ist zweistufig gebaut (Plan mit SHA-256, dann
+  `--apply --approved-plan-sha256`), damit ein Mensch dazwischen liest — in
+  einem Aktivierungsskript liefe sie bei jedem Rebuild gegen einen Vault, der
+  per Git auf obsi-01 synchronisiert wird
+- Reichweite: Deklariert sind Marktplatz, Plugin und Vault. Den Plugin-Code
+  holt Claude Code selbst von GitHub und aktualisiert ihn eigenstaendig — wie
+  bei `superpowers` und `claude-mem` auch
+
 ### home/neovim.nix
 
 Neovim als Rust IDE:
