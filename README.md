@@ -290,6 +290,20 @@ Umfassende Sicherheitskonfiguration:
 - Rootkit-Erkennung (unhide)
 - FIDO2/Nitrokey PAM-Authentifizierung
 
+### mcp-nixos.nix
+
+MCP-Server mit echten NixOS-Daten für Claude Code (github.com/utensils/mcp-nixos):
+
+- Binary systemweit (`environment.systemPackages`), damit er in jedem Projekt
+  greift und nicht an einer geladenen devShell hängt
+- Eintrag als `mcpServers.nixos` in `~/.claude.json` über ein
+  Home-Manager-Aktivierungsskript — Claude Code liest MCP-Server **weder** aus
+  `settings.json` **noch** aus einer `.mcp.json` im Konfigurationsverzeichnis
+  (nachgemessen mit claude 2.1.278)
+- Kein Symlink in den Store: `~/.claude.json` ist Claude Codes veränderliche
+  Zustandsdatei; das Skript setzt idempotent genau einen Schlüssel
+- Input auf den Tag `v3.1.0` gepinnt, deshalb nicht Teil von `notify-updates`
+
 ### home/neovim.nix
 
 Neovim als Rust IDE:
@@ -689,7 +703,7 @@ nix store optimise
 **Neue Update-Strategie**:
 - Automatische Updates **deaktiviert** (manuelle Kontrolle)
 - Tägliche **Benachrichtigung** bei verfügbaren Updates
-- Flake-Updates werden heruntergeladen und committed (`notify-updates`, alle Inputs außer `identity`, `rcu`, `gestalt`, `lotse`); ein gescheiterter Lauf lässt die Unit fehlschlagen statt „keine Updates“ zu melden
+- Flake-Updates werden heruntergeladen und committed (`notify-updates`, alle Inputs außer `identity`, `rcu`, `gestalt`, `lotse`, `mcp-nixos`); ein gescheiterter Lauf lässt die Unit fehlschlagen statt „keine Updates“ zu melden
 - User entscheidet über Rebuild-Zeitpunkt
 
 ```bash

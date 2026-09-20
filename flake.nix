@@ -59,6 +59,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # mcp-nixos - MCP-Server mit echten NixOS-Daten statt erfundener Paketnamen
+    # (modules/mcp-nixos.nix). Auf den TAG gepinnt wie gestalt und lotse: ein
+    # Zweig liefe bei jedem `flake update` still weiter.
+    mcp-nixos = {
+      url = "github:utensils/mcp-nixos/v3.1.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Identität des Rechners (Username, Klarname, Mailadresse) aus dem PRIVATEN
     # Repo. Diese Werte werden zur BAUZEIT gebraucht — users.users.<name>,
     # /home/<name>/… und die Mailadresse stehen im Nix-Ausdruck selbst.

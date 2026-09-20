@@ -25,6 +25,7 @@
     ./modules/cve-monitoring.nix
     ./modules/gestalt.nix
     ./modules/lotse.nix
+    ./modules/mcp-nixos.nix
   ];
 
   # ==========================================
