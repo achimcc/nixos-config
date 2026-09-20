@@ -111,7 +111,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - **Bubblewrap + AppArmor**: Modern sandboxing für kritische Apps
   - Bubblewrap: VSCodium (Electron-kompatibel, minimale Isolation)
   - Firejail: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, Obsidian, Evince, Newsflash
-  - Obsidian laeuft unter einem **eigenen** Profil (`obsidian-custom.profile`): Das mitgelieferte gibt ganz `~/Dokumente` frei, hier sieht die App nur `~/Dokumente/Obsidian`; `~/.ssh`, `~/.gnupg` und `/var/lib/sops-nix` sind zusaetzlich ausgeblendet
+  - Obsidian **und Logseq** laufen unter **eigenen** Profilen (`obsidian-custom.profile`, `logseq-custom.profile`): Das mitgelieferte gibt ganz `~/Dokumente` frei, hier sieht die App nur `~/Dokumente/Obsidian`; `~/.ssh`, `~/.gnupg` und `/var/lib/sops-nix` sind zusaetzlich ausgeblendet. **Die Reihenfolge ist die ganze Wirkung**: `nowhitelist` muss VOR dem `include` stehen, und ein zusaetzliches `--whitelist=` verengt gar nichts — Firejail-Whitelists sind additiv
   - **AppArmor Custom Profiles**: LibreWolf, Thunderbird, VSCodium, Spotify, Discord (kernel-level MAC)
   - AppArmor Enforcement: `killUnconfinedConfinables = true`
 - **Hardened Kernel**: `linuxPackages_hardened` mit zusätzlichen sysctl-Parametern
@@ -364,6 +364,19 @@ https://obsidian.rusty-vault.de) auf allen Geraeten:
   `achim` passiert einmal je Geraet im Plugin-Dialog
 - **Start**: Firejail-Wrapper in `network.nix`, Menueeintrag ueber
   `xdg.desktopEntries.obsidian`
+- **BEKANNTE KANTE — was der Sync mitnimmt**: `shouldIgnoreVaultPath` in ObsidiSync
+  ist eine fest eingebaute Liste und liest **keine** `.gitignore`. Ausgenommen sind
+  nur `.git/`, `.obsidian-git-sync/`, `ObsidiSync History/`, `.trash/`,
+  `.obsidian/workspace*.json`, `.obsidian/cache/` und
+  `.obsidian/plugins/ios-git-sync/`. Daraus folgt zweierlei:
+  - Das Sync-Token in `ios-git-sync/data.json` bleibt lokal — gut.
+  - Die von Nix gepinnten **BRAT-Dateien wandern als Vault-Inhalt mit** (rund 1 MB
+    `main.js`). Unangenehm wird das erst, wenn ein zweites Geraet sie aendert und
+    der Server sie gegen einen schreibgeschuetzten Store-Symlink zurueckschreiben
+    will. Bis dahin: beobachten
+  - Ebenso wandert `.vault-meta/` von claude-obsidian mit, obwohl dessen eigene
+    `.gitignore` es ausschliessen will (gemessen am 2026-09-20: nach `adopt`
+    lagen 15 statt der geplanten 12 Dateien im Vault)
 - **Links oeffnen ueber das Desktop-Portal**: Im Sandkasten startet `xdg-open` den
   Browser DRINNEN — und weil Chrome und LibreWolf hier selbst Firejail-Wrapper sind,
   scheitert das an `nonewprivs`. Der Wrapper legt deshalb ein eigenes `xdg-open` in

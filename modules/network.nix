@@ -598,6 +598,27 @@ in
     dbus-user.talk org.freedesktop.secrets
   '';
 
+  # Logseq - eigenes Profil, aus demselben Grund wie bei Obsidian und mit
+  # derselben Reihenfolge.
+  #
+  # WAS HIER VORHER STAND UND NICHT WIRKTE (bis 2026-09-20): der Wrapper nahm
+  # `obsidian.profile` und daneben ein `--whitelist=…/Dokumente/Logseq`. Das
+  # Argument hat NICHTS verengt — Firejail-Whitelists sind additiv, eine engere
+  # hebt eine weitere nicht auf. Gemessen mit
+  # `firejail --profile=… ls ~/Dokumente`: alles sichtbar, also Depotauszuege,
+  # Lebenslauf und Steuerkram. Ein Sandkasten, der zu viel freigibt, meldet
+  # keinen Fehler — er startet normal.
+  environment.etc."firejail/logseq-custom.profile".text = ''
+    nowhitelist ''${DOCUMENTS}
+    whitelist ''${HOME}/Dokumente/Logseq
+
+    include ${pkgs.firejail}/etc/firejail/obsidian.profile
+
+    blacklist ''${HOME}/.ssh
+    blacklist ''${HOME}/.gnupg
+    blacklist /var/lib/sops-nix
+  '';
+
   # Obsidian - eigenes Profil, weil das mitgelieferte ZU VIEL freigibt.
   #
   # `${pkgs.firejail}/etc/firejail/obsidian.profile` enthält `whitelist
@@ -761,13 +782,12 @@ in
       };
 
       # Logseq - Wissensmanagement (Electron-App)
-      # Nutzt Obsidian-Profil da kein eigenes Logseq-Profil existiert
+      # Eigenes Profil (logseq-custom.profile weiter oben): Das mitgelieferte
+      # Obsidian-Profil gaebe ganz ~/Dokumente frei, und das frueher hier
+      # stehende `--whitelist` hat daran nichts geaendert.
       logseq = {
         executable = "${pkgs.logseq}/bin/logseq";
-        profile = "${pkgs.firejail}/etc/firejail/obsidian.profile";
-        extraArgs = [
-          "--whitelist=/home/${id.username}/Dokumente/Logseq"
-        ];
+        profile = "/etc/firejail/logseq-custom.profile";
       };
 
       # Obsidian - Notizen, synchronisiert über obsi-01 (Electron-App)
