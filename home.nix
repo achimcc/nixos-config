@@ -1065,11 +1065,20 @@ in
       # umgezogen. Die alte Zeile zeigte danach ins Leere — was nicht auffiel,
       # weil der NAME daneben steht und alles traegt. Eine tote Adresse in
       # einem Block, der funktioniert, faellt eben nicht auf.
+      # SEIT DEM 2026-09-21 SCHLUESSEL STATT PASSWORT (Homeserver-Audit B19):
+      # SFTPGo nimmt fuer dieses Konto per SSH nur noch den Schluessel an
+      # (`password-over-SSH` gesperrt, `sftpSchluessel` in sftp-01.nix). Die
+      # Begruendung oben bleibt gueltig und traegt jetzt die umgekehrte
+      # Schlussfolgerung: GENAU EIN Schluessel wird angeboten (`IdentitiesOnly`
+      # plus `IdentityAgent none` unten), also keine sieben Fehlversuche vor
+      # dem richtigen. Die Datei hat keine Passphrase und braucht keinen Agenten.
       "10.0.160.10 sftp.rusty-vault.de" = {
         User = id.username;
         Port = 2022;
-        PreferredAuthentications = "password";
-        PubkeyAuthentication = "no";
+        PreferredAuthentications = "publickey";
+        PubkeyAuthentication = "yes";
+        IdentitiesOnly = "yes";
+        IdentityFile = "~/.ssh/id_ed25519";
 
         # UND DER RIEGEL, DEN gvfs NICHT UEBERGEHEN KANN (2026-09-10).
         #
