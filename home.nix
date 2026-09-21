@@ -1452,12 +1452,21 @@ in
       # "dom.storage.enabled" = false würde Extensions brechen
       "network.cookie.cookieBehavior" = 5; # Total Cookie Protection (dFPI)
 
-      # WebAuthn/U2F deaktiviert — kein Hardware-Token vorhanden
-      "security.webauthn.enable" = false;
+      # WebAuthn NUR fuer den Hardware-Schluessel (Nitrokey 3), seit 2026-09-21.
+      # Bis dahin stand hier alles auf `false` mit der Begruendung „kein
+      # Hardware-Token vorhanden" — die Voraussetzung ist weggefallen, und die
+      # Sperre verhinderte den Passkey fuer Authentik (Homeserver-Audit B11):
+      # Die Registrierung endete sofort mit „cancelled or timed out", ohne dass
+      # der Stick blinkte. `fido2-token -I` zeigte ihn dabei gesund (PIN gesetzt,
+      # 8 Versuche, `rk`) — es war allein der Browser.
+      # Frei ist nur, was ein USB-Schluessel braucht: WebAuthn, USB-Token, CTAP2.
+      # Software-Token (ein Schluessel im Browser selbst) und das alte U2F-API
+      # bleiben aus.
+      "security.webauthn.enable" = true;
       "security.webauthn.u2f" = false;
-      "security.webauthn.webauthn_enable_usbtoken" = false;
+      "security.webauthn.webauthn_enable_usbtoken" = true;
       "security.webauthn.webauthn_enable_softtoken" = false;
-      "security.webauthn.ctap2" = false;
+      "security.webauthn.ctap2" = true;
 
       # Telemetrie & Reporting komplett deaktivieren
       "browser.safebrowsing.malware.enabled" = false;
