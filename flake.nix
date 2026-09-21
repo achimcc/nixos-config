@@ -59,6 +59,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # caveat - blendet die Lehre aus caveats/ ein, wenn ihr Meldungstext auftaucht
+    # (modules/caveat.nix). Auf den TAG gepinnt wie lotse.
+    caveat = {
+      url = "github:achimcc/caveat/v0.1.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # mcp-nixos - MCP-Server mit echten NixOS-Daten statt erfundener Paketnamen
     # (modules/mcp-nixos.nix). Auf den TAG gepinnt wie gestalt und lotse: ein
     # Zweig liefe bei jedem `flake update` still weiter.

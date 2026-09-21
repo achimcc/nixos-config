@@ -34,6 +34,27 @@
         "type": "github"
       }
     },
+    "caveat": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1790021175,
+        "narHash": "sha256-Qa/F6zUtYA6LMIzdnbRaynkkmXAVD0eUCbIUBzq68nI=",
+        "owner": "achimcc",
+        "repo": "caveat",
+        "rev": "1cf73818ace6ea83ed80edae986742b5663bcf92",
+        "type": "github"
+      },
+      "original": {
+        "owner": "achimcc",
+        "ref": "v0.1.0",
+        "repo": "caveat",
+        "type": "github"
+      }
+    },
     "crane": {
       "locked": {
         "lastModified": 1788465171,
@@ -427,6 +448,7 @@
     },
     "root": {
       "inputs": {
+        "caveat": "caveat",
         "gestalt": "gestalt",
         "home-manager": "home-manager",
         "identity": "identity",
