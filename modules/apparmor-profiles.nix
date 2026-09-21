@@ -89,6 +89,23 @@
         # Webcam/Video devices
         /dev/video* rw,
 
+        # FIDO2-/WebAuthn-Schluessel (Nitrokey 3), seit 2026-09-21.
+        # Ohne diese Regeln endete jede Passkey-Registrierung sofort mit
+        # „cancelled or timed out", der Stick blinkte nie — im Kernel-Log:
+        #   apparmor="DENIED" operation="open" profile="librewolf"
+        #   name="/dev/" comm=".librewolf-wrap" requested_mask="r"
+        # Der Browser sucht seine Sicherheitsschluessel unter /dev und
+        # /sys/class/hidraw und oeffnet dann /dev/hidrawN. Firejail war es
+        # nicht: in dessen Sandbox lag /dev/hidraw0 samt ACL (firejail --join).
+        # Freigegeben sind nur die HID-Rohgeraete — jedes davon traegt ohnehin
+        # nur die ACL des angemeldeten Nutzers (uaccess), also gerade den Stick.
+        /dev/ r,
+        /dev/hidraw* rw,
+        /sys/class/hidraw/ r,
+        /sys/class/hidraw/** r,
+        /run/udev/data/ r,
+        /run/udev/data/** r,
+
         # Deny dangerous paths
         deny @{HOME}/.ssh/** rw,
         deny @{HOME}/.gnupg/** rw,

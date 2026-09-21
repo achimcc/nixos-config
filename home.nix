@@ -1452,21 +1452,24 @@ in
       # "dom.storage.enabled" = false würde Extensions brechen
       "network.cookie.cookieBehavior" = 5; # Total Cookie Protection (dFPI)
 
-      # WebAuthn NUR fuer den Hardware-Schluessel (Nitrokey 3), seit 2026-09-21.
-      # Bis dahin stand hier alles auf `false` mit der Begruendung „kein
-      # Hardware-Token vorhanden" — die Voraussetzung ist weggefallen, und die
-      # Sperre verhinderte den Passkey fuer Authentik (Homeserver-Audit B11):
-      # Die Registrierung endete sofort mit „cancelled or timed out", ohne dass
-      # der Stick blinkte. `fido2-token -I` zeigte ihn dabei gesund (PIN gesetzt,
-      # 8 Versuche, `rk`) — es war allein der Browser.
-      # Frei ist nur, was ein USB-Schluessel braucht: WebAuthn, USB-Token, CTAP2.
-      # Software-Token (ein Schluessel im Browser selbst) und das alte U2F-API
-      # bleiben aus.
-      "security.webauthn.enable" = true;
-      "security.webauthn.u2f" = false;
-      "security.webauthn.webauthn_enable_usbtoken" = true;
-      "security.webauthn.webauthn_enable_softtoken" = false;
-      "security.webauthn.ctap2" = true;
+      # WebAuthn fuer den Hardware-Schluessel (Nitrokey 3), Stand 2026-09-21.
+      #
+      # HIER STANDEN BIS DAHIN FUENF NAMEN, DIE ES NICHT GIBT:
+      # `security.webauthn.enable`, `…u2f`, `…ctap2`, `…webauthn_enable_usbtoken`,
+      # `…webauthn_enable_softtoken` — mit „webauthn". LibreWolf 155 kennt die
+      # Schalter als `security.webauth.*`, ohne n (in libxul.so nachgesehen).
+      # Die Zeilen haben also nie etwas gesperrt, und ein erstes Umstellen auf
+      # `true` hat nichts freigegeben. Verhindert hat den Passkey etwas anderes:
+      # das AppArmor-Profil (`modules/apparmor-profiles.nix`), das /dev/hidraw*
+      # nicht kannte.
+      #
+      # Jetzt mit den echten Namen, und mit dem gewollten Wert statt der
+      # Vorgabe — damit ein Upstream-Wechsel der Vorgabe hier nicht still
+      # durchschlaegt: USB-Schluessel ja, Software-Token (ein Schluessel im
+      # Browser selbst) nein.
+      "security.webauth.webauthn" = true;
+      "security.webauth.webauthn_enable_usbtoken" = true;
+      "security.webauth.webauthn_enable_softtoken" = false;
 
       # Telemetrie & Reporting komplett deaktivieren
       "browser.safebrowsing.malware.enabled" = false;
