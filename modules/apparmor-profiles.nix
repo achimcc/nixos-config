@@ -99,10 +99,19 @@
         # nicht: in dessen Sandbox lag /dev/hidraw0 samt ACL (firejail --join).
         # Freigegeben sind nur die HID-Rohgeraete — jedes davon traegt ohnehin
         # nur die ACL des angemeldeten Nutzers (uaccess), also gerade den Stick.
+        #
+        # Und die AUFZAEHLUNG darueber: Der Browser liest erst /sys/class/ und
+        # /sys/bus/, bevor er zu hidraw hinabsteigt. Die erste Fassung gab nur
+        # /sys/class/hidraw/ frei — danach im Log je Versuch
+        #   name="/sys/class/" denied   und   name="/sys/bus/" denied
+        # (12-mal bei 12 Versuchen). Die Eintraege dort sind nur Verweise nach
+        # /sys/devices/**, und das darf das Profil ohnehin schon lesen.
         /dev/ r,
         /dev/hidraw* rw,
-        /sys/class/hidraw/ r,
-        /sys/class/hidraw/** r,
+        /sys/class/ r,
+        /sys/class/** r,
+        /sys/bus/ r,
+        /sys/bus/** r,
         /run/udev/data/ r,
         /run/udev/data/** r,
 
