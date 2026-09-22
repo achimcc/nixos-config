@@ -28,6 +28,7 @@
     ./modules/caveat.nix
     ./modules/mcp-nixos.nix
     ./modules/claude-obsidian.nix
+    ./modules/claude-plugins.nix
   ];
 
   # ==========================================
