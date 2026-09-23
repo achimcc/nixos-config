@@ -993,13 +993,13 @@ in
         AddKeysToAgent = "yes";
       };
       "github.com" = {
-        IdentityFile = "~/.ssh/id_ed25519";
+        IdentityFile = "~/.ssh/id_ecdsa.pub";
         IdentitiesOnly = true;
       };
       "gitlab.com" = {
         HostName = "altssh.gitlab.com";
         Port = 443;
-        IdentityFile = "~/.ssh/id_ed25519";
+        IdentityFile = "~/.ssh/id_ecdsa.pub";
         IdentitiesOnly = true;
       };
       "rusty-vault.de" = {
@@ -1009,37 +1009,37 @@ in
       "pve-host" = {
         HostName = "100.72.129.125";
         User = "admin";
-        IdentityFile = "~/.ssh/id_ed25519";
+        IdentityFile = "~/.ssh/id_ecdsa.pub";
         IdentitiesOnly = true;
       };
       # Used by Colmena (connects via IP directly, uses agent with colmena key)
       "100.72.129.125" = {
         User = "admin";
-        IdentityFile = "~/.ssh/id_ed25519_colmena";
+        IdentityFile = "~/.ssh/id_ecdsa_colmena.pub";
         IdentitiesOnly = true;
       };
       # LXC Container (VLAN 20) — Direkt via Tailscale-Subnet (§37)
       "10.10.20.*" = {
         User = "admin";
-        IdentityFile = "~/.ssh/id_ed25519_colmena";
+        IdentityFile = "~/.ssh/id_ecdsa_colmena.pub";
         IdentitiesOnly = true;
       };
       # VMs (VLAN 30, DMZ) — Direkt via Tailscale-Subnet (§37)
       "10.10.30.*" = {
         User = "admin";
-        IdentityFile = "~/.ssh/id_ed25519_colmena";
+        IdentityFile = "~/.ssh/id_ecdsa_colmena.pub";
         IdentitiesOnly = true;
       };
       # LXC (VLAN 40, Media) — Direkt via Tailscale-Subnet (§37)
       "10.10.40.*" = {
         User = "admin";
-        IdentityFile = "~/.ssh/id_ed25519_colmena";
+        IdentityFile = "~/.ssh/id_ecdsa_colmena.pub";
         IdentitiesOnly = true;
       };
       # VM (VLAN 50, Torrent) — Direkt via Tailscale-Subnet (§37)
       "10.10.50.*" = {
         User = "admin";
-        IdentityFile = "~/.ssh/id_ed25519_colmena";
+        IdentityFile = "~/.ssh/id_ecdsa_colmena.pub";
         IdentitiesOnly = true;
       };
       "remarkable" = {
@@ -1090,15 +1090,16 @@ in
       # (`password-over-SSH` gesperrt, `sftpSchluessel` in sftp-01.nix). Die
       # Begruendung oben bleibt gueltig und traegt jetzt die umgekehrte
       # Schlussfolgerung: GENAU EIN Schluessel wird angeboten (`IdentitiesOnly`
-      # plus `IdentityAgent none` unten), also keine sieben Fehlversuche vor
-      # dem richtigen. Die Datei hat keine Passphrase und braucht keinen Agenten.
+      # plus `IdentityAgent` unten), also keine sieben Fehlversuche vor dem
+      # richtigen. Seit 2026-09-23 liegt der private Teil im TPM: `IdentityFile`
+      # nennt nur den oeffentlichen, signieren kann allein ssh-tpm-agent.
       "10.0.160.10 sftp.rusty-vault.de" = {
         User = id.username;
         Port = 2022;
         PreferredAuthentications = "publickey";
         PubkeyAuthentication = "yes";
         IdentitiesOnly = "yes";
-        IdentityFile = "~/.ssh/id_ed25519";
+        IdentityFile = "~/.ssh/id_ecdsa.pub";
 
         # UND DER RIEGEL, DEN gvfs NICHT UEBERGEHEN KANN (2026-09-10).
         #
@@ -1108,16 +1109,19 @@ in
         # auch `max_auth_tries = 20`, weil der Agent hier sieben Schluessel
         # haelt und sechs Versuche nicht reichen.
         #
-        # `IdentityAgent none` wirkt eine Ebene tiefer: Es gibt dann gar keinen
+        # `IdentityAgent none` wirkte eine Ebene tiefer: Es gab dann gar keinen
         # Agenten zu fragen, gleichgueltig welche Methoden gvfs verlangt. Damit
         # kommt die Passwortabfrage auch beim ERSTEN Kontakt einer URL-Variante,
         # fuer die noch kein Passwort im Schluesselbund liegt — der Fall, in dem
         # Nautilus am 2026-09-10 ohne Portangabe kommentarlos scheiterte, waehrend
         # dieselbe Adresse mit `:2022` funktionierte.
         #
-        # ES BETRIFFT NUR DIESEN BLOCK: `git push`, `colmena` und jeder andere
-        # Host behalten ihren Agenten.
-        IdentityAgent = "none";
+        # SEIT 2026-09-23 GEHT `none` NICHT MEHR: Der Schluessel liegt im TPM,
+        # nur ssh-tpm-agent kann mit ihm signieren. Der Riegel bleibt trotzdem
+        # eng — der Block zeigt auf den TPM-Agenten direkt, nicht auf
+        # $SSH_AUTH_SOCK, und `IdentitiesOnly` + `.pub` laesst ssh aus dem
+        # Agenten genau diesen einen Schluessel nehmen.
+        IdentityAgent = "\${XDG_RUNTIME_DIR}/ssh-tpm-agent.sock";
       };
     };
   };
@@ -1159,7 +1163,8 @@ in
   programs.git = {
     enable = true;
     signing = {
-      key = "~/.ssh/id_ed25519.pub";
+      # TPM-versiegelt seit 2026-09-23; signiert wird über ssh-tpm-agent.
+      key = "~/.ssh/id_ecdsa.pub";
       signByDefault = true;
     };
     settings = {
@@ -1183,11 +1188,12 @@ in
     };
   };
 
-  # Allowed Signers für SSH-Commit-Verifizierung
-  # Nach Erstellung des neuen ed25519-Keys: Public-Key-Inhalt hier eintragen.
-  # Erzeugung: ssh-keygen -t ed25519 -C "${id.email}"
+  # Allowed Signers für SSH-Commit-Verifizierung.
+  # Die Ed25519-Zeile bleibt, obwohl der Schlüssel seit 2026-09-23 nicht mehr
+  # signiert: Ohne sie wären alle älteren Commits lokal „No principal matched".
   home.file.".ssh/allowed_signers".text = ''
     ${id.email} namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICBEnBXC5ijeHaellXY2+SOUPN/JnmKuRfHDK1YGB2Mo ${id.email}
+    ${id.email} namespaces="git" ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBJvpPDVEtLzYyQUCtAJ0XMzFIiZ7u5rSnPBTVpSsM5EWhrUB14zjWebmUyK9yFdRhI9wRw5a8WYdyIJNOhKd0eI= ${id.email}
   '';
 
   # --- GITHUB CLI ---
