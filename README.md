@@ -99,9 +99,9 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - **LUKS2 Full-Disk Encryption**: Mit FIDO2 (Nitrokey 3C NFC) + Passwort-Fallback
 - **Swap Hardening**: Verschlüsselt mit FIDO2, allowDiscards=false (keine Metadata-Leaks)
 - **Swappiness minimiert**: vm.swappiness=1 (sensitive Daten bleiben im RAM)
-- **TPM2 Support**: Optionales automatisches LUKS-Unlock via TPM2
+- **TPM2 für SSH-Schlüssel**: Seit 2026-09-13 entsperrt das TPM kein LUKS mehr. Es hält die SSH-Schlüssel für Server, GitHub und Commit-Signatur (`ssh-tpm-agent`, `~/.ssh/id_ecdsa*.tpm`): benutzbar ohne Rückfrage, damit Colmena und Claude selbstständig arbeiten, aber nicht kopierbar. TPM gelöscht (BIOS-Reset, Mainboard) = Schlüssel weg; Notweg ist der Nitrokey-Schlüssel `admin@nitrokey`. Plan: `docs/superpowers/plans/2026-09-23-ssh-schluessel-tpm.md`
 - **Secure Boot**: Lanzaboote mit eigenen Signatur-Keys
-- **Secure Boot Monitoring**: `verify-secureboot` liest nach jedem Boot die Firmware-Variable `SecureBoot` und meldet ins Journal (`journalctl -t secureboot`); der Nutzerdienst `secureboot-warnung` zeigt dieselbe Warnung auf dem Desktop. **Stand 2026-09-23: Secure Boot ist in der Firmware noch AUS** (Schlüssel enrollen und im BIOS einschalten steht aus)
+- **Secure Boot Monitoring**: `verify-secureboot` liest nach jedem Boot die Firmware-Variable `SecureBoot` und meldet ins Journal (`journalctl -t secureboot`); der Nutzerdienst `secureboot-warnung` zeigt dieselbe Warnung auf dem Desktop. **Seit 2026-09-23 in der Firmware AN** (user mode, eigene PK, Microsoft-Schlüssel in KEK/db), BIOS mit Supervisor-Passwort
 - **sops-nix**: Secrets mit Age verschlüsselt im Git Repository
 - **SSH Commit Signing**: Git Commits mit Ed25519 Security Key signiert
 - **FIDO2 PAM**: sudo, login und GDM mit Nitrokey + PIN als Alternative zum Passwort

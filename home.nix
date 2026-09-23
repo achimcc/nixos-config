@@ -93,10 +93,9 @@ in
     "$HOME/.cargo/bin" # Rust/Cargo binaries
   ];
 
-  # SSH Agent Socket
+  # SSH_AUTH_SOCK setzt seit 2026-09-23 das Modul services.ssh-tpm-agent
+  # (unten bei den SSH-Agenten).
   home.sessionVariables = {
-    SSH_AUTH_SOCK = "$XDG_RUNTIME_DIR/ssh-agent.socket";
-
     # Intel i915 Render Engine Bug — BACKUP (primärer Fix in desktop.nix)
     # home.sessionVariables erreicht Desktop-gestartete Apps nicht zuverlässig!
     # System-Level-Fix: environment.sessionVariables.GSK_RENDERER in modules/desktop.nix
@@ -375,21 +374,14 @@ in
     "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
   ];
 
-  # SSH-Agent als systemd user service
-  systemd.user.services.ssh-agent = {
-    Unit = {
-      Description = "SSH Agent";
-    };
-    Service = {
-      Type = "simple";
-      Environment = "SSH_AUTH_SOCK=%t/ssh-agent.socket";
-      ExecStart = "${pkgs.openssh}/bin/ssh-agent -D -a $SSH_AUTH_SOCK";
-      Restart = "on-failure";
-    };
-    Install = {
-      WantedBy = [ "default.target" ];
-    };
-  };
+  # SSH-Agenten (2026-09-23): ssh-tpm-agent ist der Agent der Sitzung und hält
+  # die TPM-versiegelten Schlüssel ~/.ssh/*.tpm — benutzbar ohne Rückfrage,
+  # aber nicht kopierbar. Alles andere (Nitrokey, hetzner-vps) reicht er an den
+  # gewöhnlichen ssh-agent durch (-A). SSH_AUTH_SOCK setzt das HM-Modul.
+  # Bis hierher lief ssh-agent als eigene Unit unter %t/ssh-agent.socket.
+  # Plan: docs/superpowers/plans/2026-09-23-ssh-schluessel-tpm.md
+  services.ssh-agent.enable = true;
+  services.ssh-tpm-agent.enable = true;
 
   # GNOME Keyring SSH-Agent deaktivieren (Konflikt mit ssh-agent service)
   xdg.configFile."autostart/gnome-keyring-ssh.desktop".text = ''

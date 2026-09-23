@@ -82,4 +82,14 @@
   # Root-Partition stillschweigend wieder einen TPM2-Slot an.
   #
   # Vollständig: docs/superpowers/plans/2026-09-12-nitrokey-fido2.md
+
+  # TPM2 für SSH-Schlüssel (ssh-tpm-agent, home.nix). Gruppe `tss` darf
+  # /dev/tpmrm0 benutzen. LUKS hängt seit 2026-09-13 nicht mehr am TPM,
+  # das TPM hält nur noch diese Schlüssel.
+  # Plan: docs/superpowers/plans/2026-09-23-ssh-schluessel-tpm.md
+  security.tpm2 = {
+    enable = true;
+    pkcs11.enable = false;
+  };
+  users.users.${id.username}.extraGroups = [ config.security.tpm2.tssGroup ];
 }
