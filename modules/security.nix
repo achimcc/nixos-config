@@ -33,8 +33,10 @@
     # TRADE-OFF:
     # Electron-Sandbox > theoretischer Kernel-namespace-Bug bei gepatchtem
     # Kernel. Mitigation liegt in: (a) aktueller Kernel (6.12 LTS, CVE-Watch
-    # via vulnix), (b) AppArmor-Profile für Electron-Apps, (c) Lockdown-Modus,
-    # (d) SMT-Off, init_on_alloc/free für Memory-Exploit-Härte.
+    # via vulnix), (b) AppArmor-Profile für Electron-Apps, (c) SMT-Off,
+    # init_on_alloc/free für Memory-Exploit-Härte. (Ein Lockdown-Modus zählt
+    # NICHT dazu: das LSM ist im Kernel nicht einkompiliert, siehe
+    # configuration.nix.)
     "kernel.unprivileged_userns_clone" = 1;
 
     # Kernel Pointer verstecken (erschwert Exploits)
@@ -51,6 +53,19 @@
 
     # Unprivilegierte User dürfen keine BPF nutzen
     "kernel.unprivileged_bpf_disabled" = 1;
+
+    # io_uring komplett aus (2; Kernel ≥ 6.6): lange Kette lokaler
+    # Rechteausweitungen. Programme fallen auf epoll/Threads zurück — libuv,
+    # Rust std, Electron nutzen es ohnehin nicht. War 0 (gemessen 23.09.2026).
+    "kernel.io_uring_disabled" = 2;
+
+    # Line-Discipline-Module (n_hdlc, slip, …) nicht per TIOCSETD nachladbar.
+    # War 1 (gemessen 23.09.2026).
+    "dev.tty.ldisc_autoload" = 0;
+
+    # Magic SysRq aus. War 16 (nur Sync) — mit Sperrbildschirm zählt jeder
+    # Tastaturpfad zum Kernel.
+    "kernel.sysrq" = 0;
 
     # BPF JIT Hardening
     "net.core.bpf_jit_harden" = 2;
@@ -213,14 +228,34 @@
     # Neue Geräte blockieren bis explizit erlaubt
     implicitPolicyTarget = "block";
 
-    # Bereits angeschlossene Geräte beim Boot erlauben
-    presentDevicePolicy = "allow";
+    # Beim Boot vorhandene Geräte durchlaufen dieselben Regeln wie eingesteckte.
+    # Bis 2026-09-23 stand hier "allow": Ein vor dem Einschalten angestecktes
+    # BadUSB-Gerät (Tastatur-Payload) wurde ungeprüft freigegeben — genau der
+    # Evil-Maid-Fall. Dafür brauchen jetzt die EINGEBAUTEN Geräte eigene Regeln
+    # (unten, aus `usbguard generate-policy` am 23.09.2026).
+    presentDevicePolicy = "apply-policy";
 
     # Eingefügte Geräte: Regeln vor Blockierung anwenden (verhindert Timing-Probleme)
     insertedDevicePolicy = "apply-policy";
 
     # Erlaubte USB-Geräte (permanent)
     rules = ''
+      # --- Eingebaute Geräte (seit presentDevicePolicy = "apply-policy" nötig) ---
+      # Gepinnt auf Schnittstellen und connect-type: "not used" meldet die
+      # Firmware (ACPI) nur für interne Ports, "" nur für Root-Hubs. Ein außen
+      # angestecktes Gerät mit gefälschter VID:PID ist "hotplug" und fällt durch.
+      # Keine hash-Pins: die ändern sich mit Firmware-Updates der Geräte.
+
+      # xHCI-Root-Hubs (USB 2 und 3). Ohne diese Regel wäre USB komplett tot.
+      allow id 1d6b:0002 name "xHCI Host Controller" with-interface 09:00:00 with-connect-type ""
+      allow id 1d6b:0003 name "xHCI Host Controller" with-interface 09:00:00 with-connect-type ""
+
+      # Integrierte Kamera (UVC + IR)
+      allow id 5986:1199 name "Integrated Camera" with-interface { 0e:01:01 0e:02:01 0e:02:01 0e:02:01 0e:02:01 0e:02:01 0e:02:01 0e:02:01 0e:02:01 0e:01:01 0e:02:01 0e:02:01 0e:02:01 0e:02:01 0e:02:01 0e:02:01 0e:02:01 0e:02:01 fe:01:01 } with-connect-type "not used"
+
+      # Quectel EM061K-GL (WWAN-Modem, M.2)
+      allow id 2c7c:6008 name "EM061K-GL" with-interface { 02:0e:00 0a:00:02 0a:00:02 ff:ff:ff } with-connect-type "not used"
+
       # Intel Bluetooth Adapter (intern, wird nach Firmware-Load re-inserted)
       allow id 8087:0033 with-interface { e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 e0:01:01 } with-connect-type "not used"
 
@@ -360,48 +395,51 @@
   # AUDIT FRAMEWORK (Custom Implementation)
   # ==========================================
 
-  # Enable auditd daemon
+  # auditd schreibt die Ereignisse nach /var/log/audit
   security.auditd.enable = true;
 
-  # DISABLE NixOS audit module (wegen -b buffer bug)
-  security.audit.enable = false;
+  # Regeln über das NixOS-Modul: audit-rules-nixos.service lädt sie mit
+  # `auditctl -R`, der Kernel bekommt audit=1 und audit_backlog_limit.
+  #
+  # Bis 2026-09-23 lagen die Regeln in /etc/audit/rules.d und das Modul war
+  # aus („-b buffer bug"). Das war wirkungslos: NixOS' auditd ruft kein
+  # augenrules auf, audit-rules.service blieb inaktiv, `auditctl -l` war leer
+  # (gemessen 11.09. und 19.09.2026). Der alte Bug betraf ein separates
+  # `auditctl -b`; heute steht -b in derselben Regeldatei wie alles andere.
+  security.audit = {
+    enable = true;
+    backlogLimit = 8192;
+    failureMode = "printk";
+    rules = [
+      # Überwache kritische Systemdateien
+      "-w /etc/passwd -p wa -k passwd_changes"
+      "-w /etc/shadow -p wa -k shadow_changes"
+      "-w /etc/group -p wa -k group_changes"
+      "-w /etc/gshadow -p wa -k gshadow_changes"
+      "-w /etc/sudoers -p wa -k sudoers_changes"
 
-  # Custom audit rules (bypasses NixOS module)
-  environment.etc."audit/rules.d/nixos-custom.rules".text = ''
-    # Custom Audit Rules (NixOS-compatible)
-    # Loaded by auditd without problematic -b flag
+      # Überwache sudo/su Execution (syscall-based)
+      "-a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/sudo -k sudo_exec"
+      "-a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/su -k su_exec"
 
-    # Überwache kritische Systemdateien
-    -w /etc/passwd -p wa -k passwd_changes
-    -w /etc/shadow -p wa -k shadow_changes
-    -w /etc/group -p wa -k group_changes
-    -w /etc/gshadow -p wa -k gshadow_changes
-    -w /etc/sudoers -p wa -k sudoers_changes
+      # Überwache Kernel-Module (verhindert Rootkit-Installation)
+      "-a always,exit -F arch=b64 -S init_module,finit_module -k kernel_modules"
 
-    # Überwache sudo/su Execution (syscall-based)
-    -a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/sudo -k sudo_exec
-    -a always,exit -F arch=b64 -S execve -F path=/run/wrappers/bin/su -k su_exec
+      # Überwache Dateilöschungen (Erkennung von Spurenverwischung)
+      "-a always,exit -F arch=b64 -S unlink,unlinkat,rename,renameat -F auid>=1000 -F auid!=4294967295 -k file_delete"
 
-    # Überwache Kernel-Module (verhindert Rootkit-Installation)
-    -a always,exit -F arch=b64 -S init_module,finit_module -k kernel_modules
+      # Überwache Netzwerk-Bind/Listen (Erkennung neuer Listener/Backdoors)
+      "-a always,exit -F arch=b64 -S bind -F auid>=1000 -F auid!=4294967295 -k network_bind"
+      "-a always,exit -F arch=b64 -S listen -F auid>=1000 -F auid!=4294967295 -k network_listen"
 
-    # Überwache Dateilöschungen (Erkennung von Spurenverwischung)
-    -a always,exit -F arch=b64 -S unlink,unlinkat,rename,renameat -F auid>=1000 -F auid!=4294967295 -k file_delete
+      # Überwache mount/umount (Erkennung von Filesystem-Manipulation)
+      "-a always,exit -F arch=b64 -S mount,umount2 -F auid>=1000 -F auid!=4294967295 -k filesystem_mount"
 
-    # Überwache Netzwerk-Bind/Listen (Erkennung neuer Listener/Backdoors)
-    -a always,exit -F arch=b64 -S bind -F auid>=1000 -F auid!=4294967295 -k network_bind
-    -a always,exit -F arch=b64 -S listen -F auid>=1000 -F auid!=4294967295 -k network_listen
-
-    # Überwache mount/umount (Erkennung von Filesystem-Manipulation)
-    -a always,exit -F arch=b64 -S mount,umount2 -F auid>=1000 -F auid!=4294967295 -k filesystem_mount
-
-    # Überwache Zeitmanipulation (Erkennung von Log-Tampering)
-    -a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time_change
-    -w /etc/localtime -p wa -k time_change
-
-    # Enable audit
-    -e 1
-  '';
+      # Überwache Zeitmanipulation (Erkennung von Log-Tampering)
+      "-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time_change"
+      "-w /etc/localtime -p wa -k time_change"
+    ];
+  };
 
   # ==========================================
   # APPARMOR
@@ -738,10 +776,59 @@
   # PAM FAILLOCK - sudo Brute-Force Schutz
   # ==========================================
   # Sperrt den User-Account nach 5 fehlgeschlagenen Auth-Versuchen für 15 Min.
-  # Greift für sudo, login, gdm-password (alles was den Standard-PAM-Stack nutzt).
+  # Greift für sudo, login (und damit gdm-password, das `auth substack login`
+  # ist) sowie polkit-1 (pkexec, GNOME-Autorisierungsdialoge).
   # Status prüfen: `faillock --user ${id.username}`; zurücksetzen: `sudo faillock --user ${id.username} --reset`
-  security.pam.services.sudo.failDelay.delay = 4000000; # 4s Delay nach jedem Fehlversuch
-  security.pam.services.login.failDelay.delay = 4000000;
+  #
+  # Bis 2026-09-23 stand hier nur `failDelay.delay` — ohne `failDelay.enable`
+  # baut NixOS pam_faildelay NICHT ein, und pam_faillock fehlte ganz (gemessen
+  # `rg ^auth /etc/pam.d/sudo`, 11.09. und 19.09.2026). Der NixOS-Schalter
+  # `logFailures` erzeugt nur EINE Zeile `pam_faillock.so` ohne Aktion; laut
+  # pam_faillock(8) braucht es aber `preauth` VOR den Passwortmodulen, `authfail`
+  # DANACH und den account-Aufruf zum Zurücksetzen. Deshalb explizite Regeln.
+  # Reihenfolgen (order) aus dem ERZEUGTEN /etc/pam.d/<dienst> mit diesen
+  # Regeln — nicht aus dem alten: failDelay.enable schiebt bei sudo/polkit-1
+  # ein `unix-early` (optional, 11700) ein, die entscheidende Prüfung ist dann
+  # `unix` sufficient bei 13100. Bei allen drei Diensten gilt jetzt:
+  #   faillock preauth 10800 → u2f 10900 → unix-early 11700 → faildelay 12700
+  #   → unix 13100 → faillock authfail 13500 → deny 13900
+  # authfail MUSS hinter unix stehen: Mit [default=die] davor wäre jedes
+  # Passwort-sudo abgewiesen worden (im ersten Build so gesehen).
+  #
+  # Als eingebettetes Teilmodul, weil security.pam.services in dieser Datei
+  # schon über Punktpfade (…login.u2f.enable) gesetzt ist — ein zweites
+  # `security.pam.services = …` im selben Attributset verbietet Nix.
+  imports = [{
+    security.pam.services =
+    let
+      faillock = "${pkgs.pam}/lib/security/pam_faillock.so";
+      mkFaillock = {
+        failDelay.enable = true;   # auth optional pam_faildelay.so
+        failDelay.delay = 4000000; # 4 s nach jedem Fehlversuch
+        rules.auth.faillock-preauth = {
+          order = 10800;           # vor u2f (10900): gesperrt? → sofort abweisen
+          control = "required";
+          modulePath = faillock;
+          args = [ "preauth" ];
+        };
+        rules.auth.faillock-authfail = {
+          order = 13500;           # nach unix (13100), vor deny (13900): Fehlversuch zählen
+          control = "[default=die]";
+          modulePath = faillock;
+          args = [ "authfail" ];
+        };
+        rules.account.faillock = {
+          order = 10900;           # vor unix (11000): bei Erfolg Zähler löschen
+          control = "required";
+          modulePath = faillock;
+        };
+      };
+    in {
+      sudo = mkFaillock;
+      polkit-1 = mkFaillock;
+      login = mkFaillock;
+    };
+  }];
 
   # Faillock-Konfiguration (/etc/security/faillock.conf wird vom pam_faillock gelesen)
   environment.etc."security/faillock.conf".text = ''
@@ -808,16 +895,17 @@
             fi
             echo "$NOW" > "$STATE_FILE"
 
-            # Email-Alert via msmtp
-            if [ -f /run/secrets/email/posteo ]; then
-              EMAIL=$(${pkgs.coreutils}/bin/cat /run/secrets/email/posteo)
-              ${pkgs.coreutils}/bin/printf 'Subject: [NixOS Security] sudo Fehlversuch auf %s\n\nSudo-Log-Eintrag:\n\n%s\n\nAlle Fehlversuche heute:\n%s\n' \
-                "$(${pkgs.inetutils}/bin/hostname)" \
-                "$line" \
-                "$(${pkgs.gnugrep}/bin/grep -E 'incorrect password|authentication failure' /var/log/sudo.log | ${pkgs.coreutils}/bin/tail -20)" \
-                | ${pkgs.msmtp}/bin/msmtp "$EMAIL" 2>&1 \
-                | ${pkgs.systemd}/bin/systemd-cat -t sudo-fail-monitor -p warning || true
-            fi
+            # Email-Alert via msmtp. Empfänger aus der Identität (privates Repo).
+            # Bis 2026-09-23 stand hier `cat /run/secrets/email/posteo` — das ist
+            # das SMTP-Passwort, keine Adresse (Details in cve-monitoring.nix).
+            EMAIL="${id.email}"
+            ${pkgs.coreutils}/bin/printf 'To: %s\nSubject: [NixOS Security] sudo Fehlversuch auf %s\n\nSudo-Log-Eintrag:\n\n%s\n\nAlle Fehlversuche heute:\n%s\n' \
+              "$EMAIL" \
+              "$(${pkgs.inetutils}/bin/hostname)" \
+              "$line" \
+              "$(${pkgs.gnugrep}/bin/grep -E 'incorrect password|authentication failure' /var/log/sudo.log | ${pkgs.coreutils}/bin/tail -20)" \
+              | ${pkgs.msmtp}/bin/msmtp -- "$EMAIL" 2>&1 \
+              | ${pkgs.systemd}/bin/systemd-cat -t sudo-fail-monitor -p warning || true
 
             # Journal-Log als Primäralarm (Email ist best-effort)
             echo "SUDO FAIL DETECTED: $line" | ${pkgs.systemd}/bin/systemd-cat -t sudo-fail-monitor -p crit

@@ -110,8 +110,11 @@ in
 
   dconf.settings = {
     "org/gnome/desktop/session" = {
-      # Wir erzwingen die 0 und sagen Nix, dass es eine Ganzzahl (Uint32) ist
-      idle-delay = lib.mkForce (lib.hm.gvariant.mkUint32 0);
+      # 0 hieß „nie abdunkeln" — und weil die Sperre erst mit dem Abdunkeln
+      # kommt, sperrte der Bildschirm NIE (gemessen 11.09. und 19.09.2026,
+      # trotz lock-enabled = true). 5 Minuten wie in der README; Videoplayer
+      # und Browser setzen bei Wiedergabe einen Idle-Inhibitor. Uint32 nötig.
+      idle-delay = lib.mkForce (lib.hm.gvariant.mkUint32 300);
     };
     "org/gnome/settings-daemon/plugins/power" = {
       sleep-inactive-ac-type = "nothing";
@@ -439,6 +442,31 @@ in
     FilesEnabled=false
     AcceptSslErrors=false
   '';
+
+  # --- SECURE-BOOT-WARNUNG ---
+  # Gegenstück zu verify-secureboot (modules/secureboot.nix), das nur ins
+  # Journal schreibt. Hier gibt es Sitzung und Bus, notify-send kommt an.
+  # Die Firmware-Variable ist für Nutzer lesbar (0644).
+  systemd.user.services.secureboot-warnung = {
+    Unit = {
+      Description = "Warnung auf dem Desktop, wenn Secure Boot in der Firmware aus ist";
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+    Service = {
+      Type = "oneshot";
+      ExecStart = pkgs.writeShellScript "secureboot-warnung" ''
+        SB_VAR=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c
+        SB_STATE=$(${pkgs.coreutils}/bin/od -An -tu1 -j4 -N1 "$SB_VAR" 2>/dev/null | ${pkgs.coreutils}/bin/tr -d ' ')
+        if [ "''${SB_STATE:-unbekannt}" != "1" ]; then
+          ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=dialog-error \
+            "Secure Boot WARNUNG" \
+            "Secure Boot ist in der Firmware NICHT aktiviert (Wert: ''${SB_STATE:-unbekannt}). Kernel und Initrd sind ungeprüft."
+        fi
+      '';
+    };
+  };
 
   # --- GNOME KEYRING GUARD ---
   # Auto-Restore bei Korruption: secret-tool store korrumpiert die Keyring-Datei,

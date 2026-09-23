@@ -34,7 +34,16 @@
   # SECURE BOOT MONITORING
   # ==========================================
 
-  # Systemd-Service zur Verifikation, ob Secure Boot aktiv ist
+  # Systemd-Service zur Verifikation, ob Secure Boot aktiv ist.
+  # Er schreibt NUR ins Journal. Die Desktop-Meldung kommt vom Nutzerdienst
+  # `secureboot-warnung` (home.nix): Zur Zeit von multi-user.target gibt es
+  # noch keine Sitzung und keinen Session-Bus. Bis 2026-09-23 stand hier
+  # `sudo -u …` — sudo gibt es im Unit-PATH nicht ("sudo: command not found",
+  # gemessen im Journal), die Meldung kam nie, die Unit meldete Erfolg.
+  #
+  # Gelesen wird die Firmware-Variable, nicht `sbctl status`: Dessen Text
+  # ändert sich („old configuration detected") und braucht die PKI unter
+  # /etc/secureboot. Byte 5 der Variable (nach 4 Attribut-Bytes) ist 1 = an.
   systemd.services.verify-secureboot = {
     description = "Verify Secure Boot Status";
     wantedBy = [ "multi-user.target" ];
@@ -46,15 +55,12 @@
     };
 
     script = ''
-      # Prüfe ob Secure Boot aktiviert ist
-      if ! ${pkgs.sbctl}/bin/sbctl status | grep -q "Secure Boot.*enabled"; then
-        # Desktop-Benachrichtigung für User
-        sudo -u ${id.username} DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
-          ${pkgs.libnotify}/bin/notify-send --urgency=critical --icon=dialog-error \
-          "Secure Boot WARNUNG" "Secure Boot ist NICHT aktiviert! System ist ungeschützt." || true
-
-        # System-Log
-        echo "WARNING: Secure Boot is NOT enabled!" | ${pkgs.systemd}/bin/systemd-cat -t secureboot -p err
+      SB_VAR=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c
+      SB_STATE=$(${pkgs.coreutils}/bin/od -An -tu1 -j4 -N1 "$SB_VAR" 2>/dev/null | ${pkgs.coreutils}/bin/tr -d ' ')
+      SB_STATE=''${SB_STATE:-unbekannt}
+      if [ "$SB_STATE" != "1" ]; then
+        echo "WARNING: Secure Boot is NOT enabled (efivar SecureBoot=$SB_STATE)" \
+          | ${pkgs.systemd}/bin/systemd-cat -t secureboot -p err
       else
         echo "Secure Boot is enabled and active." | ${pkgs.systemd}/bin/systemd-cat -t secureboot -p info
       fi

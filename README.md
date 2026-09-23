@@ -29,7 +29,7 @@ A **security-hardened**, declarative NixOS configuration focused on privacy, ano
 | **Encryption** | LUKS2 Full-Disk + FIDO2 + TPM 2.0 + Secure Boot |
 | **Secrets** | sops-nix (Age-encrypted) |
 | **Hardware Key** | Nitrokey 3C NFC (FIDO2, SSH, OpenPGP, TOTP) |
-| **Kernel** | 6.12.66-hardened1 + Memory Hardening + Lockdown Mode |
+| **Kernel** | 6.12 LTS (nixpkgs) + Memory Hardening + sysctl-Härtung (kein Lockdown-LSM im Kernel) |
 | **Anonymity** | IPv6 disabled, Hostname randomized, No mDNS Broadcasting |
 
 ### Architecture
@@ -45,7 +45,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 │   └── default.nix       # Custom packages overlay
 └── modules/
     ├── network.nix       # NetworkManager, DNS-over-TLS, DNSSEC, Anonymity, Firejail Sandbox
-    ├── firewall.nix      # VPN Kill Switch + Port-Scan + DHCP Snooping + mDNS Limits + rp_filter
+    ├── firewall.nix      # VPN Kill Switch + Port-Scan + DHCP Snooping + mDNS Limits + rp_filter (loose)
     ├── firewall-zones.nix # Network Segmentation Zones
     ├── protonvpn.nix     # WireGuard Auto-Connect
     ├── desktop.nix       # GNOME Desktop (Wayland)
@@ -101,7 +101,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - **Swappiness minimiert**: vm.swappiness=1 (sensitive Daten bleiben im RAM)
 - **TPM2 Support**: Optionales automatisches LUKS-Unlock via TPM2
 - **Secure Boot**: Lanzaboote mit eigenen Signatur-Keys
-- **Secure Boot Monitoring**: Automatische Verifikation nach jedem Boot
+- **Secure Boot Monitoring**: `verify-secureboot` liest nach jedem Boot die Firmware-Variable `SecureBoot` und meldet ins Journal (`journalctl -t secureboot`); der Nutzerdienst `secureboot-warnung` zeigt dieselbe Warnung auf dem Desktop. **Stand 2026-09-23: Secure Boot ist in der Firmware noch AUS** (Schlüssel enrollen und im BIOS einschalten steht aus)
 - **sops-nix**: Secrets mit Age verschlüsselt im Git Repository
 - **SSH Commit Signing**: Git Commits mit Ed25519 Security Key signiert
 - **FIDO2 PAM**: sudo, login und GDM mit Nitrokey + PIN als Alternative zum Passwort
@@ -114,11 +114,11 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
   - Obsidian **und Logseq** laufen unter **eigenen** Profilen (`obsidian-custom.profile`, `logseq-custom.profile`): Das mitgelieferte gibt ganz `~/Dokumente` frei, hier sieht die App nur `~/Dokumente/Obsidian`; `~/.ssh`, `~/.gnupg` und `/var/lib/sops-nix` sind zusaetzlich ausgeblendet. **Die Reihenfolge ist die ganze Wirkung**: `nowhitelist` muss VOR dem `include` stehen, und ein zusaetzliches `--whitelist=` verengt gar nichts — Firejail-Whitelists sind additiv
   - **AppArmor Custom Profiles**: LibreWolf, Thunderbird, VSCodium, Spotify, Discord (kernel-level MAC)
   - AppArmor Enforcement: `killUnconfinedConfinables = true`
-- **Hardened Kernel**: `linuxPackages_hardened` mit zusätzlichen sysctl-Parametern
+- **Kernel**: `linuxPackages_6_12` (hardened wurde aus nixpkgs entfernt) mit sysctl-Härtung, u. a. `kernel.io_uring_disabled=2`, `dev.tty.ldisc_autoload=0`, `kernel.sysrq=0`
 - **Kernel Module Locking**: Verhindert Runtime-Laden von Kernel-Modulen (Rootkit-Schutz)
-- **USBGuard**: USB-Geräte-Autorisierung (blockiert unbekannte Geräte)
+- **USBGuard**: USB-Geräte-Autorisierung (blockiert unbekannte Geräte). Auch beim Boot vorhandene Geräte laufen durch die Regeln (`presentDevicePolicy = "apply-policy"`); Root-Hubs, Kamera, WWAN-Modem und Bluetooth haben eigene Regeln, gepinnt auf Schnittstellen und internen Port
 - **ClamAV Full Filesystem**: Echtzeit-Scanning von / (mit Ausnahmen), aktive Prävention
-- **Fail2Ban**: Schutz gegen Brute-Force (exponentieller Backoff, max 48h)
+- **pam_faillock + pam_faildelay**: sudo, login/GDM und polkit sperren nach 5 Fehlversuchen für 15 Minuten, 4 s Pause nach jedem Fehlversuch (`faillock --user <nutzer>`). Fail2Ban ist aus (keine Netz-Dienste)
 - **AIDE Enhanced**: File Integrity Monitoring inkl. /nix/store (Package-Binaries)
 - **unhide Daily**: Rootkit-Erkennung täglich (Prozesse + TCP/UDP Ports)
 - **Sudo Audit Log**: Dedicated /var/log/sudo.log mit PTY enforcement
@@ -148,7 +148,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 
 ### Screen Lock & Session
 
-- **Idle-Timeout**: Bildschirmschoner nach 5 Minuten Inaktivität
+- **Idle-Timeout**: Bildschirm dunkelt und sperrt nach 5 Minuten Inaktivität (`idle-delay = 300`; bis 2026-09-23 stand 0 = nie)
 - **Sofortige Sperre**: Screen Lock greift sofort bei Screensaver-Aktivierung
 - **Keine Benachrichtigungen**: Auf dem Sperrbildschirm ausgeblendet
 
@@ -162,7 +162,6 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - page_alloc.shuffle=1 (Page-Allocator randomisieren)
 - randomize_kstack_offset=on (Kernel-Stack ASLR)
 - slab_nomerge (Anti-Exploit)
-- lockdown=confidentiality (Höchster Lockdown-Level)
 - vsyscall=none (Legacy-Syscalls deaktiviert)
 - mitigations=auto,nosmt (CPU-Mitigations + SMT aus)
 ```
@@ -181,7 +180,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - SYN Cookies aktiviert
 - Source Routing deaktiviert
 - ICMP Redirects ignoriert
-- Per-Interface Reverse Path Filtering (strict für physical, loose für VPN)
+- Reverse Path Filtering überall loose (`rp_filter=2`); strict ginge wegen WireGuard nicht
 - Kernel Module Locking aktiviert (lockKernelModules = true)
 - Swappiness minimiert (vm.swappiness=1)
 ```
@@ -263,11 +262,12 @@ sudo nixos-rebuild switch --flake .#nixos
 VPN Kill Switch mit nftables:
 - Default Policy: DROP
 - Traffic nur über VPN-Interfaces (wg*, tailscale0)
+- Eingang über tailscale0 nur aus 100.64.0.0/10 und nur Syncthing (22000 tcp/udp, 21027) und Ping; der Rest wird gezählt verworfen
 - Lädt vor `network-pre.target`; Heimnetz-Freigaben dynamisch über `firewall-heimnetz.service` (NM-Dispatcher)
 - DNS nur via localhost (127.0.0.53 / ::1)
 - DoT (Port 853) nur zu Mullvad DNS (194.242.2.2)
 - Port-Scan Detection, LLMNR/mDNS gesperrt
-- Per-Interface Reverse Path Filtering (strict für physical, loose für VPN)
+- Reverse Path Filtering überall loose (`rp_filter=2`); strict ginge wegen WireGuard nicht
 - Firewall-Logging: Verworfene Pakete mit Rate-Limiting
 - Syncthing nur im lokalen Netzwerk + über VPN
 
@@ -284,8 +284,8 @@ Umfassende Sicherheitskonfiguration:
 - Gehärteter Kernel mit sysctl-Tuning
 - AppArmor mit Enforcement (killUnconfinedConfinables)
 - ClamAV mit Echtzeit-Scanning und aktiver Prävention
-- Fail2Ban mit exponentiellem Backoff
-- Audit Framework für Incident Response
+- pam_faillock/pam_faildelay gegen lokales Passwortraten
+- Audit Framework für Incident Response (`security.audit`, Regeln prüfen mit `sudo auditctl -l`)
 - USBGuard mit Default-Deny
 - AIDE File Integrity Monitoring
 - Rootkit-Erkennung (unhide)

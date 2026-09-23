@@ -155,8 +155,16 @@ in
           # 2. Established/Related connections
           ct state established,related accept
 
-          # 2b. Tailscale - eingehender Traffic
-          iifname "tailscale0" accept
+          # 2b. Tailscale — nur von Tailnet-Knoten (100.64.0.0/10; NICHT aus den
+          #     per --accept-routes erreichbaren Fremdnetzen, deren Hosts über den
+          #     Subnetz-Router hier ankommen könnten) und nur, was der Laptop
+          #     tatsächlich anbietet (ss -tuln, 23.09.2026): Syncthing 22000
+          #     tcp/udp, 21027 Discovery, Ping. Vorher stand hier ein pauschales
+          #     accept. Taildrop (peerapi, zufälliger Port) ist damit bewusst aus.
+          iifname "tailscale0" ip saddr 100.64.0.0/10 icmp type echo-request accept
+          iifname "tailscale0" ip saddr 100.64.0.0/10 tcp dport ${toString syncthingPorts.tcp} accept
+          iifname "tailscale0" ip saddr 100.64.0.0/10 udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
+          iifname "tailscale0" counter drop comment "tailscale-rest"
 
           # 4. SECURITY: Block LLMNR/mDNS (Suricata alert mitigation)
           udp dport 5355 drop comment "Block LLMNR (credential theft risk)"
@@ -286,75 +294,21 @@ in
   };
 
   # ==========================================
-  # PER-INTERFACE REVERSE PATH FILTERING
+  # REVERSE PATH FILTERING (loose)
   # ==========================================
-  # Physical interfaces: strict filtering (security)
-  # VPN interfaces: loose filtering (WireGuard requirement)
-
+  # Überall loose (2). Der Kernel wertet max(conf.all, conf.<iface>) aus —
+  # solange all=2 steht, kann kein Interface strict (1) sein.
+  #
+  # Bis 2026-09-23 versuchte rp-filter-setup.service, physische Interfaces auf
+  # strict zu setzen. Das war doppelt wirkungslos: max(2, 1) = 2, und gemessen
+  # stand wlp0s20f3 ohnehin auf 2 (der Dienst lief, bevor NM das WLAN hatte).
+  # Strict wäre auch falsch: Die Antworten des WireGuard-Endpunkts kommen über
+  # das WLAN, die Rückwegprüfung (ohne fwmark) findet aber die Tunnelroute
+  # (Tabelle 52062) → strict verwürfe den Handshake. Den Spoofing-Schutz, den
+  # strict brächte, leistet hier die Input-Chain mit policy drop.
   boot.kernel.sysctl = {
-    # WICHTIG: all.rp_filter muss gesetzt werden, aber nicht auf 0!
-    # all.rp_filter = max(conf.all, conf.interface) - wir setzen auf loose (2)
-    # Dann können einzelne Interfaces auf strict (1) gesetzt werden
-    "net.ipv4.conf.all.rp_filter" = 2;       # loose (für VPN)
-    "net.ipv4.conf.default.rp_filter" = 2;   # loose für neue interfaces
-
-    # Per-Interface strict filtering wird dynamisch gesetzt (siehe rp-filter-setup.service)
-  };
-
-  # Dynamisches Per-Interface Reverse Path Filtering
-  systemd.services.rp-filter-setup = {
-    description = "Configure Per-Interface Reverse Path Filtering";
-    after = [ "network-pre.target" ];
-    before = [ "network.target" ];
-    wantedBy = [ "multi-user.target" ];
-
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-
-    script = ''
-      # Funktion: Setze rp_filter für Interface
-      set_rp_filter() {
-        local iface=$1
-        local mode=$2
-        local sysctl_path="/proc/sys/net/ipv4/conf/$iface/rp_filter"
-
-        if [ -f "$sysctl_path" ]; then
-          echo "$mode" > "$sysctl_path"
-          echo "✓ Set rp_filter=$mode for $iface"
-        fi
-      }
-
-      # Warte bis Interfaces verfügbar
-      sleep 2
-
-      # Erkenne physische Interfaces (nicht lo, nicht VPN, nicht virtuelle)
-      PHYSICAL_IFACES=$(${pkgs.iproute2}/bin/ip -o link show | \
-        ${pkgs.gnugrep}/bin/grep -E "^[0-9]+: (eth|enp|wlp|wlan)" | \
-        ${pkgs.gawk}/bin/awk -F': ' '{print $2}' | \
-        ${pkgs.gnugrep}/bin/grep -v "@")
-
-      # Setze strict rp_filter (1) für physische Interfaces
-      for iface in $PHYSICAL_IFACES; do
-        set_rp_filter "$iface" 1  # strict
-      done
-
-      # Setze loose rp_filter (2) für VPN interfaces (falls vorhanden)
-      # Note: grep exits with 1 if no matches, so use || true to prevent script failure at boot
-      VPN_IFACES=$(${pkgs.iproute2}/bin/ip -o link show | \
-        ${pkgs.gnugrep}/bin/grep -E "^[0-9]+: (tun|wg)" | \
-        ${pkgs.gawk}/bin/awk -F': ' '{print $2}' | \
-        ${pkgs.gnugrep}/bin/grep -v "@" || true)
-
-      for iface in $VPN_IFACES; do
-        set_rp_filter "$iface" 2  # loose (für WireGuard)
-      done
-
-      echo "✓ Reverse path filtering configured"
-      echo "  Physical interfaces (strict): $PHYSICAL_IFACES"
-      echo "  VPN interfaces (loose): $VPN_IFACES"
-    '';
+    "net.ipv4.conf.all.rp_filter" = 2;
+    "net.ipv4.conf.default.rp_filter" = 2;
   };
 
   # nftables startet mit dem NixOS-Standard: VOR network-pre.target.

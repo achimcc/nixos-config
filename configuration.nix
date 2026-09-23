@@ -53,8 +53,14 @@
     "randomize_kstack_offset=on" # Kernel-Stack randomisieren (KASLR++)
     "slab_nomerge" # Slab-Caches nicht mergen (verhindert Exploits)
 
-    # Kernel Lockdown
-    "lockdown=integrity" # Kernel-Lockdown-Modus (verhindert unsigned Module)
+    # KEIN "lockdown=integrity": Der nixpkgs-Kernel 6.12 hat das Lockdown-LSM
+    # nicht einkompiliert (CONFIG_SECURITY_LOCKDOWN_LSM is not set, gemessen
+    # 23.09.2026 in /proc/config.gz; /sys/kernel/security/lockdown fehlt), und
+    # die lsm=-Liste unten führt es auch nicht. Der Parameter war ein Placebo.
+    # Ein eigener Kernel mit structuredExtraConfig (SECURITY_LOCKDOWN_LSM,
+    # LOCK_DOWN_KERNEL_FORCE_INTEGRITY) hieße stundenlanges Kompilieren bei
+    # jedem Update. Was unsignierte Module tatsächlich verhindert: Secure Boot
+    # + Lanzaboote (secureboot.nix) und security.lockKernelModules (security.nix).
 
     # Legacy-Features deaktivieren
     "vsyscall=none" # Vsyscall komplett deaktivieren (alt, unsicher)
@@ -119,8 +125,9 @@
   # Passphrase bleibt als Rückfall.
   #
   # Voraussetzungen, die anderswo stehen und nicht angetastet werden dürfen:
-  # - lockdown=integrity (oben in boot.kernelParams). "confidentiality" würde
-  #   USB-HID im Initrd blockieren und FIDO2 unmöglich machen.
+  # - Kein Kernel-Lockdown "confidentiality": das würde USB-HID im Initrd
+  #   blockieren und FIDO2 unmöglich machen. (Derzeit hat der Kernel gar kein
+  #   Lockdown-LSM, siehe boot.kernelParams oben.)
   # - usbhid/hid_generic im Initrd (hardware-configuration.nix:12).
   # - boot.initrd.systemd.fido2.enable ist standardmäßig true (geprüft).
   # - USBGuard läuft erst NACH dem Initrd, blockiert den Stick dort also nicht.
@@ -180,7 +187,11 @@
   users.users.${id.username} = {
     isNormalUser = true;
     description = id.realName;
-    extraGroups = [ "networkmanager" "wheel" "input" ];
+    # KEIN `input`: Die Gruppe darf /dev/input/event* lesen — jeder Nutzerprozess
+    # wäre ein Keylogger, Wayland zum Trotz. GNOME/Mutter bekommt seine Geräte
+    # über logind (TakeDevice), Steam/SDL über udev-uaccess-ACLs; im Repo hängt
+    # nichts an der Gruppe (geprüft 23.09.2026).
+    extraGroups = [ "networkmanager" "wheel" ];
     shell = pkgs.nushell;
   };
 
