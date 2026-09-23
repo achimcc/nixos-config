@@ -431,7 +431,7 @@
     # Commit fehl ("failed to write commit object", nachgestellt mit env -i),
     # und flake.lock bliebe geändert im Arbeitsbaum liegen, wo der nächste
     # `git commit` ohne Pfad einer Parallelsitzung sie mitnimmt.
-    environment.SSH_AUTH_SOCK = "/run/user/1000/ssh-tpm-agent.sock"; 
+    environment.SSH_AUTH_SOCK = "/run/user/1000/ssh-tpm-agent.sock"; # fest wie DBUS_SESSION_BUS_ADDRESS unten (uid ist nicht deklariert)
 
     script = ''
       set -euo pipefail
