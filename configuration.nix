@@ -425,10 +425,25 @@
       Type = "oneshot";
       User = id.username;
     };
+    # SEIT 2026-09-23 LIEGT DER SIGNIERSCHLÜSSEL IM TPM (ssh-tpm-agent, home.nix):
+    # Es gibt keine Schlüsseldatei mehr, `ssh-keygen -Y sign` braucht den Agenten.
+    # Ein Systemdienst erbt SSH_AUTH_SOCK nicht — ohne diese Zeile schlug der
+    # Commit fehl ("failed to write commit object", nachgestellt mit env -i),
+    # und flake.lock bliebe geändert im Arbeitsbaum liegen, wo der nächste
+    # `git commit` ohne Pfad einer Parallelsitzung sie mitnimmt.
+    environment.SSH_AUTH_SOCK = "/run/user/1000/ssh-tpm-agent.sock"; 
 
     script = ''
       set -euo pipefail
       cd /home/${id.username}/nixos-config
+
+      # Den Socket gibt es nur, solange der Nutzer-Manager läuft (angemeldet).
+      # Ohne ihn NICHT aktualisieren: lieber morgen (Persistent=true holt nach)
+      # als eine unsignierte oder uncommittete flake.lock.
+      if [ ! -S "$SSH_AUTH_SOCK" ]; then
+        echo "Kein ssh-tpm-agent ($SSH_AUTH_SOCK) - Update-Prüfung übersprungen, flake.lock unberührt"
+        exit 0
+      fi
 
       VORHER=$(sha256sum flake.lock)
 

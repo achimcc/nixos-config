@@ -103,7 +103,8 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 - **Secure Boot**: Lanzaboote mit eigenen Signatur-Keys
 - **Secure Boot Monitoring**: `verify-secureboot` liest nach jedem Boot die Firmware-Variable `SecureBoot` und meldet ins Journal (`journalctl -t secureboot`); der Nutzerdienst `secureboot-warnung` zeigt dieselbe Warnung auf dem Desktop. **Seit 2026-09-23 in der Firmware AN** (user mode, eigene PK, Microsoft-Schlüssel in KEK/db), BIOS mit Supervisor-Passwort
 - **sops-nix**: Secrets mit Age verschlüsselt im Git Repository
-- **SSH Commit Signing**: Git Commits mit Ed25519 Security Key signiert
+- **SSH Commit Signing**: Git Commits mit dem TPM-Schlüssel `~/.ssh/id_ecdsa` signiert (ECDSA, über ssh-tpm-agent); ältere Commits tragen den früheren Ed25519-Schlüssel und bleiben über `allowed_signers` verifizierbar
+- **SSH-Agent nicht im Sandkasten**: `/etc/firejail/globals.local` sperrt ssh-tpm-agent, ssh-agent, gcr und den WezTerm-Agent für alle Firejail-Profile
 - **FIDO2 PAM**: sudo, login und GDM mit Nitrokey + PIN als Alternative zum Passwort
 
 ### Sandboxing & Hardening

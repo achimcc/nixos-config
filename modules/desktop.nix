@@ -128,6 +128,11 @@
   # GNOME Dienste
   services.gnome = {
     gnome-keyring.enable = true;
+    # Kein zweiter SSH-Agent (2026-09-23): gcr-ssh-agent.socket setzt bei jedem
+    # Start per ExecStartPost SSH_AUTH_SOCK=%t/gcr/ssh in die Nutzerumgebung.
+    # Startet ein Switch ihn neu, bekämen GUI-Programme (VSCodium) einen Agenten
+    # ohne die TPM-Schlüssel. Der Agent ist ssh-tpm-agent (home.nix).
+    gcr-ssh-agent.enable = false;
     # core-shell wird automatisch durch desktopManager.gnome aktiviert
   };
 

@@ -363,7 +363,7 @@ in
       export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
       exec ${pkgs.pinentry-gnome3}/bin/pinentry "$@"
     '';
-    enableSshSupport = false; # ssh-agent läuft als eigener systemd user service
+    enableSshSupport = false; # SSH-Agent ist ssh-tpm-agent (unten)
     # Cache GPG-Passwort für 8 Stunden (verhindert ständige Passwort-Prompts)
     defaultCacheTtl = 28800; # 8 Stunden in Sekunden
     maxCacheTtl = 28800; # Maximale Cache-Zeit
@@ -383,7 +383,8 @@ in
   services.ssh-agent.enable = true;
   services.ssh-tpm-agent.enable = true;
 
-  # GNOME Keyring SSH-Agent deaktivieren (Konflikt mit ssh-agent service)
+  # GNOME-Keyring-SSH-Agent aus (Konflikt mit ssh-tpm-agent). Der heutige
+  # GNOME-Agent heißt gcr-ssh-agent und ist in modules/desktop.nix abgeschaltet.
   xdg.configFile."autostart/gnome-keyring-ssh.desktop".text = ''
     [Desktop Entry]
     Type=Application

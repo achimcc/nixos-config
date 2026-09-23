@@ -471,6 +471,19 @@ in
     # Kein "shell none"
   '';
 
+  # Für ALLE Firejail-Profile (jedes Profil bindet globals.local ein):
+  # keine SSH-Agenten im Sandkasten. Seit 2026-09-23 hält ssh-tpm-agent die
+  # Schlüssel für root und colmena-deploy am Server ab dem Login — nicht
+  # kopierbar, aber über den Socket ohne Rückfrage benutzbar. disable-common.inc
+  # sperrt nur ${RUNUSER}/openssh_agent; gemessen im Spotify-Profil waren
+  # ssh-tpm-agent.sock, ssh-agent, gcr und wezterm (dessen Agent-Proxy) sichtbar.
+  environment.etc."firejail/globals.local".text = ''
+    blacklist ''${RUNUSER}/ssh-tpm-agent.sock
+    blacklist ''${RUNUSER}/ssh-agent
+    blacklist ''${RUNUSER}/gcr
+    blacklist ''${RUNUSER}/wezterm
+  '';
+
   # Librewolf-spezifische Firejail-Konfiguration (DEPRECATED - wird nicht mehr benutzt)
   environment.etc."firejail/librewolf.local".text = ''
     # Bitwarden Desktop Native Messaging (Browser-Biometrics)
