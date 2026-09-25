@@ -27,6 +27,17 @@
 # genau EINEN Eintrag nach — idempotent: Es entfernt jeden früheren
 # lotse-Eintrag und hängt den aktuellen an, alles andere bleibt unberührt. Eine
 # Datei, die kein gültiges JSON ist, fasst es nicht an.
+#
+# DAZU DER SCRATCH-PLATZ: Jede Claude-Code-Sitzung legt unter /tmp/claude-1000
+# ihren Scratch-Ordner an (Build-Logs, Diffs, eigene Git-Worktrees des
+# homeserver-Repos). /tmp liegt hier auf der Platte, nicht im RAM, und niemand
+# räumt dort auf — am 2026-09-25 waren es 18 GB. Die Regel unten lässt
+# systemd-tmpfiles-clean (täglich) alles löschen, was seit sieben Tagen weder
+# gelesen noch geändert wurde (atime, mtime und ctime zählen). Eine laufende
+# Sitzung fasst ihre Dateien ständig an und bleibt stehen. `e` statt `d`:
+# den Ordner nur aufräumen, nicht anlegen — das tut Claude Code selbst.
+# Ein gelöschter Worktree bleibt in `git worktree list` als „prunable“
+# stehen, bis `git worktree prune` ihn austrägt; das ist harmlos.
 { pkgs, inputs, id, ... }:
 
 let
@@ -79,4 +90,7 @@ in
         fi
       '';
     };
+
+  # Scratch-Ordner der Claude-Sitzungen: nach 7 Tagen ohne Zugriff weg (Kopf).
+  systemd.tmpfiles.rules = [ "e /tmp/claude-1000 - - - 7d" ];
 }
