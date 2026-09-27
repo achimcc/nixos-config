@@ -111,8 +111,23 @@
       # Custom packages overlay
       customOverlay = final: prev: import ./pkgs { pkgs = prev; };
 
+      # Fuer Checks: dasselbe nixpkgs samt eigenem Overlay wie das System.
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ customOverlay ];
+      };
+
     in
     {
+      # Der Signatur-Riegel fuer Homeserver-Deploys muss rot werden koennen
+      # (pkgs/hs-riegel/test.sh): Wegwerf-Schluessel, Wegwerf-Repos, kein Netz.
+      checks.${system}.hs-riegel = pkgs.runCommand "hs-riegel-test" {
+        nativeBuildInputs = with pkgs; [ hs-riegel git openssh gnupg jq gawk ];
+      } ''
+        bash ${pkgs.hs-riegel.testSkript}
+        touch $out
+      '';
+
       # NixOS configuration name MUST match networking.hostName in network.nix
       # Otherwise nixos-rebuild will fail to find the configuration
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
