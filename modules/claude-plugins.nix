@@ -16,11 +16,20 @@
 #
 # frontend-design: Anthropics Skill fuer die Gestaltung von Oberflaechen
 # (2026-09-22 auf Achims Wunsch).
+#
+# feature-dev: Anthropics Arbeitsablauf fuer neue Features (Erkunden,
+# Architektur, Review ueber eigene Agenten) — 2026-09-26 auf Achims Wunsch.
+#
+# code-review: Anthropics PR-Review mit mehreren Agenten — 2026-09-26 auf
+# Achims Wunsch. Nicht zu verwechseln mit dem eingebauten `/code-review`
+# von Claude Code; das Plugin meldet sich unter seinem Namensraum.
 { pkgs, id, ... }:
 
 let
   plugins = [
     "frontend-design"
+    "feature-dev"
+    "code-review"
   ];
   filter = builtins.concatStringsSep " | " (
     map (p: ''.enabledPlugins["${p}@claude-plugins-official"] = true'') plugins
