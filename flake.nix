@@ -55,7 +55,7 @@
     # anstellen statt den Speicher zu fuellen, dazu der PreToolUse-Hook
     # (modules/lotse.nix). Auf den TAG gepinnt wie gestalt.
     lotse = {
-      url = "github:achimcc/lotse/v0.2.1";
+      url = "github:achimcc/lotse/v0.3.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

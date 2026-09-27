@@ -11,8 +11,12 @@
 #
 #  2. Die Klassen für Repos OHNE eigene `lotse.toml`: ein Verweis auf die des
 #     homeserver-Repos. Eine Quelle, keine zweite Kopie — wer dort einen
-#     Schätzwert nachmisst, hat ihn damit überall nachgezogen. lotse sucht erst
-#     vom Arbeitsverzeichnis aufwärts und nimmt diese Datei nur als Rückfall.
+#     Schätzwert nachmisst, hat ihn damit überall nachgezogen. Seit lotse v0.3.0
+#     (homeserver-Audit 3, B77) ist diese Datei die EINZIGE Quelle, sofern kein
+#     `LOTSE_CONFIG` gesetzt ist (die homeserver-devShell setzt es je Worktree):
+#     lotse sucht nicht mehr vom Arbeitsverzeichnis aufwärts, weil eine fremde
+#     `lotse.toml` in /tmp oder einem geklonten Repo über den Hook Code ausführte.
+#     Datei und Verzeichnis dürfen nicht gruppen- oder weltbeschreibbar sein.
 #
 #  3. Der PreToolUse-Hook für Claude Code. Eine Regel in einer CLAUDE.md ist
 #     etwas, woran man denken muss, und zwölf Sitzungen vergessen es zwölfmal.
