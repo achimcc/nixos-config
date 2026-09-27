@@ -55,6 +55,34 @@ let
     exec ${pkgs.obsidian}/bin/obsidian "$@"
   '';
 
+  # Feishin — Musik-Client für den eigenen Koel (koel-01 im Homeserver,
+  # seit 2026-09-25; vorher Jellyfin). Koel spricht OpenSubsonic unter /rest.
+  #
+  # Feishin liest SERVER_TYPE/SERVER_NAME/SERVER_URL/SERVER_LOCK aus der
+  # Umgebung des Hauptprozesses und füllt damit das Formular „Server
+  # hinzufügen" vor; SERVER_LOCK sperrt Typ und URL dort. Nutzername und
+  # Passwort bleiben eine einmalige Eingabe in der App (Ablage im
+  # GNOME-Keyring über org.freedesktop.secrets): Benutzername ist die Adresse
+  # aus dem Koel-Profil (…@sso.koel-01.invalid, NICHT die eigene Mail),
+  # Passwort der Subsonic-Schlüssel. „Legacy authentication" bleibt aus —
+  # sonst steht der Schlüssel als p= im Klartext in der URL und im Caddy-Log;
+  # LEGACY_AUTHENTICATION=false setzt das fest statt es dem Vorgabewert zu
+  # überlassen (toServerType/env im Bundle 1.17.0, 2026-09-25 gelesen).
+  #
+  # Nicht deklarierbar: die Einstellungen der App selbst (MPRIS, Tray,
+  # Wiedergabe-Engine). Sie liegen im localStorage des Renderers und
+  # überschreiben beim Start jede ~/.config/feishin/config.json — gemessen
+  # am 2026-09-24 (useSyncSettingsToMain im Bundle 1.17.0). Ein Eintrag in
+  # config.json wäre nur behauptet, nicht wirksam.
+  feishinStart = pkgs.writeShellScript "feishin-start" ''
+    export SERVER_TYPE=subsonic
+    export SERVER_NAME="Koel (rusty-vault)"
+    export SERVER_URL=https://musik.rusty-vault.de
+    export LEGACY_AUTHENTICATION=false
+    export SERVER_LOCK=true
+    exec ${pkgs.feishin}/bin/feishin "$@"
+  '';
+
   # Minimales Firejail-Profil für VSCodium (Electron-kompatibel)
   vscodiumProfile = pkgs.writeText "vscodium-minimal.profile" ''
     # Minimales Firejail-Profil für VSCodium
@@ -611,6 +639,38 @@ in
     dbus-user.talk org.freedesktop.secrets
   '';
 
+  # Feishin — Firejail bringt kein eigenes Profil mit; dieses ist nach
+  # freetube.profile gebaut (Electron, ein Konfigurationsverzeichnis, MPRIS).
+  # Gemessen am 2026-09-24 (firejail --join): Home zeigt nur ~/.config/feishin
+  # samt den Standard-Whitelists, kein ~/.ssh, kein /var/lib/sops-nix;
+  # https://jellyfin.rusty-vault.de antwortete von innen mit 200 (damals
+  # Jellyfin; https://musik.rusty-vault.de liegt hinter demselben VPS/Caddy).
+  environment.etc."firejail/feishin-custom.profile".text = ''
+    include globals.local
+
+    ignore dbus-user none
+
+    noblacklist ''${HOME}/.config/feishin
+
+    include allow-bin-sh.inc
+    include disable-shell.inc
+
+    mkdir ''${HOME}/.config/feishin
+    whitelist ''${HOME}/.config/feishin
+
+    private-bin bash,sh,electron,feishin,mpv
+    private-etc @tls-ca,@x11,host.conf,mime.types
+
+    # D-Bus: MPRIS (Media-Controls), Benachrichtigungen, Keyring (Passwort speichern)
+    dbus-user filter
+    dbus-user.own org.mpris.MediaPlayer2.Feishin
+    dbus-user.own org.mpris.MediaPlayer2.chromium.*
+    dbus-user.talk org.freedesktop.Notifications
+    dbus-user.talk org.freedesktop.secrets
+
+    include electron-common.profile
+  '';
+
   # Logseq - eigenes Profil, aus demselben Grund wie bei Obsidian und mit
   # derselben Reihenfolge.
   #
@@ -843,6 +903,13 @@ in
         profile = "${pkgs.firejail}/etc/firejail/spotify.profile";
       };
 
+      # Feishin - Musik-Client für den eigenen Koel mit Sandbox
+      # (Server-Vorgaben über feishinStart, Profil feishin-custom.profile oben)
+      feishin = {
+        executable = "${feishinStart}";
+        profile = "/etc/firejail/feishin-custom.profile";
+      };
+
       # LibreOffice - Office-Suite mit Sandbox
       libreoffice = {
         executable = "${pkgs.libreoffice-fresh}/bin/libreoffice";
@@ -872,5 +939,6 @@ in
     pkgs-unstable.vscodium  # VSCodium aus unstable (für aktuelle Version)
     libreoffice-fresh  # Office-Suite (Firejail-wrapped)
     pan  # NNTP-Newsreader (Firejail-wrapped)
+    feishin  # Musik-Client für Koel (Firejail-wrapped)
   ];
 }

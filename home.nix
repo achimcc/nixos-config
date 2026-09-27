@@ -240,7 +240,7 @@ in
     amberol
     delfin # Vorhandener Jellyfin-Client
     jellyfin-media-player # Neu hinzugefügt
-    feishin # Neu hinzugefügt
+    # feishin - via Firejail in modules/network.nix (Server-Vorgaben dort)
     kodi # Neu hinzugefügt (Plugin-Installation erfolgt in Kodi)
     libva-utils
     intel-gpu-tools

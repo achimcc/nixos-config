@@ -111,7 +111,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
 
 - **Bubblewrap + AppArmor**: Modern sandboxing für kritische Apps
   - Bubblewrap: VSCodium (Electron-kompatibel, minimale Isolation)
-  - Firejail: Tor Browser, LibreWolf, Spotify, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, Obsidian, Evince, Newsflash
+  - Firejail: Tor Browser, LibreWolf, Spotify, Feishin, Discord, FreeTube, Thunderbird, KeePassXC, Logseq, Obsidian, Evince, Newsflash
   - Obsidian **und Logseq** laufen unter **eigenen** Profilen (`obsidian-custom.profile`, `logseq-custom.profile`): Das mitgelieferte gibt ganz `~/Dokumente` frei, hier sieht die App nur `~/Dokumente/Obsidian`; `~/.ssh`, `~/.gnupg` und `/var/lib/sops-nix` sind zusaetzlich ausgeblendet. **Die Reihenfolge ist die ganze Wirkung**: `nowhitelist` muss VOR dem `include` stehen, und ein zusaetzliches `--whitelist=` verengt gar nichts — Firejail-Whitelists sind additiv
   - **AppArmor Custom Profiles**: LibreWolf, Thunderbird, VSCodium, Spotify, Discord (kernel-level MAC)
   - AppArmor Enforcement: `killUnconfinedConfinables = true`
@@ -635,6 +635,7 @@ nrs  → sudo nixos-rebuild switch --flake ...#nixos
 ### Media & Audio
 
 - **Spotify**: Musik-Streaming (Firejail)
+- **Feishin**: Musik-Client für den eigenen Koel (Firejail, Subsonic-Schnittstelle) -- Server-Typ, -Name und -URL sind über `SERVER_*` im Wrapper vorbelegt und gesperrt; Anmeldung einmalig in der App. Die App-Einstellungen selbst (MPRIS, Tray, Wiedergabe-Engine) liegen im Renderer-Speicher und sind nicht deklarierbar
 - **Amberol**: GNOME Musik-Player für lokale Audiodateien
 - **Shortwave**: Internet-Radio (radio-browser.info)
 - **Celluloid**: GTK-Frontend für mpv (Video)
@@ -697,6 +698,7 @@ nrs  → sudo nixos-rebuild switch --flake ...#nixos
 | LibreWolf | librewolf.profile + .local | Bitwarden Native Messaging, FIDO2, Portal-Zugriff, Wayland Clipboard |
 | Tor Browser | tor-browser.profile | Private Downloads-Verzeichnis |
 | Spotify | spotify.profile + .local | MPRIS, OAuth-Login |
+| Feishin | feishin-custom.profile | Electron (nach freetube.profile), Koel-Server vorbelegt, MPRIS, Keyring |
 | Discord | discord.profile | Standard-Profil |
 | FreeTube | freetube.profile | Standard-Profil |
 | Thunderbird | thunderbird.profile | E-Mail |
