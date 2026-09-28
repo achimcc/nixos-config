@@ -32,6 +32,9 @@
     ./modules/claude-obsidian.nix
     ./modules/claude-plugins.nix
     ./modules/claude-caveman.nix
+    ./modules/mcp-github.nix
+    ./modules/claude-riegel.nix
+    ./modules/mcp-grafana.nix
   ];
 
   # ==========================================

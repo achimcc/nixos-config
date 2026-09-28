@@ -28,9 +28,25 @@
 # steuern, Netzwerk, Konsole, Performance, Lighthouse) samt Skills —
 # 2026-09-28 auf Achims Wunsch. War vorher nur von Hand eingeschaltet. Der
 # Server startet ueber `npx` und steuert das systemweite google-chrome-stable.
+#
+# AUS (2026-09-28): `aus` setzt den Schalter ausdruecklich auf false — auch
+# fuer Plugins aus anderen Marktplaetzen, darum mit vollem Namen.
+#  - github@claude-plugins-official: dessen .mcp.json braucht
+#    GITHUB_PERSONAL_ACCESS_TOKEN in der Umgebung und scheiterte ohne mit
+#    „Authorization header is badly formatted". Ersatz: modules/mcp-github.nix
+#    (nur lesend, Token aus sops per headersHelper).
+#  - claude-mem-cowork@thedotmack: war nie gekoppelt (kein apiKey, kein
+#    ~/.claude-mem) und damit wirkungslos, startete aber bei JEDEM Werkzeug-
+#    aufruf einen node-Prozess. Gekoppelt schickte es tool_input und
+#    tool_response jedes Aufrufs an cmem.ai — also auch jede Ausgabe, in der
+#    ein Schluessel steht. Wer es wieder will, entscheidet das bewusst.
 { pkgs, id, ... }:
 
 let
+  aus = [
+    "github@claude-plugins-official"
+    "claude-mem-cowork@thedotmack"
+  ];
   plugins = [
     "frontend-design"
     "feature-dev"
@@ -39,6 +55,7 @@ let
   ];
   filter = builtins.concatStringsSep " | " (
     map (p: ''.enabledPlugins["${p}@claude-plugins-official"] = true'') plugins
+    ++ map (p: ''.enabledPlugins["${p}"] = false'') aus
   );
 in
 {
