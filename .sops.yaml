@@ -4,6 +4,10 @@
 keys:
   # Benutzer Keys (für lokales Editieren)
   - &user_laptop age1ysu70tzmjnh464ruh0jsf7g207hj3ufkqwn7ap0zet69vjy0wv9q7p077h
+  # Der Schluessel, der heute in ~/.config/sops/age/keys.txt liegt (2026-09-28).
+  # Der alte user_laptop-Schluessel oben liegt dort nicht mehr; er bleibt als
+  # Empfaenger stehen, falls er noch in einer Sicherung existiert.
+  - &user_laptop_2026 age1yy97v38ya6wyjtc0d8w5pevcesv2ngm99p00x92ld2l9r8e2xueqkf2gwy
   
   # Host Keys (werden beim ersten Boot generiert)
   - &host_laptop age1g50dwjpmlc9404w3f3rgjmamws6zf9g3vlgyylgj3rygfedasprsj4lqzv
@@ -14,4 +18,5 @@ creation_rules:
     key_groups:
       - age:
           - *user_laptop
+          - *user_laptop_2026
           - *host_laptop

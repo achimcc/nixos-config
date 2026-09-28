@@ -28,6 +28,7 @@
     ./modules/caveat.nix
     ./modules/hs-riegel.nix
     ./modules/mcp-nixos.nix
+    ./modules/mcp-firecrawl.nix
     ./modules/claude-obsidian.nix
     ./modules/claude-plugins.nix
     ./modules/claude-caveman.nix

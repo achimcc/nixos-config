@@ -23,6 +23,11 @@
 # code-review: Anthropics PR-Review mit mehreren Agenten — 2026-09-26 auf
 # Achims Wunsch. Nicht zu verwechseln mit dem eingebauten `/code-review`
 # von Claude Code; das Plugin meldet sich unter seinem Namensraum.
+#
+# chrome-devtools-mcp: Googles MCP-Server fuer Chrome DevTools (Seiten
+# steuern, Netzwerk, Konsole, Performance, Lighthouse) samt Skills —
+# 2026-09-28 auf Achims Wunsch. War vorher nur von Hand eingeschaltet. Der
+# Server startet ueber `npx` und steuert das systemweite google-chrome-stable.
 { pkgs, id, ... }:
 
 let
@@ -30,6 +35,7 @@ let
     "frontend-design"
     "feature-dev"
     "code-review"
+    "chrome-devtools-mcp"
   ];
   filter = builtins.concatStringsSep " | " (
     map (p: ''.enabledPlugins["${p}@claude-plugins-official"] = true'') plugins
