@@ -376,7 +376,7 @@ in
 
   # SSH-Agenten (2026-09-23): ssh-tpm-agent ist der Agent der Sitzung und hält
   # die TPM-versiegelten Schlüssel ~/.ssh/*.tpm — benutzbar ohne Rückfrage,
-  # aber nicht kopierbar. Alles andere (Nitrokey, hetzner-vps) reicht er an den
+  # aber nicht kopierbar. Alles andere (Nitrokey) reicht er an den
   # gewöhnlichen ssh-agent durch (-A). SSH_AUTH_SOCK setzt das HM-Modul.
   # Bis hierher lief ssh-agent als eigene Unit unter %t/ssh-agent.socket.
   # Plan: docs/superpowers/plans/2026-09-23-ssh-schluessel-tpm.md
@@ -1004,7 +1004,8 @@ in
         IdentitiesOnly = true;
       };
       "rusty-vault.de" = {
-        IdentityFile = "~/.ssh/hetzner-vps";
+        # TPM-Schluessel statt hetzner-vps (Homeserver-Audit 3, B104, 2026-09-28).
+        IdentityFile = "~/.ssh/id_ecdsa_vps.pub";
         IdentitiesOnly = true;
       };
       "pve-host" = {
@@ -1873,7 +1874,11 @@ in
       # expandieren eine Tilde innerhalb von Anführungszeichen. Mit "~/…" suchte
       # sops wörtlich nach einem Verzeichnis namens "~" und meldete
       # "failed to open SOPS_AGE_KEY_FILE file: open ~/.config/sops/age/keys.txt".
-      SOPS_AGE_KEY_FILE = "/home/${id.username}/.config/sops/age/keys.txt";
+      # SEIT 2026-09-28 (Homeserver-Audit 3, B104) die TPM-Identitaet: kein
+      # kopierbarer Schluessel mehr auf der Platte, nur ein Verweis auf dieses TPM
+      # (age-plugin-tpm, modules/sops.nix). Der alte Admin-Schluessel liegt offline
+      # (Punkt 5 des Recovery-Zettels) und bleibt Empfaenger in .sops.yaml.
+      SOPS_AGE_KEY_FILE = "/home/${id.username}/.config/sops/age/tpm-identity.txt";
     };
     extraConfig = ''
       $env.config.show_banner = false

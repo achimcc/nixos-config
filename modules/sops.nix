@@ -53,17 +53,13 @@
       mode = "0400";
     };
 
-    # SSH Key für Hetzner VPS
-    secrets."ssh/hetzner-vps" = {
-      owner = id.username;
-      mode = "0600";
-      path = "/home/${id.username}/.ssh/hetzner-vps";
-    };
-    secrets."ssh/hetzner-vps-pub" = {
-      owner = id.username;
-      mode = "0644";
-      path = "/home/${id.username}/.ssh/hetzner-vps.pub";
-    };
+    # SSH-Key fuer den Hetzner-VPS: SEIT 2026-09-28 NICHT MEHR HIER (Homeserver-
+    # Audit 3, B104). root auf dem VPS nimmt nur noch den TPM-Schluessel
+    # (~/.ssh/id_ecdsa_vps.tpm, ssh-tpm-agent) und den Nitrokey-Notfallschluessel
+    # (~/.ssh/id_vps_notfall_sk). Die Werte `ssh/hetzner-vps*` stehen noch
+    # verschluesselt in secrets/secrets.yaml — beim naechsten `sops secrets/secrets.yaml`
+    # herausnehmen; im initrd des VPS gilt der alte Schluessel bis zu dessen
+    # naechstem Neustart.
 
     # Miniflux RSS-Reader Zugangsdaten
     secrets."miniflux/url" = {

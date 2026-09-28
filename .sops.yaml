@@ -8,6 +8,10 @@ keys:
   # Der alte user_laptop-Schluessel oben liegt dort nicht mehr; er bleibt als
   # Empfaenger stehen, falls er noch in einer Sicherung existiert.
   - &user_laptop_2026 age1yy97v38ya6wyjtc0d8w5pevcesv2ngm99p00x92ld2l9r8e2xueqkf2gwy
+  # Seit 2026-09-28 (Homeserver-Audit 3, B104) der Alltagsweg: die Identitaet im TPM
+  # (age-plugin-tpm, ~/.config/sops/age/tpm-identity.txt). keys.txt ist geloescht;
+  # user_laptop_2026 liegt nur noch offline (Punkt 5 des Recovery-Zettels).
+  - &user_laptop_tpm age1tag1qty5z2aa2n4q68sn2t9y097kdgytcryk3tyz5juvft78nuzvsxll6x8k6cu
   
   # Host Keys (werden beim ersten Boot generiert)
   - &host_laptop age1g50dwjpmlc9404w3f3rgjmamws6zf9g3vlgyylgj3rygfedasprsj4lqzv
@@ -19,4 +23,5 @@ creation_rules:
       - age:
           - *user_laptop
           - *user_laptop_2026
+          - *user_laptop_tpm
           - *host_laptop
