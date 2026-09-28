@@ -6,8 +6,10 @@
 # WAS DER SERVER SIEHT, UND WAS NICHT: Ein MCP-Ergebnis landet ROH im Chat,
 # an gestalt vorbei. Metriken tragen hier keine Geheimnisse, Logzeilen schon
 # (leakwatch hat Schluessel in Journalen gefunden). Deshalb:
-#   --disable-loki, --disable-runpanelquery  keine Logzeilen, auch nicht ueber
-#                                            ein Panel mit Loki-Abfrage
+#   --disable-loki, --disable-runpanelquery, keine Logzeilen, auch nicht ueber
+#   --disable-api                            ein Panel mit Loki-Abfrage oder
+#                                            grafana_api_request (der ginge ueber
+#                                            den Datasource-Proxy an Loki)
 #   --disable-write                          nichts anlegen oder aendern
 #   --disable-admin, …                       nur, was hier gebraucht wird
 # Und das Konto ist ein Service-Account mit Rolle VIEWER, nicht admin.
@@ -114,6 +116,7 @@ let
         --disable-write \
         --disable-loki \
         --disable-runpanelquery \
+        --disable-api \
         --disable-admin \
         --disable-oncall \
         --disable-incident \
@@ -124,7 +127,10 @@ let
         --disable-quickwit \
         --disable-influxdb \
         --disable-cloudwatch \
-        --disable-sql \
+        --disable-clickhouse \
+        --disable-athena \
+        --disable-snowflake \
+        --disable-proxied \
         --disable-graphite \
         --disable-rendering \
         --disable-snapshot \
