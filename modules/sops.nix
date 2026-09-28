@@ -113,5 +113,10 @@
     sops
     age
     ssh-to-age
+    # age-Identität im TPM (Homeserver-Audit 3, B104, 2026-09-28): der
+    # Admin-Schlüssel soll nicht mehr als kopierbare keys.txt auf der Platte
+    # liegen. Upstream als experimentell gekennzeichnet — deshalb bleibt der
+    # alte Schlüssel als Offline-Kopie Empfänger in .sops.yaml.
+    age-plugin-tpm
   ];
 }
