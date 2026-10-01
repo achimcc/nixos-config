@@ -213,7 +213,11 @@ pruefen() {
       echo "hs-riegel: Eingang $r hat sich geaendert, aber es gibt keinen Klon unter $klon." >&2
       return 2
     fi
-    git -C "$klon" fetch --quiet --tags origin 2>/dev/null || true
+    # MIT FRIST (2026-10-01): Derselbe Abruf in `scripts/signaturen-pruefen.sh`
+    # des homeserver-Repos hing 1 h 51 min an einer toten Verbindung zu GitHub
+    # und hielt so lange den Deploy-Slot aller Sitzungen. Verstreicht die
+    # Frist, zaehlt der lokale Klon - fehlt dort der Rev, endet es mit 2.
+    timeout "${HS_RIEGEL_FETCH_FRIST:-120}" git -C "$klon" fetch --quiet --tags origin 2>/dev/null || true
     if ! git -C "$klon" cat-file -e "$v^{commit}" 2>/dev/null; then
       echo "hs-riegel: Eingang $r: Rev ${v:0:12} ist im Klon $klon unbekannt." >&2
       return 2

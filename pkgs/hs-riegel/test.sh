@@ -288,6 +288,27 @@ github "$r" "$RENOVATE" "chore(deps): werkzeug"
 erwarte 0 "Renovate hebt eigenen Eingang auf signierten Rev"
 zurueck
 
+# Ein Abruf, der haengt, haelt den Riegel nicht auf (2026-10-01). Der Klon
+# bekommt ein `origin`, dessen ssh nie antwortet; der neue Rev liegt lokal und
+# ist signiert - der Riegel muss nach der Frist mit 0 enden, nicht nach 90 s.
+lock "$r" "$w4" NixOS "$rev1"
+eigen "$r" "Eingang gehoben, signiert"
+git -C "$t/klone/werkzeug" remote add origin "ssh://haengt.invalid/werkzeug"
+git -C "$t/klone/werkzeug" config core.sshCommand "sleep 90 #"
+beginn=$(date +%s)
+HS_RIEGEL_FETCH_FRIST=2 erwarte 0 "haengender Abruf, Rev liegt lokal"
+dauer=$(($(date +%s) - beginn))
+faelle=$((faelle + 1))
+if [ "$dauer" -gt 30 ]; then
+  echo "FEHLER haengender Abruf: der Riegel wartete $dauer s - der Abruf hat keine Frist"
+  fehler=$((fehler + 1))
+else
+  echo "ok     haengender Abruf kehrt nach $dauer s zurueck"
+fi
+git -C "$t/klone/werkzeug" remote remove origin
+git -C "$t/klone/werkzeug" config --unset core.sshCommand
+zurueck
+
 # --- 2: keine Aussage ----------------------------------------------------------
 echo mehr >>"$r/datei"
 eigen "$r" signiert

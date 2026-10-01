@@ -66,7 +66,8 @@ if ! [[ $laufend =~ ^[0-9a-f]{40}$ ]]; then
   exit 2
 fi
 if ! git -C "$repo" cat-file -e "$laufend^{commit}" 2>/dev/null; then
-  git -C "$repo" fetch --quiet origin 2>/dev/null || true
+  # Mit Frist, s. hs-riegel.sh: ein toter Abruf darf den Deploy nicht halten.
+  timeout "${HS_RIEGEL_FETCH_FRIST:-120}" git -C "$repo" fetch --quiet origin 2>/dev/null || true
 fi
 
 kopf=$(git -C "$repo" rev-parse HEAD)
