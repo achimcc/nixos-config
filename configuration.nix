@@ -171,7 +171,7 @@
   # LOKALISIERUNG
   # ==========================================
 
-  time.timeZone = "Atlantic/Canary";
+  time.timeZone = "Europe/Berlin";
   i18n.defaultLocale = "de_DE.UTF-8";
 
   i18n.extraLocaleSettings = {
