@@ -560,6 +560,7 @@ Modern Unix Ersetzungen mit besserer UX, Performance und Features.
 | **xh** | `xh` | curl | HTTP Client mit JSON Formatting |
 | **dust** | `dust` | du | Visuelle Festplattenbelegung |
 | **baobab** | GUI | - | GNOME Disk Usage Analyzer |
+| **wthrr** | `wthrr` | - | Wetter im Terminal; Standardort 31171 Nordstemmen, deutsche Texte (`modules/home/wthrr.nix`) |
 
 ### Git Tools
 

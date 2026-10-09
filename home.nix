@@ -33,6 +33,7 @@ in
     ./modules/home/obsidian.nix
     ./modules/home/sway.nix
     ./modules/home/vpn.nix
+    ./modules/home/wthrr.nix
   ];
 
   home.stateVersion = "24.11";
