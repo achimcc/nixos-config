@@ -295,11 +295,18 @@ in
 
     # --- OPENBB (Investment Research Platform) ---
     # FHS-kompatible Umgebung für OpenBB (pip-basiert)
-    # Python 3.12: python311 + sphinx 9.1.0 inkompatibel in nixpkgs (seit ~2026-02-25)
+    # Python 3.13 (seit 2026-10-09): python312Packages baut Hydra nicht mehr
+    # vollstaendig (aiohttp, httpx, scipy fehlten im Cache) -> lokaler Bau samt
+    # Zeitmesstests, die unter Last kippen. Unter 3.13 kommt alles aus dem Cache.
+    # ACHTUNG, vorher schon so: das bestehende venv (~/.local/share/openbb-venv,
+    # Januar 2026) haengt an python3-3.11.14 im Store und nutzt dieses Python hier
+    # gar nicht. Ein NEUES venv liesse sich nicht anlegen: openbb==4.2.0 und
+    # openbb-cli==1.0.0 verlangen Python <3.12.
+    # Davor 3.12: python311 + sphinx 9.1.0 inkompatibel in nixpkgs (seit ~2026-02-25)
     (pkgs.buildFHSEnv {
       name = "openbb";
       targetPkgs = pkgs: with pkgs; [
-        (python312.withPackages (ps: with ps; [
+        (python313.withPackages (ps: with ps; [
           pip
           virtualenv
           numpy
