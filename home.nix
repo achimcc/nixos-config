@@ -9,8 +9,10 @@ let
     src = pkgs.fetchFromGitHub {
       owner = "JackHack96";
       repo = "EasyEffects-Presets";
-      rev = "master";
-      hash = "sha256-JpQVWuEokBRu01xkGA22dPeV5Jo8Xzvfrg5oQ8RtIrI=";
+      # Fester Commit statt "master": ein Zweigname wandert, der Hash nicht — dann bricht
+      # der Bau, sobald upstream committet und die alte Quelle aus dem Store gefallen ist.
+      rev = "1ac92c9be57bdfccec3fb9820924f9a870a9d56f"; # master, Stand 2026-09-29
+      hash = "sha256-Nd4LOgiZyrrkXeWfpBfrEkZwJ+i/xVjg6EPNf/+sGjw=";
     };
     dontBuild = true;
     installPhase = ''
@@ -1863,7 +1865,9 @@ in
       # Alias nicht nötig, da ~/.local/bin bereits im PATH ist
       # Sonstiges
       obb = "openbb"; # FHS-wrapped, installiert automatisch beim ersten Start
-      nrs = "sudo nixos-rebuild switch --flake /home/${id.username}/nixos-config#nixos";
+      # --sudo statt sudo davor: Auswertung läuft als Nutzer (mit ssh-tpm-agent), nur die
+      # Aktivierung als root. root hat keinen Schlüssel für den privaten identity-Input.
+      nrs = "nixos-rebuild switch --flake /home/${id.username}/nixos-config#nixos --sudo";
       charge = "sudo tlp fullcharge";
     };
     environmentVariables = {

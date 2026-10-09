@@ -306,6 +306,29 @@ MCP-Server mit echten NixOS-Daten für Claude Code (github.com/utensils/mcp-nixo
   Zustandsdatei; das Skript setzt idempotent genau einen Schlüssel
 - Input auf den Tag `v3.1.0` gepinnt, deshalb nicht Teil von `notify-updates`
 
+### mcp-elster.nix
+
+MCP-Server für das ELSTER-Portal in Claude Code
+(github.com/lukasschwarz/elster-mcp-server, Paket `pkgs/elster-mcp-server`):
+UStVA, EÜR, ESt, Verlauf und Posteingang per Puppeteer.
+
+- **`elster_ustva_confirm` gibt eine Voranmeldung ab** — nicht rückholbar. EÜR
+  und ESt füllen nur bis „Prüfen", Verlauf und Posteingang lesen nur
+- Upstream ohne Release, deshalb auf den Commit gepinnt; Puppeteers eigenes
+  Chromium wird nicht geladen, es läuft das aus nixpkgs
+  (`PUPPETEER_EXECUTABLE_PATH`) — **mit** Sandkasten, upstreams Vorgabe
+  `--no-sandbox` ist gestrichen
+- Zertifikat, Passwort und Steuerdaten kommen aus sops (`elster-zertifikat`,
+  `elster-passwort`, `elster-steuerpflichtiger`). Der Wrapper `elster-mcp-sops`
+  baut daraus bei jedem Start die Konfiguration in `$XDG_RUNTIME_DIR/elster-mcp`
+  (tmpfs) — nichts davon steht in `~/.claude.json` oder in der Umgebung
+- **Die drei Geheimnisse müssen in `secrets/secrets.yaml` stehen, bevor das
+  Modul geschaltet wird** — sonst bricht sops-nix den Bau ab
+- Bildschirmfotos und heruntergeladene Bescheide: `~/.local/share/elster-mcp`
+  (0700), nicht im Arbeitsverzeichnis der Sitzung
+- `elster_config_show` verdeckt nur das Passwort; Steuernummer und Anschrift
+  gehen an das Modell
+
 ### claude-obsidian.nix
 
 Claude Code legt Gelesenes als verlinkte Markdown-Notizen im Obsidian-Vault ab
@@ -403,6 +426,9 @@ https://obsidian.rusty-vault.de) auf allen Geraeten:
 | Admin Email | `system/admin-email` | Logwatch Security Reports |
 | SSH Key (Hetzner) | `ssh/hetzner-vps` | SSH |
 | Miniflux Credentials | `miniflux/*` | Newsflash RSS-Reader |
+| ELSTER-Zertifikat | `elster-zertifikat` | elster-mcp-server (`.pfx`, base64 in einer Zeile) |
+| ELSTER-Zertifikatspasswort | `elster-passwort` | elster-mcp-server |
+| ELSTER-Steuerdaten | `elster-steuerpflichtiger` | elster-mcp-server (JSON: `taxNumber`, `stateCode`, Name, Anschrift) |
 
 ### Editing Secrets
 
@@ -561,7 +587,7 @@ z    → zoxide (smart cd)
 gs   → git status
 gc   → git commit
 gp   → git push
-nrs  → sudo nixos-rebuild switch --flake ...#nixos
+nrs  → nixos-rebuild switch --flake ...#nixos --sudo
 ```
 
 ## Applications

@@ -37,7 +37,23 @@
 { pkgs, inputs, id, ... }:
 
 let
-  mcp-nixos = inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  # EIN Test abgewählt, die übrigen 380 laufen weiter:
+  # `test_startup_survives_non_utf8_dotenv` startet `import mcp_nixos.server` in
+  # einem frischen Prozess mit `timeout=60`. Auf einer ausgelasteten Maschine
+  # reißt das Limit — gemessen 2026-10-08: derselbe Testlauf 536 s im vollen
+  # Rebuild (Load 16, Swap belegt), 33 s einzeln. Der Fehlschlag kippte den
+  # ganzen Systembau nach 20 Minuten. Der Test prüft kein Verhalten, das hier
+  # von der Last abhinge, nur die Uhr. `checkPhase` ist bei upstream wörtlich
+  # `pytest tests/ -m unit`; ändert upstream das, muss diese Zeile mit.
+  # `installCheckPhase`, nicht `checkPhase`: buildPythonApplication benennt
+  # das um (an der Derivation gemessen: doCheck leer, doInstallCheck = 1) —
+  # ein überschriebenes `checkPhase` liefe nie.
+  mcp-nixos = inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (_: {
+    installCheckPhase = ''
+      pytest tests/ -m unit \
+        --deselect tests/test_env_file_safety.py::test_startup_survives_non_utf8_dotenv
+    '';
+  });
 
   # Der Name, unter dem die Werkzeuge im Modell auftauchen („nixos"), folgt der
   # Empfehlung von upstream. `type` ist das, was `claude mcp add` selbst

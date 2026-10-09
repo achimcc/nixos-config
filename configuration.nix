@@ -32,9 +32,11 @@
     ./modules/claude-obsidian.nix
     ./modules/claude-plugins.nix
     ./modules/claude-caveman.nix
+    ./modules/claude-graphify.nix
     ./modules/mcp-github.nix
     ./modules/claude-riegel.nix
     ./modules/mcp-grafana.nix
+    ./modules/mcp-elster.nix
   ];
 
   # ==========================================
