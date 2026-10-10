@@ -810,6 +810,40 @@ in
     };
   };
 
+  # --- DIE DEPOTDATEI ALS NETZLAUFWERK (2026-10-10) ---
+  # Portfolio Performance arbeitet auf `~/Depot/depot.portfolio`; die Datei liegt
+  # auf dem Homeserver (SFTPGo, Ordner `/depot`) und wird dort jede Nacht um
+  # 06:15 aus Parqet nachgetragen (homeserver: `lib/depot.nix`, Unit
+  # `parqet-pp` in fin-01). Der Mount nimmt den `sftp.rusty-vault.de`-Block aus
+  # `programs.ssh` unten (Port, Schluessel im TPM) - zu Hause direkt, unterwegs
+  # ueber die Hausadresse.
+  #
+  # `dir_cache=no`: Sonst zeigt das Verzeichnis nach dem Nachtlauf bis zu einer
+  # Minute die alte Groesse. `workaround=rename`: Ersetzen per Umbenennen auf
+  # eine vorhandene Datei, am 2026-10-10 gegen SFTPGo geprobt.
+  # PORTFOLIO PERFORMANCE NACHTS SCHLIESSEN: Es schreibt beim Speichern die ganze
+  # Datei zurueck; wer es ueber Nacht offen laesst und danach speichert,
+  # ueberschreibt den Nachtlauf (der holt es in der folgenden Nacht nach).
+  systemd.user.services.depot-mount = {
+    Unit = {
+      Description = "Depotdatei vom Homeserver einhaengen (sshfs, ~/Depot)";
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "simple";
+      # fusermount3 kommt aus den setuid-Wrappern, ssh aus dem System.
+      Environment = [ "PATH=/run/wrappers/bin:/run/current-system/sw/bin" ];
+      ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p %h/Depot";
+      ExecStart = "${pkgs.sshfs}/bin/sshfs -f -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,dir_cache=no,workaround=rename sftp.rusty-vault.de:/depot %h/Depot";
+      ExecStopPost = "-/run/wrappers/bin/fusermount3 -u %h/Depot";
+      # Unterwegs ohne Netz scheitert der Start; dann eben spaeter.
+      Restart = "on-failure";
+      RestartSec = 60;
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
   # --- POSTEO PASSWORT IN GNOME KEYRING ---
   # Lädt das Posteo-Passwort aus sops in den GNOME Keyring beim Login.
   # IDEMPOTENT: Prüft ob Credentials bereits existieren, schreibt nur wenn nötig.
