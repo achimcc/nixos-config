@@ -708,6 +708,10 @@ in
   environment.etc."firejail/obsidian-custom.profile".text = ''
     nowhitelist ''${DOCUMENTS}
     whitelist ''${HOME}/Dokumente/Obsidian
+    # Zweiter Vault: die Veilid-Dokumentation (lokal, nicht in ObsidiSync).
+    # Ohne diese Zeile meldet „Ordner als Vault öffnen" „Folder not found" —
+    # der Ordner existiert, ist im Sandkasten aber nicht sichtbar (2026-10-10).
+    whitelist ''${HOME}/Dokumente/Obsidian-Veilid
 
     # Nur das Portal, sonst nichts — und AUCH DIESE ZEILEN VOR DEM `include`.
     # Steht das `ignore` danach, weist Firejail es ab: „Cannot relax dbus-user
