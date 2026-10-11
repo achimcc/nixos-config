@@ -36,6 +36,13 @@ buildNpmPackage {
     hash = "sha256-nwJLSB9Sq9q7jWl0nmYQabNsLerpfRwGtO+JYfJnHj0=";
   };
 
+  # Eigene Ergaenzung (2026-10-11): gespeicherte Entwuerfe oeffnen, Seiten mit
+  # exakten Feld-IDs lesen, Felder setzen, speichern — elster_draft_*. Upstream
+  # kann nur neue Formulare anlegen. Quelle: ~/Projects/elster-mcp-server,
+  # Commit „Entwürfe bearbeiten“. Sendet nie; keine neuen Abhaengigkeiten,
+  # npmDepsHash bleibt.
+  patches = [ ./entwuerfe-bearbeiten.patch ];
+
   npmDepsHash = "sha256-B3JdhIXUWMnd8HVwzASGXua6npSb3nNSilL8ENGZ1XU=";
 
   env.PUPPETEER_SKIP_DOWNLOAD = "1";

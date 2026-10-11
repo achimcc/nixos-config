@@ -37,7 +37,10 @@
     ./modules/claude-riegel.nix
     ./modules/mcp-grafana.nix
     ./modules/mcp-elster.nix
+    ./modules/mcp-paperless.nix
     ./modules/mcp-playwright.nix
+    ./modules/mcp-filesystem.nix
+    ./modules/mcp-git.nix
   ];
 
   # ==========================================
@@ -396,10 +399,19 @@
     max-free = 50 * 1024 * 1024 * 1024; # 50 GiB: bis hierhin wird gesammelt
   };
 
-  # Garbage Collection
+  # Garbage Collection -- TAEGLICH, damit min-free im Bau gar nicht erst greift.
+  # Am 2026-10-11 stand ein Serverbau eine Stunde bei "deleting unused links":
+  # Der Store war sechs Tage nach dem woechentlichen Lauf wieder zu 95 % voll
+  # (388 von 434 GiB, das System selbst braucht 34,7), ein Bau drueckte den
+  # freien Platz unter min-free, und der Daemon raeumte mitten im Bau
+  # /nix/store/.links auf -- mit rund 2500 Links je Minute. Solange haelt er die
+  # GC-Sperre, und jeder andere Bau der Maschine wartet mit.
+  # Woechentlich reicht nicht, wenn ein Dutzend Sitzungen nebeneinander baut.
+  # 05:00 statt Mitternacht: ein GC bricht laufende Auswertungen, und um
+  # Mitternacht laufen noch welche.
   nix.gc = {
     automatic = true;
-    dates = "weekly";
+    dates = "05:00";
     options = "--delete-older-than 30d";
   };
 

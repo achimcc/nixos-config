@@ -1,0 +1,432 @@
+From 535f6d975efde0267bc537306a13d2341ae2f118 Mon Sep 17 00:00:00 2001
+From: Achim Schneider <achim.schneider@posteo.de>
+Date: Sun, 11 Oct 2026 11:53:23 +0200
+Subject: [PATCH] =?UTF-8?q?Entw=C3=BCrfe=20bearbeiten:=20elster=5Fdraft=5F?=
+ =?UTF-8?q?list/open/page/click/fill/close?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Öffnet einen gespeicherten Entwurf aus „Meine Formulare“ in einem Browser,
+der über mehrere Aufrufe offen bleibt, und navigiert/füllt über exakte
+Element-IDs. Sendet nie; Klicks auf alles, was nach Versenden aussieht,
+werden abgelehnt. Speichern über #saveAufgabe (ein Textvergleich auf
+„speichern“ trifft auch „Ohne Speichern verlassen“), und der Dialog
+„Bearbeitung fortsetzen“ wird mit Nein beantwortet — solange er offen ist,
+schluckt das Formular jeden Klick ohne Anfrage.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/elster/draft.ts    | 268 +++++++++++++++++++++++++++++++++++++++++
+ src/index.ts           |  81 +++++++++++++
+ src/session-manager.ts |   2 +-
+ 3 files changed, 350 insertions(+), 1 deletion(-)
+ create mode 100644 src/elster/draft.ts
+
+diff --git a/src/elster/draft.ts b/src/elster/draft.ts
+new file mode 100644
+index 0000000..bb0bb9a
+--- /dev/null
++++ b/src/elster/draft.ts
+@@ -0,0 +1,268 @@
++import { Page } from 'puppeteer';
++import { ElsterBase } from './base.js';
++import { log } from '../logger.js';
++import { sessionManager, InternalSession } from '../session-manager.js';
++import { PORTAL_URLS } from './constants.js';
++
++/**
++ * Interactive editing of a saved draft ("Meine Formulare" → "Entwürfe").
++ *
++ * Unlike the other sessions this one keeps its browser open across tool calls:
++ * open → page/click/fill (as often as needed) → close. Every call returns a
++ * compact view of the current page (text, inputs with their ids and values,
++ * clickable elements with their ids), so the caller navigates by exact id
++ * instead of guessing.
++ *
++ * NEVER sends: clicks on anything that looks like "Versenden"/"Absenden" are
++ * refused. ELSTER autosaves the draft; close() leaves via "Speichern und
++ * Formular verlassen" when asked to.
++ */
++
++const IDLE_TIMEOUT_MS = 25 * 60 * 1000; // ELSTER logs out after 30 min of inactivity
++const FORBIDDEN = /senden|absenden|versenden|uebermitteln|übermitteln/i;
++
++export interface DraftEntry { index: number; buttonId: string; title: string; }
++
++export interface PageView {
++  url: string;
++  text: string;
++  fields: Array<{ id: string; label: string; value: string; readonly: boolean; type: string }>;
++  clickables: Array<{ id: string; text: string }>;
++  dialog?: string;
++}
++
++interface DraftState {
++  base: DraftBrowser;
++  page: Page;
++  timer?: NodeJS.Timeout;
++}
++
++class DraftBrowser extends ElsterBase {
++  async start(): Promise<Page> {
++    const { page } = await this.initBrowser();
++    await this.ensureLoggedIn(page);
++    await sleep(2000);
++    await this.handleModals(page);
++    return page;
++  }
++  async stop(): Promise<void> { await this.closeBrowser(); }
++  async shot(page: Page, name: string): Promise<string> { return this.screenshot(page, name); }
++}
++
++const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
++const byId = (id: string) => `[id="${id.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
++
++export class ElsterDraft {
++  private states = new Map<string, DraftState>();
++
++  async listDrafts(): Promise<DraftEntry[]> {
++    const b = new DraftBrowser();
++    try {
++      const page = await b.start();
++      return await this.readDraftList(page);
++    } finally {
++      await b.stop();
++    }
++  }
++
++  async open(selector: { index?: number; titleContains?: string }): Promise<{ sessionId: string; drafts: DraftEntry[]; opened: DraftEntry; view: PageView }> {
++    const base = new DraftBrowser();
++    const page = await base.start();
++    try {
++      const drafts = await this.readDraftList(page);
++      if (drafts.length === 0) throw new Error('No drafts in "Meine Formulare".');
++      let opened: DraftEntry | undefined;
++      if (selector.titleContains) {
++        const matches = drafts.filter(d => d.title.toLowerCase().includes(selector.titleContains!.toLowerCase()));
++        if (matches.length !== 1) throw new Error(`titleContains matched ${matches.length} drafts: ${JSON.stringify(drafts)}`);
++        opened = matches[0];
++      } else {
++        opened = drafts[selector.index ?? 0];
++      }
++      if (!opened) throw new Error(`No draft at index ${selector.index}: ${JSON.stringify(drafts)}`);
++
++      await this.clickAndSettle(page, byId(opened.buttonId));
++      // The form app keeps loading after the navigation; a click before it is
++      // ready is silently dropped.
++      await page.waitForSelector('#NextPage', { visible: true, timeout: 30000 }).catch(() => {});
++      await sleep(3000);
++      await this.handleResumeDialog(page);
++
++      const session = sessionManager.create('DRAFT');
++      session.status = 'AWAITING_REVIEW';
++      session.progress.push(`Opened draft: ${opened.title}`);
++      this.states.set(session.id, { base, page });
++      this.touch(session);
++      return { sessionId: session.id, drafts, opened, view: await this.view(page) };
++    } catch (e) {
++      await base.stop();
++      throw e;
++    }
++  }
++
++  async page(sessionId: string): Promise<PageView> {
++    const { page } = this.state(sessionId);
++    return this.view(page);
++  }
++
++  async click(sessionId: string, id: string): Promise<PageView> {
++    const { page } = this.state(sessionId);
++    const text = await page.$eval(byId(id), el => (el.textContent || '').trim()).catch(() => null);
++    if (text === null) throw new Error(`No element with id "${id}" on this page.`);
++    if (FORBIDDEN.test(id) || FORBIDDEN.test(text)) {
++      throw new Error(`Refused: "${text || id}" looks like sending the form. This tool never sends.`);
++    }
++    await this.clickAndSettle(page, byId(id));
++    return this.view(page);
++  }
++
++  async fill(sessionId: string, values: Record<string, string | number>): Promise<{ results: Array<{ id: string; wanted: string; actual: string | null; ok: boolean }>; view: PageView }> {
++    const { page } = this.state(sessionId);
++    const results = [];
++    for (const [id, raw] of Object.entries(values)) {
++      const wanted = typeof raw === 'number' ? String(raw).replace('.', ',') : raw;
++      const el = await page.$(byId(id));
++      if (!el) { results.push({ id, wanted, actual: null, ok: false }); continue; }
++      const tag = await el.evaluate(e => e.tagName);
++      if (tag === 'SELECT') {
++        await page.select(byId(id), wanted);
++      } else {
++        await el.click({ clickCount: 3 });
++        await page.keyboard.down('Control'); await page.keyboard.press('a'); await page.keyboard.up('Control');
++        await page.keyboard.press('Backspace');
++        await page.keyboard.type(wanted, { delay: 20 });
++        await page.keyboard.press('Tab');
++      }
++      await sleep(600);
++      const actual = await page.$eval(byId(id), e => (e as HTMLInputElement).value).catch(() => null);
++      // ELSTER reformats amounts ("3000" → "3.000"); compare without thousands dots.
++      const norm = (x: string) => /^[\d.,]+$/.test(x) ? x.replace(/\./g, '') : x;
++      results.push({ id, wanted, actual, ok: actual !== null && norm(actual) === norm(wanted) });
++    }
++    return { results, view: await this.view(page) };
++  }
++
++  async close(sessionId: string, saveAndLeave: boolean): Promise<{ closed: true; screenshot?: string; finalText?: string }> {
++    const st = this.state(sessionId);
++    let screenshot: string | undefined;
++    let finalText: string | undefined;
++    try {
++      if (saveAndLeave) {
++        await this.clickAndSettle(st.page, '#verlassenModal');
++        // The modal offers "Ohne Speichern verlassen" (#leaveModalButton), "Zurück zum
++        // Formular" (#refreshButton) and "Speichern und Verlassen" (#saveAufgabe).
++        // Match by id: a text match on "speichern" also hits "Ohne Speichern verlassen".
++        await st.page.waitForSelector('#saveAufgabe', { visible: true, timeout: 10000 });
++        await Promise.all([
++          st.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
++          st.page.click('#saveAufgabe'),
++        ]);
++        await sleep(2000);
++        finalText = (await st.page.evaluate(() => document.body.innerText)).slice(0, 1500);
++      }
++      screenshot = await st.base.shot(st.page, `draft_close_${sessionId}`);
++    } finally {
++      await this.dispose(sessionId);
++    }
++    return { closed: true, screenshot, finalText };
++  }
++
++  async dispose(sessionId: string): Promise<void> {
++    const st = this.states.get(sessionId);
++    if (!st) return;
++    if (st.timer) clearTimeout(st.timer);
++    this.states.delete(sessionId);
++    try { await st.base.stop(); } catch { /* ignore */ }
++    const s = sessionManager.get(sessionId);
++    if (s) { s.status = 'DONE'; sessionManager.scheduleCleanup(sessionId); }
++  }
++
++  private state(sessionId: string): DraftState {
++    const st = this.states.get(sessionId);
++    if (!st) throw new Error(`No open draft session "${sessionId}".`);
++    const s = sessionManager.get(sessionId);
++    if (s) this.touch(s);
++    return st;
++  }
++
++  private touch(session: InternalSession): void {
++    const st = this.states.get(session.id);
++    if (!st) return;
++    if (st.timer) clearTimeout(st.timer);
++    st.timer = setTimeout(() => {
++      log.warn(`[Draft] ${session.id} idle — closing browser.`);
++      this.dispose(session.id).catch(() => {});
++    }, IDLE_TIMEOUT_MS);
++  }
++
++  private async readDraftList(page: Page): Promise<DraftEntry[]> {
++    await page.goto(PORTAL_URLS.meineFormulare, { waitUntil: 'networkidle2', timeout: 60000 });
++    await sleep(1500);
++    return page.evaluate(() =>
++      Array.from(document.querySelectorAll('button[id^="oeffneEntwurf_"]')).map((b, index) => ({
++        index, buttonId: b.id, title: (b.textContent || '').trim().replace(/\s+/g, ' '),
++      })));
++  }
++
++  /**
++   * A draft saved via "Speichern und Verlassen" reopens with the modal
++   * "Bearbeitung fortsetzen — Möchten Sie genau dort weiter machen, wo Sie
++   * aufgehört haben?". It only picks the start page, but while it is open every
++   * click on the form is swallowed without a request. "Nein" starts at the
++   * form's start page, which is what the caller's navigation expects.
++   */
++  private async handleResumeDialog(page: Page): Promise<void> {
++    const nein = await page.$('#cancelButton_formularSpeicherpositionModal');
++    if (nein && await nein.evaluate(e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden')) {
++      await nein.click();
++      await sleep(1500);
++      log.info('[Draft] "Bearbeitung fortsetzen" answered with "Nein".');
++    }
++  }
++
++  private async clickAndSettle(page: Page, selector: string): Promise<void> {
++    await Promise.all([
++      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {}),
++      page.click(selector),
++    ]);
++    await sleep(1500);
++  }
++
++  private async view(page: Page): Promise<PageView> {
++    return page.evaluate(() => {
++      // offsetParent is null for position:fixed elements, i.e. for ELSTER's modals.
++      const visible = (e: Element) => {
++        const cs = getComputedStyle(e);
++        return e.getClientRects().length > 0 && cs.display !== 'none' && cs.visibility !== 'hidden';
++      };
++      const clean = (s: string) => s.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
++      const dialogEl = Array.from(document.querySelectorAll('[role="dialog"], .modal, dialog'))
++        .find(e => visible(e) && (e as HTMLElement).innerText.trim() !== '');
++      const main = dialogEl || document.querySelector('main, #main') || document.body;
++
++      const fields = Array.from(main.querySelectorAll('input, select, textarea'))
++        .filter(e => visible(e) && (e as HTMLInputElement).type !== 'hidden' && e.id)
++        .map(e => {
++          const inp = e as HTMLInputElement;
++          let label = '';
++          const l = document.querySelector(`label[for="${CSS.escape(inp.id)}"]`);
++          if (l) label = (l as HTMLElement).innerText;
++          const value = inp.type === 'checkbox' || inp.type === 'radio' ? (inp.checked ? 'checked' : 'unchecked') : inp.value;
++          return { id: inp.id, label: clean(label), value, readonly: inp.readOnly || inp.disabled, type: inp.type || inp.tagName.toLowerCase() };
++        });
++
++      const clickables = Array.from(main.querySelectorAll('a, button'))
++        .filter(e => visible(e) && e.id && !e.id.startsWith('hilfelink'))
++        .map(e => ({ id: e.id, text: clean((e.textContent || '')).slice(0, 120) }))
++        .filter(c => c.text);
++
++      return {
++        url: location.href,
++        text: clean((main as HTMLElement).innerText).slice(0, 6000),
++        fields,
++        clickables,
++        dialog: dialogEl ? clean((dialogEl as HTMLElement).innerText).slice(0, 2000) : undefined,
++      };
++    });
++  }
++}
+diff --git a/src/index.ts b/src/index.ts
+index 5481635..8cdeebc 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -15,6 +15,7 @@ import { ElsterUstva } from './elster/ustva.js';
+ import { ElsterEur } from './elster/eur.js';
+ import { ElsterEst } from './elster/est.js';
+ import { ElsterSync } from './elster/sync.js';
++import { ElsterDraft } from './elster/draft.js';
+ import { generateUstvaXml, detectReverseCharge } from './elster/xml.js';
+ import { KENNZIFFERN } from './elster/constants.js';
+ 
+@@ -22,6 +23,7 @@ const ustva = new ElsterUstva();
+ const eur = new ElsterEur();
+ const est = new ElsterEst();
+ const sync = new ElsterSync();
++const draft = new ElsterDraft();
+ 
+ class LoginProbe extends ElsterBase {
+   async probe(): Promise<{ ok: boolean; finalUrl?: string; error?: string }> {
+@@ -197,6 +199,66 @@ const TOOLS: Tool[] = [
+       additionalProperties: false,
+     },
+   },
++  {
++    name: 'elster_draft_list',
++    description: 'Lists saved drafts ("Meine Formulare" → "Entwürfe") with index and title. Read-only.',
++    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
++  },
++  {
++    name: 'elster_draft_open',
++    description: 'Opens a saved draft in a browser that stays open across calls (closes after 25 min idle). Select by index (from elster_draft_list, default 0) or titleContains. Returns sessionId and a view of the first page: text, input fields (exact id, label, value, readonly) and clickable elements (exact id, text). Navigate with elster_draft_click, edit with elster_draft_fill, finish with elster_draft_close. NEVER sends the form.',
++    inputSchema: {
++      type: 'object',
++      properties: {
++        index: { type: 'integer' },
++        titleContains: { type: 'string', description: 'Case-insensitive substring of the draft title, e.g. "2025". Must match exactly one draft.' },
++      },
++      additionalProperties: false,
++    },
++  },
++  {
++    name: 'elster_draft_page',
++    description: 'Returns the view of the current page of an open draft session (text, fields, clickables, open dialog).',
++    inputSchema: {
++      type: 'object',
++      properties: { sessionId: { type: 'string' } },
++      required: ['sessionId'],
++      additionalProperties: false,
++    },
++  },
++  {
++    name: 'elster_draft_click',
++    description: 'Clicks the element with this exact id (from a previous view) in an open draft session and returns the new view. Use for navigation (Anlagen, sections, "Nächste Seite") and for multi-entry tables: "EditMzbItem/…" opens an entry for editing, "UpdateMzbItem/…" applies it, "AddMzbItem/…" adds a new entry, "CreateMzbItem/…" applies a new one. Anything that looks like sending the form is refused.',
++    inputSchema: {
++      type: 'object',
++      properties: { sessionId: { type: 'string' }, id: { type: 'string' } },
++      required: ['sessionId', 'id'],
++      additionalProperties: false,
++    },
++  },
++  {
++    name: 'elster_draft_fill',
++    description: 'Types values into input fields by exact id (from a previous view) and reads each back. Numbers are written with a German decimal comma. Fields inside a multi-entry table are only editable after clicking its "EditMzbItem/…"; apply with "UpdateMzbItem/…" afterwards.',
++    inputSchema: {
++      type: 'object',
++      properties: {
++        sessionId: { type: 'string' },
++        values: { type: 'object', additionalProperties: { type: ['string', 'number'] }, description: 'Map of exact field id → value.' },
++      },
++      required: ['sessionId', 'values'],
++      additionalProperties: false,
++    },
++  },
++  {
++    name: 'elster_draft_close',
++    description: 'Ends a draft session. With saveAndLeave=true (default) it clicks "Speichern und Formular verlassen" first, so the draft is saved in "Meine Formulare". Never sends.',
++    inputSchema: {
++      type: 'object',
++      properties: { sessionId: { type: 'string' }, saveAndLeave: { type: 'boolean', default: true } },
++      required: ['sessionId'],
++      additionalProperties: false,
++    },
++  },
+ ];
+ 
+ function jsonResult(value: unknown) {
+@@ -272,6 +334,7 @@ async function dispatch(name: string, args: any) {
+         case 'USTVA': ustva.cancelSession(args.sessionId); break;
+         case 'EUR': eur.cancelSession(args.sessionId); break;
+         case 'EST': est.cancelSession(args.sessionId); break;
++        case 'DRAFT': await draft.dispose(args.sessionId); break;
+         default: sessionManager.delete(args.sessionId);
+       }
+       return jsonResult({ ok: true });
+@@ -293,6 +356,24 @@ async function dispatch(name: string, args: any) {
+       return jsonResult({ count: items.length, items });
+     }
+ 
++    case 'elster_draft_list':
++      return jsonResult(await draft.listDrafts());
++
++    case 'elster_draft_open':
++      return jsonResult(await draft.open({ index: args.index, titleContains: args.titleContains }));
++
++    case 'elster_draft_page':
++      return jsonResult(await draft.page(args.sessionId));
++
++    case 'elster_draft_click':
++      return jsonResult(await draft.click(args.sessionId, args.id));
++
++    case 'elster_draft_fill':
++      return jsonResult(await draft.fill(args.sessionId, args.values));
++
++    case 'elster_draft_close':
++      return jsonResult(await draft.close(args.sessionId, args.saveAndLeave ?? true));
++
+     default:
+       throw new Error(`Unknown tool: ${name}`);
+   }
+diff --git a/src/session-manager.ts b/src/session-manager.ts
+index 50501ec..b3ab0fa 100644
+--- a/src/session-manager.ts
++++ b/src/session-manager.ts
+@@ -1,4 +1,4 @@
+-export type SessionKind = 'USTVA' | 'EUR' | 'EST' | 'SYNC';
++export type SessionKind = 'USTVA' | 'EUR' | 'EST' | 'SYNC' | 'DRAFT';
+ 
+ export type SessionStatus =
+   | 'STARTING' | 'LOGGING_IN' | 'OPENING_FORM' | 'FILLING_PAGES'
+-- 
+2.54.0
+
