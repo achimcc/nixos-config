@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "advisory-db": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790972866,
+        "narHash": "sha256-zkVwY6oCE1cq3iMXRaWVrRJT+wQQZjge8fn3u5BLFRs=",
+        "owner": "rustsec",
+        "repo": "advisory-db",
+        "rev": "f8dee89e1b2f2f1eaf548312df7655fe5202a302",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rustsec",
+        "repo": "advisory-db",
+        "type": "github"
+      }
+    },
     "bun2nix": {
       "inputs": {
         "flake-parts": [
@@ -268,21 +284,22 @@
     },
     "lotse": {
       "inputs": {
+        "advisory-db": "advisory-db",
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1790502460,
-        "narHash": "sha256-08Gb9qo+ZyY8LL/GoCDfdGFDfKnoPZ2QmtKv6jtN5LI=",
+        "lastModified": 1791722302,
+        "narHash": "sha256-7DBrRvMOYKdjIG8llRIdFGRnW8mYTb/Is3Q06Wa09Dc=",
         "owner": "achimcc",
         "repo": "lotse",
-        "rev": "182797b6959de1be016673168df09b1e156480cf",
+        "rev": "dec2c9c7393ed280673311410654bdfa9e40709a",
         "type": "github"
       },
       "original": {
         "owner": "achimcc",
-        "ref": "v0.3.0",
+        "ref": "v0.4.0",
         "repo": "lotse",
         "type": "github"
       }
