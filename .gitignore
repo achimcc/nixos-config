@@ -5,3 +5,6 @@ result
 # Klartext-Secrets (verschlüsselte .yaml dürfen committed werden)
 secrets/*.template
 secrets/*.plaintext
+
+# Von Claude Code erzeugte Typen je Mod (schreibt die Engine beim Laden)
+mods/*/.claude-plugin/types/

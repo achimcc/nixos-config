@@ -33,6 +33,7 @@
     ./modules/claude-plugins.nix
     ./modules/claude-caveman.nix
     ./modules/claude-graphify.nix
+    ./modules/claude-werkbank.nix
     ./modules/mcp-github.nix
     ./modules/claude-riegel.nix
     ./modules/mcp-grafana.nix

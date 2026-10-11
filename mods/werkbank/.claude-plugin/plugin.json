@@ -1,0 +1,6 @@
+{
+  "name": "werkbank",
+  "version": "0.1.0",
+  "description": "Laufende Hintergrundarbeit sichtbar machen, /fertig prueft den Abschluss, /uebergabe reicht an einen frischen Agenten weiter",
+  "types": "./types/index.d.ts"
+}
