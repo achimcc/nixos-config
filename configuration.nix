@@ -37,6 +37,7 @@
     ./modules/claude-riegel.nix
     ./modules/mcp-grafana.nix
     ./modules/mcp-elster.nix
+    ./modules/mcp-playwright.nix
   ];
 
   # ==========================================
