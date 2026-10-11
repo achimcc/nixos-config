@@ -5,7 +5,7 @@
 # WAS ER DARF: lesen, auflisten, suchen, schreiben, verschieben — unter
 # `verzeichnisse`, nirgends sonst.
 #
-# DREI DINGE, DIE MAN KENNEN MUSS:
+# VIER DINGE, DIE MAN KENNEN MUSS:
 #
 #  - `write_file` und `edit_file` haben einen anderen Namen und ein anderes
 #    Feld (`path`) als Claude Codes Edit/Write. Der Hook `claude-riegel
@@ -16,15 +16,28 @@
 #
 #  - Ein Ergebnis geht ROH in den Chat, an gestalt vorbei. Eine JSON-, YAML-
 #    oder .env-Datei liest man weiter ueber Bash mit gestalt bzw. der
-#    Wertzeilen-Maske, nicht ueber `read_text_file`. Deshalb stehen hier nur
-#    Quellbaeume und NICHT $HOME: ~/.ssh, ~/.config und ~/.claude bleiben
-#    draussen. ~/Projects/homeserver-secrets liegt darunter, ist aber
-#    sops-verschluesselt.
+#    Wertzeilen-Maske, nicht ueber `read_text_file`. Deshalb stehen in der
+#    Liste unten nur Quellbaeume und NICHT $HOME. ~/Projects/homeserver-secrets
+#    liegt darunter, ist aber sops-verschluesselt.
 #
-#  - Die Liste unten ist nur der VORGABEWERT. Meldet der Client MCP-Roots,
-#    ersetzt der Server seine erlaubten Verzeichnisse durch diese
-#    (dist/index.js, `updateAllowedDirectoriesFromRoots`). Ob Claude Code das
-#    tut, ist nach dem Rebuild zu messen: `list_allowed_directories`.
+#  - Die Liste unten ist nur der VORGABEWERT, und unter Claude Code WIRKT SIE
+#    NICHT. Meldet der Client MCP-Roots, ersetzt der Server seine erlaubten
+#    Verzeichnisse durch diese (dist/index.js,
+#    `updateAllowedDirectoriesFromRoots`) — und Claude Code meldet sie.
+#    Gemessen am 2026-10-11 in einer Sitzung im Worktree
+#    ~/Projects/homeserver-worktrees/paperless-mcp: `list_allowed_directories`
+#    nannte genau dieses eine Verzeichnis, weder ~/Projects noch
+#    ~/nixos-config. Erlaubt ist also, wo die Sitzung gestartet wurde.
+#    Die Liste gilt nur noch fuer einen Client, der keine Roots meldet.
+#
+#    NICHT GEMESSEN, aber dieselbe Mechanik: Eine Sitzung, die in $HOME
+#    startet, meldet vermutlich $HOME als Root — dann laegen ~/.ssh, ~/.config
+#    und ~/.claude offen, und der Ausschluss oben waere keiner. Vor einer
+#    solchen Sitzung `list_allowed_directories` fragen.
+#
+#  - Der Hook an den beiden Schreibwerkzeugen greift (gemessen am 2026-10-11):
+#    Eine kaputte .nix-Datei meldete `nix-parse: … parst nicht` nach
+#    `write_file` wie nach `edit_file`, eine gueltige blieb still.
 #
 # Eingetragen wie bei mcp-nixos.nix in ~/.claude.json (user scope); die
 # Begruendung fuer das Aktivierungsskript statt eines Symlinks steht dort.
