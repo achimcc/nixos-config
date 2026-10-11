@@ -323,13 +323,28 @@ in
         openssl
         libffi
       ];
+      # LD_LIBRARY_PATH (2026-10-10): Die venv-Python ist eine Nix-Python mit
+      # eigener glibc; sie sucht NICHT in /usr/lib64 der FHS-Umgebung. Die
+      # manylinux-Wheels (numpy, scipy, cvxpy) brauchen libstdc++ -> ohne diese
+      # Zeile scheiterte `openbb` mit "libstdc++.so.6: cannot open shared object
+      # file". Nur libstdc++ und zlib, nie /usr/lib64 als Ganzes: dessen libc
+      # passt nicht zur glibc der venv-Python (symbol lookup error).
+      # Die venv steht seit 2026-10-10 auf openbb 4.7.2 / openbb-cli 1.4.2
+      # (4.2.0 mit core 1.5.8 erzeugte Importe, die der Kern nicht kannte).
+      # `openbb python <skript>` startet die venv-Python fuer eigene Skripte
+      # (~/Projects/depot-analyse).
       runScript = pkgs.writeShellScript "openbb-wrapper" ''
+        export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
         VENV_DIR="$HOME/.local/share/openbb-venv"
         if [ ! -d "$VENV_DIR" ]; then
           echo "Erstelle OpenBB venv..."
           python -m venv "$VENV_DIR"
           "$VENV_DIR/bin/pip" install --upgrade pip
-          "$VENV_DIR/bin/pip" install "openbb==4.2.0" "openbb-cli==1.0.0" openbb-charting
+          "$VENV_DIR/bin/pip" install openbb openbb-cli openbb-charting
+        fi
+        if [ "''${1:-}" = python ]; then
+          shift
+          exec "$VENV_DIR/bin/python" "$@"
         fi
         exec "$VENV_DIR/bin/openbb" "$@"
       '';
