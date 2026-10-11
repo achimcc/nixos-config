@@ -303,6 +303,21 @@
       # Ein BadUSB-Klon mit gleicher VID:PID, der sich zusätzlich als Tastatur
       # ausgibt (03:01:01), matcht diese Regel nicht und bleibt blockiert.
       allow id 20a0:42b2 name "Nitrokey 3" with-interface { 0b:00:00 03:00:00 } with-connect-type "hotplug"
+
+      # Meta Quest 3 (2026-10-10) — ADB fuer den WiVRn-Client (homeserver,
+      # docs/2026-10-01-pcvr-wivrn-vorhaben.md). Auf dieses Exemplar gepinnt.
+      #
+      # `none-of { 03:*:* }` statt einer festen Schnittstellenliste: Gemessen
+      # meldete die Quest beim ersten Anstecken { ff:8a:01 ff:8b:01 ff:8c:01
+      # ff:42:01 } (ff:42:01 = ADB); mit MTP oder nach der Debug-Freigabe
+      # kommen weitere dazu, und eine feste Liste fiele dann still durch. Was
+      # die Regel ausschliesst, ist der BadUSB-Fall: eine HID-Schnittstelle
+      # (Tastatur) unter dieser ID und Seriennummer.
+      #
+      # ZWEI PRODUKT-IDS, beide gemessen: 2833:5013 beim ersten Anstecken,
+      # 2833:5012 (mit zusaetzlich ff:ff:00) nach dem Einschalten des
+      # Entwicklermodus. Die Quest wechselt die ID mit ihrem USB-Modus.
+      allow id one-of { 2833:5012 2833:5013 } serial "2G97C5ZJ0S01M4" name "Quest 3" with-interface none-of { 03:*:* } with-connect-type "hotplug"
     '';
   };
 
@@ -397,6 +412,19 @@
 
   # auditd schreibt die Ereignisse nach /var/log/audit
   security.auditd.enable = true;
+
+  # Rotation AUSDRUECKLICH. Die erzeugte auditd.conf trug nur admin_space_left,
+  # plugin_dir und space_left -- kein max_log_file, kein num_logs -- und auditd
+  # schrieb in EINE Datei: am 2026-10-11 war /var/log/audit/audit.log 172 GiB
+  # gross, die Platte zu 95 % voll. Aufgefallen ist es am falschen Ende: Ein
+  # Nix-Bau drueckte den freien Platz unter min-free und stand eine Stunde bei
+  # "deleting unused links", obwohl der Store nur 124 GiB belegte.
+  # 5 x 200 MiB = hoechstens 1 GiB.
+  security.auditd.settings = {
+    max_log_file = 200; # MiB je Datei
+    max_log_file_action = "rotate";
+    num_logs = 5;
+  };
 
   # Regeln über das NixOS-Modul: audit-rules-nixos.service lädt sie mit
   # `auditctl -R`, der Kernel bekommt audit=1 und audit_backlog_limit.
@@ -941,6 +969,21 @@
     files = "/var/log/sudo.log";
     frequency = "weekly";
     rotate = 4;
+    compress = true;
+    delaycompress = true;
+    missingok = true;
+    notifempty = true;
+    copytruncate = true;
+  };
+
+  # Log-Rotation fuer clamonacc.log: am 2026-10-11 12 GiB, nie rotiert.
+  # copytruncate, weil clamonacc die Datei offen haelt und bei einem Rebuild
+  # nicht neu startet (restartIfChanged = false).
+  services.logrotate.settings.clamonacc = {
+    files = "/var/log/clamav/clamonacc.log";
+    frequency = "daily";
+    size = "200M";
+    rotate = 5;
     compress = true;
     delaycompress = true;
     missingok = true;
