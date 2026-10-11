@@ -1,7 +1,8 @@
 # Zwei kleine Hooks fuer Claude Code, die eine Regel aus Text zu einem
 # Mechanismus machen (2026-09-28 auf Achims Wunsch).
 #
-#  1. `nix-parse` (PostToolUse auf Edit/Write/MultiEdit): Nach jeder
+#  1. `nix-parse` (PostToolUse auf Edit/Write/MultiEdit und auf die beiden
+#     Schreibwerkzeuge von mcp-server-filesystem, modules/mcp-filesystem.nix): Nach jeder
 #     Aenderung an einer .nix-Datei `nix-instantiate --parse`. Das kostet
 #     Millisekunden und faengt kaputte Syntax, bevor eine Serverauswertung
 #     (12 GB, lotse-Warteschlange) daran scheitert. Exit 2 gibt die Meldung
@@ -37,7 +38,8 @@ let
       eingabe=$(cat)
       case "''${1:-}" in
         nix-parse)
-          datei=$(jq -r '.tool_input.file_path // empty' <<<"$eingabe")
+          # `path`: so heisst das Feld bei mcp-server-filesystem.
+          datei=$(jq -r '.tool_input.file_path // .tool_input.path // empty' <<<"$eingabe")
           case "$datei" in
             *.nix) ;;
             *) exit 0 ;;
@@ -70,7 +72,7 @@ let
   };
 
   nixParse = builtins.toJSON {
-    matcher = "Edit|Write|MultiEdit";
+    matcher = "Edit|Write|MultiEdit|mcp__filesystem__write_file|mcp__filesystem__edit_file";
     hooks = [
       {
         type = "command";

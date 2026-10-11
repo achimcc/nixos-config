@@ -1,24 +1,18 @@
 # mcp-server-filesystem — Dateizugriff als MCP-Server fuer Claude Code
 # (github.com/modelcontextprotocol/servers, src/filesystem), 2026-10-11 auf
-# Achims Wunsch, global. Paket aus nixpkgs.
+# Achims Wunsch, global, mit Schreibzugriff. Paket aus nixpkgs.
 #
-# WAS ER DARF: lesen, auflisten, suchen — unter `verzeichnisse`. Die vier
-# schreibenden Werkzeuge (`write_file`, `edit_file`, `create_directory`,
-# `move_file`) sind gesperrt, aus zwei Gruenden:
+# WAS ER DARF: lesen, auflisten, suchen, schreiben, verschieben — unter
+# `verzeichnisse`, nirgends sonst.
 #
-#  1. Sie gehen an den Hooks vorbei. `claude-riegel nix-parse` haengt an
-#     Edit/Write/MultiEdit und liest `tool_input.file_path`; ein
-#     `mcp__filesystem__write_file` traegt `path` und einen anderen Namen —
-#     eine kaputte .nix-Datei fiele erst in der Serverauswertung auf.
-#  2. Claude Codes eigene Edit/Write fuehren Buch (Rueckspulen, „Datei seit
-#     dem Lesen geaendert"); der MCP-Weg tut beides nicht.
+# DREI DINGE, DIE MAN KENNEN MUSS:
 #
-# Der Server kennt keinen Nur-Lese-Schalter (upstream nur ueber
-# Docker-ro-Mounts). Die Sperre steht deshalb in `permissions.deny` von
-# ~/.claude/settings.json, wie bei mcp-git.nix; freigeben = aus `gesperrt`
-# streichen.
-#
-# ZWEI DINGE, DIE MAN KENNEN MUSS:
+#  - `write_file` und `edit_file` haben einen anderen Namen und ein anderes
+#    Feld (`path`) als Claude Codes Edit/Write. Der Hook `claude-riegel
+#    nix-parse` haengt deshalb AUCH an diesen beiden (modules/claude-riegel.nix)
+#    — sonst fiele eine kaputte .nix-Datei erst in der Serverauswertung auf.
+#    Was der MCP-Weg nicht hat: Claude Codes Buchfuehrung (Rueckspulen, „Datei
+#    seit dem Lesen geaendert"). `write_file` ueberschreibt ohne Rueckfrage.
 #
 #  - Ein Ergebnis geht ROH in den Chat, an gestalt vorbei. Eine JSON-, YAML-
 #    oder .env-Datei liest man weiter ueber Bash mit gestalt bzw. der
@@ -37,22 +31,10 @@
 { pkgs, id, ... }:
 
 let
-  name = "filesystem";
-
   verzeichnisse = [
     "/home/${id.username}/Projects"
     "/home/${id.username}/nixos-config"
   ];
-
-  alle = [
-    "write_file"
-    "edit_file"
-    "create_directory"
-    "move_file"
-  ];
-  gesperrt = alle;
-
-  regel = w: "mcp__${name}__${w}";
 
   server = builtins.toJSON {
     type = "stdio";
@@ -75,33 +57,13 @@ in
         fi
         neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
         if ${pkgs.jq}/bin/jq --argjson server ${lib.escapeShellArg server} '
-              .mcpServers = ((.mcpServers // {}) + { ${name}: $server })
+              .mcpServers = ((.mcpServers // {}) + { filesystem: $server })
             ' "$datei" > "$neu"; then
           run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
           run ${pkgs.coreutils}/bin/mv "$neu" "$datei"
         else
           ${pkgs.coreutils}/bin/rm -f "$neu"
           echo "mcp-filesystem: $datei ist kein gueltiges JSON — der Server wurde NICHT eingetragen." >&2
-        fi
-
-        # Die Sperre: erst JEDEN Eintrag dieses Moduls heraus, dann die
-        # gesperrten hinein — so wirkt auch eine Freigabe.
-        datei="$HOME/.claude/settings.json"
-        if [ ! -e "$datei" ]; then
-          run ${pkgs.coreutils}/bin/mkdir -p "$HOME/.claude"
-          run sh -c 'printf "{}\n" > "$1"' _ "$datei"
-        fi
-        neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
-        if ${pkgs.jq}/bin/jq \
-              --argjson alle ${lib.escapeShellArg (builtins.toJSON (map regel alle))} \
-              --argjson gesperrt ${lib.escapeShellArg (builtins.toJSON (map regel gesperrt))} '
-              .permissions.deny = (((.permissions.deny // []) - $alle) + $gesperrt)
-            ' "$datei" > "$neu"; then
-          run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
-          run ${pkgs.coreutils}/bin/mv "$neu" "$datei"
-        else
-          ${pkgs.coreutils}/bin/rm -f "$neu"
-          echo "mcp-filesystem: $datei ist kein gueltiges JSON — die Sperre wurde NICHT eingetragen." >&2
         fi
       '';
     };

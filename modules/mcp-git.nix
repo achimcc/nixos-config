@@ -1,9 +1,9 @@
-# mcp-server-git — Git-Repos lesen als MCP-Server fuer Claude Code
-# (github.com/modelcontextprotocol/servers, src/git), 2026-10-11 auf Achims
-# Wunsch, global. Paket aus nixpkgs.
+# mcp-server-git — Git-Repos lesen UND schreiben als MCP-Server fuer Claude
+# Code (github.com/modelcontextprotocol/servers, src/git), 2026-10-11 auf
+# Achims Wunsch, global, mit Schreibzugriff. Paket aus nixpkgs, mit EINEM Patch.
 #
-# NUR LESEND, und das ist am Quelltext gemessen, nicht geraten (2026.8.31,
-# mcp_server_git/server.py):
+# DER PATCH, und warum ohne ihn der Schreibzugriff nichts taugt. Upstream
+# (2026.8.31, mcp_server_git/server.py):
 #
 #     def git_commit(repo, message):
 #         commit = repo.index.commit(message)
@@ -12,19 +12,18 @@
 # (commit.gpgsign wird nicht gelesen), KEIN pre-commit-Hook. Im homeserver-Repo
 # hiesse das: ein unsignierter Commit, den hs-riegel und
 # signaturen-pruefen.sh vor dem Deploy ablehnen, und die vier `*-gen`-Dateien
-# blieben unerzeugt. Dieselbe Entscheidung wie bei mcp-github.nix
-# (`X-MCP-Readonly`): der Server liest, geschrieben wird mit git.
+# blieben unerzeugt. Der Patch laesst `git_commit` stattdessen das echte
+# `git commit -m` fahren — mit der Konfiguration des Repos, also signiert und
+# durch die Hooks. Schlaegt ein Hook fehl, kommt dessen Meldung als Fehler des
+# Werkzeugs zurueck.
 #
-# Die uebrigen schreibenden Werkzeuge sind aus demselben Grund aus:
-# `git_reset` nimmt den GANZEN Index zurueck, `git_checkout` wechselt den Zweig
-# eines Worktrees unter einer laufenden Sitzung weg, und ein `git_add` ohne
-# `git_commit` ist nur ein halber Handgriff.
+# `--replace-fail`: Aendert upstream die Zeile, wird der Bau rot statt still
+# wieder unsigniert. `preCheck` gibt den Tests eine Identitaet — `git commit`
+# verlangt eine, GitPythons eigener Commit erfand sich eine.
 #
-# Der Server kennt selbst keinen Nur-Lese-Schalter. Die Sperre steht deshalb in
-# `permissions.deny` von ~/.claude/settings.json — ein verweigertes Werkzeug
-# bekommt das Modell gar nicht erst angeboten. Wer ein Werkzeug freigeben will,
-# streicht es aus `gesperrt`; das Aktivierungsskript nimmt dann auch den
-# Eintrag wieder heraus.
+# WAS MAN TROTZDEM KENNEN MUSS: `git_reset` nimmt den GANZEN Index zurueck,
+# `git_checkout` wechselt den Zweig eines Worktrees — auch unter einer
+# Parallelsitzung weg, wenn `repo_path` auf deren Baum zeigt.
 #
 # KEIN `--repository`: Der Server soll in jedem Projekt arbeiten, das Repo
 # nennt jeder Aufruf selbst (`repo_path`).
@@ -34,18 +33,17 @@
 { pkgs, id, ... }:
 
 let
-  name = "git";
-
-  alle = [
-    "git_commit"
-    "git_add"
-    "git_reset"
-    "git_checkout"
-    "git_create_branch"
-  ];
-  gesperrt = alle;
-
-  regel = w: "mcp__${name}__${w}";
+  mcp-server-git = pkgs.mcp-server-git.overridePythonAttrs (alt: {
+    postPatch = (alt.postPatch or "") + ''
+      substituteInPlace src/mcp_server_git/server.py \
+        --replace-fail 'commit = repo.index.commit(message)' \
+                       'repo.git.commit("-m", message); commit = repo.head.commit'
+    '';
+    preCheck = (alt.preCheck or "") + ''
+      export GIT_AUTHOR_NAME=probe GIT_AUTHOR_EMAIL=probe@example.invalid
+      export GIT_COMMITTER_NAME=probe GIT_COMMITTER_EMAIL=probe@example.invalid
+    '';
+  });
 
   server = builtins.toJSON {
     type = "stdio";
@@ -55,7 +53,7 @@ let
   };
 in
 {
-  environment.systemPackages = [ pkgs.mcp-server-git ];
+  environment.systemPackages = [ mcp-server-git ];
 
   home-manager.users.${id.username} =
     { lib, ... }:
@@ -68,33 +66,13 @@ in
         fi
         neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
         if ${pkgs.jq}/bin/jq --argjson server ${lib.escapeShellArg server} '
-              .mcpServers = ((.mcpServers // {}) + { ${name}: $server })
+              .mcpServers = ((.mcpServers // {}) + { git: $server })
             ' "$datei" > "$neu"; then
           run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
           run ${pkgs.coreutils}/bin/mv "$neu" "$datei"
         else
           ${pkgs.coreutils}/bin/rm -f "$neu"
           echo "mcp-git: $datei ist kein gueltiges JSON — der Server wurde NICHT eingetragen." >&2
-        fi
-
-        # Die Sperre: erst JEDEN Eintrag dieses Moduls heraus, dann die
-        # gesperrten hinein — so wirkt auch eine Freigabe.
-        datei="$HOME/.claude/settings.json"
-        if [ ! -e "$datei" ]; then
-          run ${pkgs.coreutils}/bin/mkdir -p "$HOME/.claude"
-          run sh -c 'printf "{}\n" > "$1"' _ "$datei"
-        fi
-        neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
-        if ${pkgs.jq}/bin/jq \
-              --argjson alle ${lib.escapeShellArg (builtins.toJSON (map regel alle))} \
-              --argjson gesperrt ${lib.escapeShellArg (builtins.toJSON (map regel gesperrt))} '
-              .permissions.deny = (((.permissions.deny // []) - $alle) + $gesperrt)
-            ' "$datei" > "$neu"; then
-          run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
-          run ${pkgs.coreutils}/bin/mv "$neu" "$datei"
-        else
-          ${pkgs.coreutils}/bin/rm -f "$neu"
-          echo "mcp-git: $datei ist kein gueltiges JSON — die Sperre wurde NICHT eingetragen." >&2
         fi
       '';
     };
