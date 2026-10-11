@@ -5,6 +5,7 @@
   shadow-simulator = pkgs.callPackage ./shadow { };
   hs-riegel = pkgs.callPackage ./hs-riegel { };
   elster-mcp-server = pkgs.callPackage ./elster-mcp-server { };
+  paperless-ngx-mcp = pkgs.callPackage ./paperless-ngx-mcp { };
 
   # anyio-Tests unter Python 3.12 abgeschaltet (2026-10-09).
   # Ursache: Python 3.12.15 lehnt in SSLObject._create `server_hostname` im
