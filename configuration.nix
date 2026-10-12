@@ -34,6 +34,7 @@
     ./modules/claude-caveman.nix
     ./modules/claude-graphify.nix
     ./modules/claude-werkbank.nix
+    ./modules/claude-savvy.nix
     ./modules/mcp-github.nix
     ./modules/claude-riegel.nix
     ./modules/mcp-grafana.nix
