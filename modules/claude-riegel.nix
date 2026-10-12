@@ -32,6 +32,10 @@
 #     Jede Regel hat Faelle in ./claude-riegel/faelle.json, die treffen, und
 #     Faelle, die es nicht tun; der Bau wird rot, wenn einer kippt. Wer ein
 #     Muster aendert: `claude-regeln pruefen <dir> <faelle.json>`.
+#     Projektregeln zaehlen nur unter den Wurzeln in `regelnVertraut` und
+#     ersetzen keine globale Sperre (2026-10-12, Befund der Commit-Pruefung:
+#     ein fremdes Repo konnte sonst Sperren abschalten und Text einschleusen).
+#     GRENZE: Der Hook bleibt fail-open - wirft er, laeuft das Kommando.
 #
 # Eintrag in ~/.claude/settings.json wie bei lotse/caveat/hs-riegel: per
 # Aktivierungsskript, idempotent, hinter `claudeHsRiegelHook`.
@@ -85,15 +89,27 @@ let
     '';
   };
 
+  # Nur hier duerfen Projektregeln (.claude/riegel) mitreden: Sie schreiben Text
+  # in die Sitzung und koennen sperren. Unter ~/Projects liegen auch fremde
+  # Repos (nixpkgs, rust) - deshalb einzelne Wurzeln, nicht das ganze Verzeichnis.
+  # $HOME bleibt woertlich stehen und wird erst im Wrapper aufgeloest.
+  regelnVertraut = builtins.concatStringsSep ":" [
+    "$HOME/nixos-config"
+    "$HOME/Projects/homeserver"
+    "$HOME/Projects/homeserver-worktrees"
+  ];
+
   # Der gepruefte Regelsatz: Der Bau scheitert, wenn eine Regel ihre Faelle
   # nicht mehr besteht oder ein Kopf nicht parst.
   regelSatz = pkgs.runCommand "claude-regeln-satz" { nativeBuildInputs = [ pkgs.python3 ]; } ''
     python3 ${./claude-riegel/regeln.py} pruefen ${./claude-riegel/regeln} ${./claude-riegel/faelle.json}
+    python3 ${./claude-riegel}/test-regeln.py
     cp -r ${./claude-riegel/regeln} $out
   '';
 
   regeln = pkgs.writeShellScriptBin "claude-regeln" ''
     export CLAUDE_REGELN_GLOBAL="''${CLAUDE_REGELN_GLOBAL:-${regelSatz}}"
+    export CLAUDE_REGELN_VERTRAUT="''${CLAUDE_REGELN_VERTRAUT:-${regelnVertraut}}"
     exec ${pkgs.python3}/bin/python3 ${./claude-riegel/regeln.py} "$@"
   '';
 

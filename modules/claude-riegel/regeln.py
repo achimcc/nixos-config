@@ -12,7 +12,9 @@ Beachtung der Gross-/Kleinschreibung), `action` (warn|block), optional
 Quellen: die globalen Regeln aus dem Nix-Store (CLAUDE_REGELN_GLOBAL) und die
 des Projekts unter `.claude/riegel/*.md` - gesucht vom Arbeitsverzeichnis der
 Sitzung aufwaerts, damit ein Worktree seine eigene Fassung hat und ein
-aelterer Worktree die des Hauptbaums erbt.
+aelterer Worktree die des Hauptbaums erbt. Projektregeln gelten nur unter
+den Wurzeln aus CLAUDE_REGELN_VERTRAUT (durch `:` getrennt) und ersetzen keine
+globale Sperre.
 
 Warum nicht hookify (gemessen 2026-10-12, Stand f359d43b4060): `warn` geht
 dort nur als systemMessage hinaus und erreicht das Modell nicht, `block`
@@ -95,15 +97,35 @@ def projektverzeichnis(cwd):
         ort = oben
 
 
+def vertraut(verzeichnis):
+    """Liegt das Verzeichnis unter einer Wurzel aus CLAUDE_REGELN_VERTRAUT?
+
+    Projektregeln schreiben Text in die Sitzung und koennen sperren. Ein fremdes
+    Repo (nixpkgs, ein Klon zum Nachlesen) darf das nicht - ohne Liste keines.
+    """
+    ort = os.path.realpath(verzeichnis)
+    for wurzel in (os.environ.get("CLAUDE_REGELN_VERTRAUT") or "").split(":"):
+        if wurzel and os.path.commonpath([ort, os.path.realpath(wurzel)]) == os.path.realpath(wurzel):
+            return True
+    return False
+
+
 def alle_regeln(cwd):
     regeln = []
     globale = os.environ.get("CLAUDE_REGELN_GLOBAL")
     if globale:
         regeln += lade(globale)
     projekt = projektverzeichnis(cwd)
-    if projekt:
-        # Gleicher Name: die Fassung des Projekts gewinnt.
-        eigene = lade(projekt)
+    if projekt and vertraut(projekt):
+        # Gleicher Name: die Fassung des Projekts gewinnt - ausser gegen eine
+        # globale Sperre. Die laesst sich nur dort aendern, wo sie steht.
+        fest = {r.name for r in regeln if r.action == "block" and r.an}
+        eigene = []
+        for regel in lade(projekt):
+            if regel.name in fest:
+                print(f"claude-regeln: {regel.pfad} uebergangen: globale Sperre {regel.name} bleibt", file=sys.stderr)
+            else:
+                eigene.append(regel)
         namen = {r.name for r in eigene}
         regeln = [r for r in regeln if r.name not in namen] + eigene
     return [r for r in regeln if r.an]
