@@ -1,0 +1,14 @@
+--- a/src/host/alsa/mod.rs
++++ b/src/host/alsa/mod.rs
+@@ -937,8 +937,9 @@
+ 
+     let revents = stream.channel.revents(&descriptors[1..])?;
+     if revents.contains(alsa::poll::Flags::ERR) {
+-        let description = String::from("`alsa::poll()` returned POLLERR");
+-        return Err(BackendSpecificError { description });
++        // POLLERR steht fuer einen Underrun oder Suspend und bleibt gesetzt,
++        // bis jemand `prepare` ruft. Der XRun-Zweig des Workers tut genau das.
++        return Ok(PollDescriptorsFlow::XRun);
+     }
+ 
+     // Check if data is ready for processing (either input or output)
