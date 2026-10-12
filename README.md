@@ -366,7 +366,7 @@ Arbeiten an virtuellen Monitoren in der Meta Quest 3 — in der GNOME-Sitzung.
 - WiVRn ist auf 26.6.2 festgehalten (`pkgs/wivrn/`), dieselbe Version wie auf
   dem Homeserver — ein Client auf der Quest für beide
 - Bedienung: `vr-arbeit an [anzahl] [BREITExHOEHE]` (Vorgabe 2 × 2560x1440),
-  `vr-arbeit aus`, `vr-arbeit status`; beim ersten Mal vorher `wivrnctl pair`
+  `vr-arbeit aus`, `vr-arbeit status`; beim ersten Mal vorher `vr-arbeit koppeln`
 
 ### home/neovim.nix
 

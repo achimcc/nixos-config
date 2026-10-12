@@ -10,8 +10,8 @@
 # ist nicht beruehrt. Die USBGuard-Regel fuer die Quest steht in security.nix.
 #
 # Bedienung: `vr-arbeit an [anzahl] [BREITExHOEHE]`, `vr-arbeit aus`,
-# `vr-arbeit status`. Beim ersten Mal vorher `wivrnctl pair` und die PIN in der
-# Brille eingeben; WayVR fragt beim ersten Start ueber den GNOME-Dialog, welche
+# `vr-arbeit status`. Beim ersten Mal vorher `vr-arbeit koppeln` (startet den
+# Server und ruft `wivrnctl pair`) und die PIN in der Brille eingeben; WayVR fragt beim ersten Start ueber den GNOME-Dialog, welche
 # Monitore es zeigen darf.
 #
 # GEMESSEN (2026-10-12, laufende Sitzung): Mutter ScreenCast Version 4, das
@@ -56,7 +56,7 @@ let
 
   vr-arbeit = pkgs.writeShellApplication {
     name = "vr-arbeit";
-    runtimeInputs = with pkgs; [ android-tools systemd iproute2 coreutils gawk gnused ];
+    runtimeInputs = with pkgs; [ android-tools systemd iproute2 coreutils gawk gnused wivrn ];
     text = ''
       port=${toString wivrnPort}
       marke="''${XDG_RUNTIME_DIR:?}/vr-monitore.bereit"
@@ -137,9 +137,20 @@ let
           echo "vr-arbeit: Brille verbunden, $anzahl virtuelle Monitore ($aufloesung)."
         else
           echo "vr-arbeit: nach 30 s keine Verbindung auf $port." >&2
-          echo "  Erstes Mal? 'wivrnctl pair' und die PIN in der Brille eingeben." >&2
+          echo "  Erstes Mal? 'vr-arbeit koppeln' und die PIN in der Brille eingeben." >&2
           exit 1
         fi
+      }
+
+      # wivrnctl spricht ueber D-Bus mit dem LAUFENDEN Server; ohne ihn:
+      # "call to EnablePairing failed: The name is not activatable".
+      koppeln() {
+        systemctl --user start wivrn.service
+        if ! warte_auf_port listening 15; then
+          echo "vr-arbeit: WiVRn lauscht nach 15 s nicht auf $port - journalctl --user -u wivrn" >&2
+          exit 1
+        fi
+        wivrnctl pair
       }
 
       aus() {
@@ -163,8 +174,9 @@ let
         an) shift; an "$@" ;;
         aus) aus ;;
         status) status ;;
+        koppeln) koppeln ;;
         *)
-          echo "Aufruf: vr-arbeit an [anzahl] [BREITExHOEHE] | aus | status" >&2
+          echo "Aufruf: vr-arbeit an [anzahl] [BREITExHOEHE] | aus | status | koppeln" >&2
           exit 2
           ;;
       esac
