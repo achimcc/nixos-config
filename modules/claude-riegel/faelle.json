@@ -1,0 +1,137 @@
+{
+  "block-nixos-config-bauen": {
+    "trifft": [
+      "nrs",
+      "sudo nixos-rebuild switch --flake .",
+      "cd ~/nixos-config && nix build .#nixosConfigurations.laptop.config.system.build.toplevel",
+      "nixos-rebuild build"
+    ],
+    "trifft_nicht": [
+      "nix-instantiate --parse ~/nixos-config/modules/lotse.nix",
+      "git -C ~/nixos-config status",
+      "nix build .#nixosConfigurations.server.config.system.build.toplevel --no-link",
+      "grep -rn nrs ~/nixos-config/modules",
+      "echo unrsx"
+    ]
+  },
+  "warn-curl-api-ohne-gestalt": {
+    "trifft": [
+      "ssh root@server 'curl -s http://10.0.10.5:7878/api/v3/system/status'",
+      "curl -s https://x/api/v1/rules",
+      "curl -s localhost:9090/api/v1/query?query=up | head"
+    ],
+    "trifft_nicht": [
+      "ssh root@server 'curl -s http://x/api/v3/system/status' | gestalt",
+      "curl -s http://x/api/v3/movie | jq -r '.[].title'",
+      "curl -s -o /dev/null -w '%{http_code}' http://x/api/v3/health",
+      "curl -s http://x/api/v1/x > /tmp/a.json",
+      "curl -s https://x/health",
+      "curl -s http://x/api/v3/x | sha256sum"
+    ]
+  },
+  "warn-identityagent-none": {
+    "trifft": [
+      "ssh -o IdentityAgent=none -i ~/.ssh/id_rsa_router root@192.168.8.1 uptime",
+      "ssh -o 'IdentityAgent none' x"
+    ],
+    "trifft_nicht": [
+      "ssh root@server uptime",
+      "ssh -o IdentitiesOnly=yes root@server true"
+    ]
+  },
+  "warn-immer-noch": {
+    "trifft": [
+      "immer noch?",
+      "immer noch???",
+      "IMMER NOCH?",
+      "läuft der deploy immer noch?",
+      "wartest du immer noch?",
+      "immer noch nicht?",
+      "läuft der bau immer noch?",
+      "wartet der prüf bau immer noch?",
+      "wartest du immer noch auf den flash?",
+      "immer noch"
+    ],
+    "trifft_nicht": [
+      "in chrome lädt es, in librewolf immer noch nicht",
+      "geht jetzt etwas schneller, ist aber immer noch langsam",
+      "immer noch der selbe fehler",
+      "wir haben immer noch 17569 englische iptv filme in jellyfin. sind die wirklich alle tmdb > 6.5?",
+      "räum den worktree weg"
+    ]
+  },
+  "warn-nix-build-pipe": {
+    "trifft": [
+      "nix build .#x --no-link 2>&1 | tail -20",
+      "lotse run --class=eval -- nix flake check 2>&1 | tail -5",
+      "nix build .#checks.x86_64-linux.sabotage-bestand | grep -c x"
+    ],
+    "trifft_nicht": [
+      "nix build .#x --no-link 2>&1 | tail -20; echo ${PIPESTATUS[0]}",
+      "nix build .#x --no-link > log 2>&1; echo $?",
+      "nix build .#x --no-link",
+      "set -o pipefail; nix build .#x 2>&1 | tail",
+      "nix build .#x; ls | head"
+    ]
+  },
+  "warn-pgrep-f-pkill": {
+    "trifft": [
+      "pgrep -f 'nix build'",
+      "pgrep -af colmena",
+      "pkill -f tamper",
+      "killall nix"
+    ],
+    "trifft_nicht": [
+      "pgrep -a colmena",
+      "pgrep -x nix",
+      "kill 12345",
+      "lotse status"
+    ]
+  },
+  "warn-schluessel-in-argv": {
+    "trifft": [
+      "curl -s -H 'X-Api-Key: abc' http://x/api/v3/system/status",
+      "curl -H \"Authorization: Bearer $T\" x",
+      "curl 'http://x/api?apikey=abc'",
+      "curl 'http://x/a?b=1&token=abc'",
+      "curl -H X-Emby-Token:abc x"
+    ],
+    "trifft_nicht": [
+      "curl -K /run/curlrc http://x/api/v3/system/status",
+      "vantage run --header-file /run/h -- curl x",
+      "curl -H 'Accept: application/json' x",
+      "curl 'http://x/a?page=2'"
+    ]
+  },
+  "warn-secrets-roh": {
+    "trifft": [
+      "cat /run/secrets/tmdb-key",
+      "ssh root@server 'cat /run/credentials/x.service/key'",
+      "head -5 .env",
+      "sops -d secrets/server.yaml",
+      "sops decrypt secrets/x.yaml | grep mam",
+      "cat ../homeserver-secrets/secrets/server.yaml"
+    ],
+    "trifft_nicht": [
+      "sops -d secrets/server.yaml | sha256sum",
+      "sops -d secrets/x.yaml > /dev/shm/x",
+      "cat secrets/x.yaml | sed -E 's/(: |=).*/\\1<verdeckt>/'",
+      "sops secrets/server.yaml",
+      "cat lib/gaeste.nix",
+      "ls /run/secrets"
+    ]
+  },
+  "warn-sleep-warteschleife": {
+    "trifft": [
+      "sleep 60; tail log",
+      "while pgrep x; do sleep 5; done",
+      "until curl -sf x; do sleep 2; done",
+      "sleep 300"
+    ],
+    "trifft_nicht": [
+      "sleep 2; curl x",
+      "sleep 5",
+      "systemctl status sleep.target"
+    ]
+  }
+}

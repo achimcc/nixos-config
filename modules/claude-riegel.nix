@@ -19,6 +19,20 @@
 #     GRENZE: Ein Muster, keine Semantik. `curl …` ohne jq zeigt JSON genauso
 #     roh; das faengt dieser Riegel nicht, dafuer bleibt die Regel im Text.
 #
+#  3. `claude-regeln hook` (PreToolUse auf Bash, UserPromptSubmit): Muster-Regeln
+#     als Markdown-Dateien, je Regel `warn` oder `block` (2026-10-12, aus der
+#     Sitzungshistorie abgeleitet: 366 Protokolle, 44 548 Bash-Aufrufe). Die
+#     globalen liegen unter ./claude-riegel/regeln, ein Projekt bringt eigene
+#     unter `.claude/riegel/*.md` mit. Eine Warnung erreicht Claude als
+#     additionalContext (je Sitzung und Regel einmal je halbe Stunde), ein Block
+#     traegt seinen Grund. Das hookify-Plugin kann beides nicht: `warn` geht
+#     dort nur als systemMessage hinaus, `block` ohne Grund, und Prompt-Regeln
+#     lesen ein Feld, das Claude Code nicht liefert (gemessen am Stand
+#     f359d43b4060).
+#     Jede Regel hat Faelle in ./claude-riegel/faelle.json, die treffen, und
+#     Faelle, die es nicht tun; der Bau wird rot, wenn einer kippt. Wer ein
+#     Muster aendert: `claude-regeln pruefen <dir> <faelle.json>`.
+#
 # Eintrag in ~/.claude/settings.json wie bei lotse/caveat/hs-riegel: per
 # Aktivierungsskript, idempotent, hinter `claudeHsRiegelHook`.
 { pkgs, id, ... }:
@@ -71,6 +85,30 @@ let
     '';
   };
 
+  # Der gepruefte Regelsatz: Der Bau scheitert, wenn eine Regel ihre Faelle
+  # nicht mehr besteht oder ein Kopf nicht parst.
+  regelSatz = pkgs.runCommand "claude-regeln-satz" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+    python3 ${./claude-riegel/regeln.py} pruefen ${./claude-riegel/regeln} ${./claude-riegel/faelle.json}
+    cp -r ${./claude-riegel/regeln} $out
+  '';
+
+  regeln = pkgs.writeShellScriptBin "claude-regeln" ''
+    export CLAUDE_REGELN_GLOBAL="''${CLAUDE_REGELN_GLOBAL:-${regelSatz}}"
+    exec ${pkgs.python3}/bin/python3 ${./claude-riegel/regeln.py} "$@"
+  '';
+
+  regelHook = {
+    hooks = [
+      {
+        type = "command";
+        command = "/run/current-system/sw/bin/claude-regeln hook";
+        timeout = 5;
+      }
+    ];
+  };
+  regelnBash = builtins.toJSON (regelHook // { matcher = "Bash"; });
+  regelnPrompt = builtins.toJSON regelHook;
+
   nixParse = builtins.toJSON {
     matcher = "Edit|Write|MultiEdit|mcp__filesystem__write_file|mcp__filesystem__edit_file";
     hooks = [
@@ -93,7 +131,7 @@ let
   };
 in
 {
-  environment.systemPackages = [ riegel ];
+  environment.systemPackages = [ riegel regeln ];
 
   home-manager.users.${id.username} =
     { lib, ... }:
@@ -105,11 +143,14 @@ in
           run sh -c 'printf "{}\n" > "$1"' _ "$datei"
         fi
         neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
-        if ${pkgs.jq}/bin/jq --argjson parse ${lib.escapeShellArg nixParse} --argjson roh ${lib.escapeShellArg jsonRoh} '
+        if ${pkgs.jq}/bin/jq --argjson parse ${lib.escapeShellArg nixParse} --argjson roh ${lib.escapeShellArg jsonRoh} \
+              --argjson regelnBash ${lib.escapeShellArg regelnBash} --argjson regelnPrompt ${lib.escapeShellArg regelnPrompt} '
               def ohne($e; $muster): ((.hooks[$e] // [])
                 | map(select(((.hooks // []) | any((.command // "") | test($muster))) | not)));
               .hooks.PostToolUse = (ohne("PostToolUse"; "claude-riegel nix-parse") + [$parse])
               | .hooks.PreToolUse = (ohne("PreToolUse"; "claude-riegel json-roh") + [$roh])
+              | .hooks.PreToolUse = (ohne("PreToolUse"; "claude-regeln hook") + [$regelnBash])
+              | .hooks.UserPromptSubmit = (ohne("UserPromptSubmit"; "claude-regeln hook") + [$regelnPrompt])
             ' "$datei" > "$neu"; then
           run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
           run ${pkgs.coreutils}/bin/mv "$neu" "$datei"
