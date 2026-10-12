@@ -227,6 +227,14 @@ in
   # haengt.
   systemd.user.services.wivrn.serviceConfig.ReadWritePaths = [ "%h" "%t" ];
 
+  # WiVRn 26.6.2 legt sein Konfigurationsverzeichnis nicht selbst an:
+  # `save_keys` (server/driver/configuration.cpp) oeffnet known_keys.json.new
+  # und benennt um, ohne `create_directories`. Fehlt das Verzeichnis, meldet der
+  # Server nur "Failed to save keys: No such file or directory", die Kopplung
+  # gilt bis zum Ende des Dienstes und die Brille fragt danach wieder nach der
+  # PIN (2026-10-12 gemessen). %E ist $XDG_CONFIG_HOME des Nutzers.
+  systemd.user.services.wivrn.serviceConfig.ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p %E/wivrn";
+
   # ==========================================
   # WERKZEUGE
   # ==========================================
