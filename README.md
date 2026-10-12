@@ -60,7 +60,7 @@ flake.nix                 # Flake Entry Point (gepinnte Inputs)
     ├── suricata.nix      # Intrusion Detection System (WiFi + VPN)
     ├── logwatch.nix      # Automated Security Monitoring & Daily Reports
     ├── ssh-hardening.nix # SSH Server Hardening (prepared, disabled)
-    ├── vr-arbeit.nix     # Virtuelle Monitore in der Quest 3 (WiVRn, WayVR, sway)
+    ├── vr-arbeit.nix     # Virtuelle Monitore in der Quest 3 (WiVRn, WayVR, GNOME)
     └── home/
         ├── gnome-settings.nix  # GNOME Dconf (Privacy, Screen Lock)
         ├── neovim.nix          # Neovim IDE
@@ -357,9 +357,10 @@ Claude Code legt Gelesenes als verlinkte Markdown-Notizen im Obsidian-Vault ab
   bei `superpowers` und `claude-mem` auch
 
 ### vr-arbeit.nix
-Arbeiten an virtuellen Monitoren in der Meta Quest 3 — nur in der sway-Sitzung.
-- WiVRn streamt in die Brille, WayVR zeigt darin die Ausgaben des Desktops;
-  virtuelle Monitore sind Headless-Outputs von sway
+Arbeiten an virtuellen Monitoren in der Meta Quest 3 — in der GNOME-Sitzung.
+- WiVRn streamt in die Brille, WayVR zeigt darin die Monitore des Desktops;
+  die virtuellen legt Mutter an (`RecordVirtual`), solange `vr-monitore` läuft —
+  sie stehen wie angesteckte Bildschirme in Einstellungen → Bildschirme
 - Weg zur Brille ist das USB-Kabel (`adb reverse`, Loopback): kein offener
   Port, Avahi bleibt aus, der Kill-Switch ist nicht berührt
 - WiVRn ist auf 26.6.2 festgehalten (`pkgs/wivrn/`), dieselbe Version wie auf
