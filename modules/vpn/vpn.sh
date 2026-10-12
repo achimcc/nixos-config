@@ -10,8 +10,8 @@
 # auch ohne Handshake Erfolg — das allein zählt nicht. Zwei Exit-IP-Dienste nacheinander,
 # nicht nur einer: ein einzelner Dienst kann von einzelnen Exits aus gesperrt sein (gemessen
 # 2026-09-13: am.i.mullvad.net antwortete von einem Slot aus mit Verbindungs-Timeout, obwohl
-# der Tunnel selbst trug). Macht die Exit-Prüfung im ungünstigsten Fall 2 × 8 s = 16 s lang —
-# bewusst 1 s über der 15-s-Grenze aus den globalen Randbedingungen.
+# der Tunnel selbst trug). Beide werden reihum wiederholt, bis einer antwortet oder die Frist
+# von 15 s (Spec, Schritt 4) abläuft.
 # Exit-Codes: 0 belegt, 1 Tunnel trägt nicht, 2 Aufruffehler, 3 Umschaltung läuft.
 
 server_json=/etc/vpn/server.json
@@ -21,6 +21,7 @@ exit_dienste=(
   "https://am.i.mullvad.net/json"
   "https://api.ipify.org?format=json"
 )
+exit_frist_s=15
 laufzeit="${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR fehlt}/vpn"
 zustand="${XDG_STATE_HOME:-$HOME/.local/state}/vpn"
 
@@ -73,7 +74,7 @@ schreibe_exit() {
 }
 
 verbinde() {
-  local slot=$1 name verbindung antwort ip land dienst
+  local slot=$1 name verbindung antwort ip land dienst frist rest
   name=$(name_von "$slot")
   if [ -z "$name" ]; then
     echo "vpn: Slot $slot gibt es nicht" >&2
@@ -89,13 +90,27 @@ verbinde() {
     exit 1
   fi
 
+  # Wiederholen bis zur Frist, nicht einmal fragen: Ein frisch aktivierter Tunnel nimmt
+  # TCP sofort an, bricht TLS aber noch ab (gemessen 2026-10-12: curl 35 "unexpected eof"
+  # binnen 30 ms, 3,5 s lang, dann HTTP 200). Ein einzelner Durchlauf scheiterte deshalb
+  # bei jedem Slotwechsel nach 0,3 s — und ließ dabei vpn-direkt aktiv.
   ip=""
   land="?"
-  for dienst in "${exit_dienste[@]}"; do
-    if antwort=$(curl --silent --fail --max-time 8 --interface "$verbindung" "$dienst") \
-      && ip=$(jq -er '.ip' <<<"$antwort"); then
-      land=$(jq -r '.country // "?"' <<<"$antwort")
-      break
+  frist=$((SECONDS + exit_frist_s))
+  while [ -z "$ip" ] && [ "$SECONDS" -lt "$frist" ]; do
+    for dienst in "${exit_dienste[@]}"; do
+      rest=$((frist - SECONDS))
+      if [ "$rest" -le 0 ]; then
+        break
+      fi
+      if antwort=$(curl --silent --fail --max-time "$((rest < 8 ? rest : 8))" --interface "$verbindung" "$dienst") \
+        && ip=$(jq -er '.ip' <<<"$antwort"); then
+        land=$(jq -r '.country // "?"' <<<"$antwort")
+        break
+      fi
+    done
+    if [ -z "$ip" ]; then
+      sleep 0.5
     fi
   done
 
