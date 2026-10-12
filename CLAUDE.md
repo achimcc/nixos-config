@@ -63,6 +63,8 @@ Inputs: `nixpkgs` = `nixos-unstable` (26.11), `nixpkgs-unstable` zusätzlich als
 ## Konventionen
 
 - Kommentare, Commit-Nachrichten und Dokumente auf Deutsch; Commits im Imperativ, signiert.
+- **Nach jeder Änderung am Repo von selbst committen**, ohne Nachfrage — nur die eigenen Dateien
+  (`git commit <pfade>`), nicht den Index: dort liegt oft die Arbeit paralleler Sitzungen.
 - Abschnittsköpfe im Stil `# ==========`, Paketlisten mit `with pkgs;`.
 - Systemweites nach `configuration.nix` / `modules/`, Nutzerbezogenes nach `home.nix`.
 - Jede Abweichung von nixpkgs (Override, abgeschalteter Test) bekommt einen Kommentar mit Datum,
