@@ -43,6 +43,7 @@
     ./modules/mcp-playwright.nix
     ./modules/mcp-filesystem.nix
     ./modules/mcp-git.nix
+    ./modules/vr-arbeit.nix
   ];
 
   # ==========================================

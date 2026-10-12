@@ -7,6 +7,11 @@
   elster-mcp-server = pkgs.callPackage ./elster-mcp-server { };
   paperless-ngx-mcp = pkgs.callPackage ./paperless-ngx-mcp { };
 
+  # WiVRn auf 26.6.2 festgehalten (2026-10-12) - dieselbe Version wie vr-01 auf
+  # dem Homeserver, damit EIN Client auf der Quest beide Server bedient.
+  # Ursache, Herkunft und Ende der Abweichung: Kopf von pkgs/wivrn/package.nix.
+  wivrn = pkgs.callPackage ./wivrn/package.nix { };
+
   # anyio-Tests unter Python 3.12 abgeschaltet (2026-10-09).
   # Ursache: Python 3.12.15 lehnt in SSLObject._create `server_hostname` im
   # Servermodus ab; tests/streams/test_tls.py::test_tls_connectable uebergibt
