@@ -53,6 +53,17 @@
       mode = "0400";
     };
 
+    # Klassisches Token, NUR Scope `public_repo` (2026-10-12): Issues in
+    # fremden Repos anlegen. Das fine-grained `github-token` oben darf dort
+    # nur lesen, und das ist bei GitHub nicht einstellbar. NICHT als GH_TOKEN
+    # exportiert: `public_repo` erlaubt auch Push in die eigenen oeffentlichen
+    # Repos. Gelesen wird es nur fuer den einen Aufruf,
+    #   GH_TOKEN=$(cat /run/secrets/github-token-issues) gh issue create ...
+    secrets."github-token-issues" = {
+      owner = id.username;
+      mode = "0400";
+    };
+
     # SSH-Key fuer den Hetzner-VPS: SEIT 2026-09-28 NICHT MEHR HIER (Homeserver-
     # Audit 3, B104). root auf dem VPS nimmt nur noch den TPM-Schluessel
     # (~/.ssh/id_ecdsa_vps.tpm, ssh-tpm-agent) und den Nitrokey-Notfallschluessel
