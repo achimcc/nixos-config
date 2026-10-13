@@ -133,6 +133,30 @@ in
   # User-spezifische Pakete
   home.packages = with pkgs; [
 
+    # --- SYSTEM-REBUILD ---
+    # nrs = nixos-rebuild switch mit --sudo: Auswertung und Bau laufen als Nutzer
+    # (nur er hat den SSH-Schlüssel für den privaten identity-Input), erst die
+    # Aktivierung als root. nixos-rebuild-ng ruft sudo deshalb erst nach dem Bau,
+    # und der kann lange dauern — die FIDO2-Abfrage (PIN + Berührung) kam dann
+    # irgendwann später und wurde leicht verpasst (seit dem Umbau am 2026-10-09).
+    # Darum: `sudo -v` ZUERST, dann baut es, und ein Hintergrundprozess hält das
+    # sudo-Ticket frisch (timestamp_timeout=5 in modules/security.nix), damit die
+    # Aktivierung ohne zweite Abfrage durchläuft. Das Ticket gilt nur für dieses
+    # Terminal (timestamp_type=tty) und endet mit dem Skript.
+    (writeShellScriptBin "nrs" ''
+      set -euo pipefail
+      sudo -v
+      (
+        while kill -0 "$$" 2>/dev/null; do
+          sudo -n -v 2>/dev/null || true
+          sleep 60
+        done
+      ) &
+      keepalive=$!
+      trap 'kill "$keepalive" 2>/dev/null' EXIT
+      nixos-rebuild switch --flake /home/${id.username}/nixos-config#nixos --sudo "$@"
+    '')
+
     # --- VPN & NETZWERK SICHERHEIT ---
     nmap # Netzwerk-Scanner
     colmena # NixOS Deployment Tool
@@ -1922,9 +1946,8 @@ in
       # Alias nicht nötig, da ~/.local/bin bereits im PATH ist
       # Sonstiges
       obb = "openbb"; # FHS-wrapped, installiert automatisch beim ersten Start
-      # --sudo statt sudo davor: Auswertung läuft als Nutzer (mit ssh-tpm-agent), nur die
-      # Aktivierung als root. root hat keinen Schlüssel für den privaten identity-Input.
-      nrs = "nixos-rebuild switch --flake /home/${id.username}/nixos-config#nixos --sudo";
+      # nrs ist seit 2026-10-13 ein Skript (home.packages, Abschnitt SYSTEM-REBUILD):
+      # es fragt die FIDO2-PIN sofort ab, nicht erst nach dem Bau.
       charge = "sudo tlp fullcharge";
     };
     environmentVariables = {

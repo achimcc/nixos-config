@@ -7,7 +7,8 @@ NixOS-Modul. Schwerpunkt Härtung: VPN-Kill-Switch, nftables, Secure Boot, FIDO2
 
 ## Die Systemkonfiguration wird nicht von einer Sitzung gebaut
 
-Der Rebuild (`nrs` = `nixos-rebuild switch --flake ~/nixos-config#nixos --sudo`) braucht root, und
+Der Rebuild (`nrs` = Skript in `home.nix`: erst `sudo -v`, dann
+`nixos-rebuild switch --flake ~/nixos-config#nixos --sudo`) braucht root, und
 root braucht den FIDO2-Stick mit PIN und Berührung. Das lässt sich aus einer Tool-Shell nicht
 liefern.
 

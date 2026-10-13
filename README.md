@@ -601,7 +601,7 @@ z    → zoxide (smart cd)
 gs   → git status
 gc   → git commit
 gp   → git push
-nrs  → nixos-rebuild switch --flake ...#nixos --sudo
+nrs  → Skript: sudo -v (FIDO2-PIN sofort), dann nixos-rebuild switch --flake ...#nixos --sudo
 ```
 
 ## Applications
@@ -774,7 +774,7 @@ sudo nixos-rebuild switch --flake .#nixos
 # Or just test (without activation)
 sudo nixos-rebuild test --flake .#nixos
 
-# Kurzform (nushell alias)
+# Kurzform (Skript aus home.nix: fragt die FIDO2-PIN zuerst, hält das sudo-Ticket während des Baus frisch)
 nrs
 ```
 
