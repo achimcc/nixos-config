@@ -376,7 +376,13 @@ in
 
     # --- AI CODING ASSISTANT ---
     (aider-chat.overrideAttrs (_: { doInstallCheck = false; })) # AI pair programming
-    llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.crush
+    # crush seit 2026-10-14 vorübergehend aus: baut mit go-bin 1.27.2 aus
+    # llm-agents, dessen Tarball https://dl.google.com/go/go1.27.2.linux-amd64.tar.gz
+    # upstream 404 liefert (alle Pfade unter dl.google.com/go/, auch von außen
+    # geprüft). Die Store-Kopie war wegräumt. Wieder einschalten, sobald
+    #   curl -sIL -o /dev/null -w '%{http_code}' https://dl.google.com/go/go1.27.2.linux-amd64.tar.gz
+    # 200 liefert.
+    # llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.crush
     # claude-code via npm installieren: npm install -g @anthropic-ai/claude-code
 
     # --- RESUME / CV ---
