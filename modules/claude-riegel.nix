@@ -118,7 +118,7 @@ let
       {
         type = "command";
         command = "/run/current-system/sw/bin/claude-regeln hook";
-        timeout = 5;
+        timeout = 15;
       }
     ];
   };
