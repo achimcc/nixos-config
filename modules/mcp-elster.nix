@@ -1,6 +1,14 @@
 # elster-mcp-server fuer Claude Code — bedient das ELSTER-Webportal per
 # Puppeteer (github.com/lukasschwarz/elster-mcp-server). 2026-10-09 auf Achims
-# Wunsch, global. Paket: pkgs/elster-mcp-server.
+# Wunsch, zunaechst global. Paket: pkgs/elster-mcp-server.
+#
+# SEIT 2026-10-15 NICHT MEHR GLOBAL: Der Server laedt nur noch im Repo
+# ~/Dokumente/Steuer ueber dessen `.mcp.json` (project scope). Ein globaler
+# Eintrag brachte in jeder Sitzung jedes anderen Repos 20 Werkzeugschemata
+# mit, die dort niemand braucht. Dieses Modul liefert weiter den Wrapper
+# `elster-mcp-sops` nach /run/current-system/sw/bin und die drei Secrets; die
+# Aktivierung unten RAEUMT den alten globalen Eintrag aus ~/.claude.json ab,
+# statt ihn zu setzen (Migration, idempotent).
 #
 # WAS DAS WERKZEUG DARF, bevor man es schaltet: Es meldet sich mit dem
 # ELSTER-Zertifikat an. `elster_ustva_confirm` klickt „Absenden" — das ist eine
@@ -110,14 +118,12 @@ let
     '';
   };
 
-  # Pfad ueber /run/current-system statt Store-Pfad — Begruendung in
-  # modules/mcp-nixos.nix.
-  server = builtins.toJSON {
-    type = "stdio";
-    command = "/run/current-system/sw/bin/elster-mcp-sops";
-    args = [ ];
-    env = { };
-  };
+  # Der Eintrag fuer ~/Dokumente/Steuer/.mcp.json (project scope), zum
+  # Nachlesen — er steht DORT, nicht hier. Pfad ueber /run/current-system
+  # statt Store-Pfad, Begruendung in modules/mcp-nixos.nix:
+  #   { "mcpServers": { "elster": { "type": "stdio",
+  #       "command": "/run/current-system/sw/bin/elster-mcp-sops",
+  #       "args": [], "env": {} } } }
 
   geheim = {
     owner = id.username;
@@ -134,23 +140,21 @@ in
   home-manager.users.${id.username} =
     { lib, ... }:
     {
-      # Server in ~/.claude.json (user scope, s. mcp-nixos.nix). Idempotent;
-      # eine Datei, die kein gueltiges JSON ist, bleibt unberuehrt.
+      # Den alten globalen Eintrag aus ~/.claude.json ENTFERNEN (bis 2026-10-15
+      # setzte diese Stelle ihn). Idempotent: Fehlt er, aendert jq nichts, und
+      # die Datei wird nicht angefasst; ist sie kein gueltiges JSON, bleibt sie
+      # unberuehrt.
       home.activation.claudeMcpElster = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         datei="$HOME/.claude.json"
-        if [ ! -e "$datei" ]; then
-          run sh -c 'printf "{}\n" > "$1"' _ "$datei"
-          run ${pkgs.coreutils}/bin/chmod 600 "$datei"
-        fi
-        neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
-        if ${pkgs.jq}/bin/jq --argjson server ${lib.escapeShellArg server} '
-              .mcpServers = ((.mcpServers // {}) + { elster: $server })
-            ' "$datei" > "$neu"; then
-          run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
-          run ${pkgs.coreutils}/bin/mv "$neu" "$datei"
-        else
-          ${pkgs.coreutils}/bin/rm -f "$neu"
-          echo "mcp-elster: $datei ist kein gueltiges JSON — der Server wurde NICHT eingetragen." >&2
+        if [ -e "$datei" ] && ${pkgs.jq}/bin/jq -e '.mcpServers.elster' "$datei" >/dev/null 2>&1; then
+          neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
+          if ${pkgs.jq}/bin/jq 'del(.mcpServers.elster)' "$datei" > "$neu"; then
+            run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
+            run ${pkgs.coreutils}/bin/mv "$neu" "$datei"
+          else
+            ${pkgs.coreutils}/bin/rm -f "$neu"
+            echo "mcp-elster: $datei ist kein gueltiges JSON — alter Eintrag NICHT entfernt." >&2
+          fi
         fi
       '';
     };
