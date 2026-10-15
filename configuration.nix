@@ -105,6 +105,22 @@
     "i915.enable_psr=0" # PSR komplett deaktivieren (SF Crashes verhindern)
     # Falls weiterhin Crashes: "i915.enable_dc=0" als nächste Eskalation
 
+    # PROBE 2026-10-15: GPU von i915 an den xe-Treiber geben.
+    # Anlass: VR (WiVRn 26.6.2) ruckelt auf diesem Laptop unbrauchbar. Gemessen
+    # mit xrgears als einziger OpenXR-App (WayVR nachweislich beendet): 2,7 fps,
+    # 206 "Waiting on client semaphore > 100ms" in 40 s, Render-Kachel dabei zu
+    # 80 % im Leerlauf. App und Server warten beide in drm_syncobj_*_wait - die
+    # geteilte Timeline-Semaphore kommt viel zu spaet beim Server an, obwohl die
+    # GPU-Arbeit laengst fertig ist. Derselbe WiVRn auf vr-01 (eigene Grafikkarte)
+    # laeuft fluessig, also liegt es am Pfad Mesa ANV -> i915 auf Meteor Lake.
+    # xe hat eine eigene Fence-/Syncobj-Umsetzung. Fuer 7dd5 braucht es auf 6.12
+    # noch force_probe (von Intel dort nicht offiziell freigegeben).
+    # RUECKWEG: im Boot-Menue die vorige Generation waehlen, dann diesen Block
+    # streichen. Bringt xe nichts oder verschlechtert es Bild/Suspend: ebenso.
+    "i915.force_probe=!7dd5" # i915 laesst die GPU los
+    "xe.force_probe=7dd5" # xe uebernimmt sie
+    "xe.enable_psr=0" # Gegenstueck zu i915.enable_psr=0 (wirkt unter xe nicht mehr)
+
     # ACPI GPE 0x6D Interrupt-Storm (2026-07-15)
     # SYMPTOM: Videowiedergabe ruckelt — ABER NUR am Netzteil, auf Akku flüssig.
     # URSACHE: Am Netzteil feuert ACPI GPE 0x6D ~5000×/s (IRQ 9, SCI-Storm) → der
