@@ -8,6 +8,16 @@ Endet der Prozess, schliesst Mutter die Sitzungen und die Monitore sind weg.
 
 Aufruf: vr-monitore ANZAHL BREITExHOEHE
         vr-monitore --pruefen     (legt nichts an: Schnittstelle und Plugin da?)
+
+Skalierung (2026-10-17): Fuer die Monitorgruppe MIT den virtuellen Monitoren
+hat Mutter keine gespeicherte Konfiguration (monitors.xml kennt nur die echten),
+also baut es eine neue und waehlt die Skala jedes Bildschirms nach seiner
+Pixeldichte - fuer das 14"-Panel mit 1920x1200 sind das 1,25 statt der
+eingestellten 1. Gemessen: Laptop-Bildschirm sprang auf 1,25, XWayland auf
+192 DPI, wezterm zeichnete die Reiterleiste eine DPI-Stufe hinterher.
+Deshalb merkt sich dieses Skript die Lage und Skala der echten Bildschirme,
+bevor es die virtuellen anlegt, und setzt sie danach wieder so
+(ApplyMonitorsConfig, voruebergehend); die virtuellen kommen rechts daneben.
 """
 
 import os
@@ -21,6 +31,10 @@ from gi.repository import Gio, GLib, Gst  # noqa: E402
 
 NAME = "org.gnome.Mutter.ScreenCast"
 PFAD = "/org/gnome/Mutter/ScreenCast"
+ANZEIGE = "org.gnome.Mutter.DisplayConfig"
+ANZEIGE_PFAD = "/org/gnome/Mutter/DisplayConfig"
+ZUSTAND_TYP = "(ua((ssss)a(siiddada{sv})a{sv})a(iiduba(ssss)a{sv})a{sv})"
+VORUEBERGEHEND = 1  # ApplyMonitorsConfig: nicht in monitors.xml schreiben
 FRIST_S = 15
 
 
@@ -28,12 +42,81 @@ def marke():
     return os.path.join(os.environ["XDG_RUNTIME_DIR"], "vr-monitore.bereit")
 
 
-def ruf(bus, pfad, schnittstelle, methode, argumente, antwort):
+def ruf(bus, pfad, schnittstelle, methode, argumente, antwort, name=NAME):
     typ = GLib.VariantType(antwort) if antwort else None
     return bus.call_sync(
-        NAME, pfad, schnittstelle, methode, argumente, typ,
+        name, pfad, schnittstelle, methode, argumente, typ,
         Gio.DBusCallFlags.NONE, -1, None,
     )
+
+
+def anzeige_zustand(bus):
+    """GetCurrentState: (Serial, Monitore, logische Monitore, Eigenschaften)."""
+    return ruf(
+        bus, ANZEIGE_PFAD, ANZEIGE, "GetCurrentState", None, ZUSTAND_TYP,
+        name=ANZEIGE,
+    ).unpack()
+
+
+def lage_der_bildschirme(zustand):
+    """Anschluss -> (x, y, Skala, Drehung, primaer) je logischem Monitor."""
+    lage = {}
+    for x, y, skala, drehung, primaer, monitore, _ in zustand[2]:
+        for anschluss, *_ in monitore:
+            lage[anschluss] = (x, y, skala, drehung, primaer)
+    return lage
+
+
+def aktuelle_modi(zustand):
+    """Anschluss -> (Modus-Kennung, Breite, Hoehe) des gerade aktiven Modus."""
+    modi = {}
+    for (anschluss, *_), liste, _ in zustand[1]:
+        for kennung, breite, hoehe, *_, eigenschaften in liste:
+            if eigenschaften.get("is-current"):
+                modi[anschluss] = (kennung, breite, hoehe)
+    return modi
+
+
+def lage_wiederherstellen(vorher, zustand):
+    """Konfiguration fuer ApplyMonitorsConfig, falls Mutter die Skala eines
+    vorher vorhandenen Bildschirms veraendert hat; sonst None.
+
+    Die vorher vorhandenen Bildschirme bekommen Lage und Skala von `vorher`
+    zurueck, alle neuen (die virtuellen) reihen sich rechts daneben auf.
+    """
+    nachher = lage_der_bildschirme(zustand)
+    modi = aktuelle_modi(zustand)
+    alt = {a: lage for a, lage in vorher.items() if a in nachher}
+    if all(nachher[a][2] == lage[2] for a, lage in alt.items()):
+        return None
+
+    logische = []
+    rechter_rand = 0
+    for anschluss, (x, y, skala, drehung, primaer) in alt.items():
+        kennung, breite, _ = modi[anschluss]
+        logische.append((x, y, skala, drehung, primaer, [(anschluss, kennung, {})]))
+        rechter_rand = max(rechter_rand, x + round(breite / skala))
+    for anschluss in nachher:
+        if anschluss in alt:
+            continue
+        kennung, breite, _ = modi[anschluss]
+        skala = nachher[anschluss][2]
+        logische.append((rechter_rand, 0, skala, 0, False, [(anschluss, kennung, {})]))
+        rechter_rand += round(breite / skala)
+    return logische
+
+
+def skala_halten(bus, vorher):
+    zustand = anzeige_zustand(bus)
+    logische = lage_wiederherstellen(vorher, zustand)
+    if logische is None:
+        return
+    ruf(
+        bus, ANZEIGE_PFAD, ANZEIGE, "ApplyMonitorsConfig",
+        GLib.Variant("(uua(iiduba(ssa{sv}))a{sv})", (zustand[0], VORUEBERGEHEND, logische, {})),
+        None, name=ANZEIGE,
+    )
+    print("vr-monitore: Skala der echten Bildschirme wiederhergestellt", flush=True)
 
 
 def pruefen(bus):
@@ -81,6 +164,11 @@ def main():
         leitung.set_state(Gst.State.PLAYING)
         leitungen.append(leitung)
         if len(leitungen) == anzahl:
+            try:
+                skala_halten(bus, vorher)
+            except GLib.Error as fehler:
+                # Nur die Skala, nicht die Monitore: weiter ohne Korrektur.
+                print(f"vr-monitore: Skala nicht wiederhergestellt: {fehler}", file=sys.stderr)
             with open(marke(), "w") as datei:
                 datei.write(f"{anzahl} {breite}x{hoehe}\n")
             print(f"vr-monitore: {anzahl} Monitore {breite}x{hoehe}", flush=True)
@@ -98,6 +186,8 @@ def main():
             )
             ende(1)
         return GLib.SOURCE_REMOVE
+
+    vorher = lage_der_bildschirme(anzeige_zustand(bus))
 
     for _ in range(anzahl):
         (sitzung,) = ruf(

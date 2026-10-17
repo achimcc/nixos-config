@@ -16,6 +16,11 @@
 #
 # GEMESSEN (2026-10-12, laufende Sitzung): Mutter ScreenCast Version 4, das
 # Portal meldet AvailableSourceTypes = 7 (Monitor, Fenster, virtuell).
+# GEMESSEN (2026-10-17): Die Monitore kommen (Meta-0, Meta-1, 2560x1440). Mit
+# ihnen baut Mutter aber eine neue Konfiguration und setzte den Laptop-Bildschirm
+# nach seiner Pixeldichte auf Skala 1,25 (XWayland: 192 DPI, wezterm-Reiter
+# winzig). vr-monitore stellt die Skala der echten Bildschirme seitdem selbst
+# wieder her - Einzelheiten im Kopf von vr-arbeit/vr-monitore.py.
 # NICHT GEMESSEN (vor dem ersten Rebuild): ob WiVRn 26.6.2 gegen dieses nixpkgs
 # baut, ob `vr-monitore` die Monitore wirklich anlegt (es haette die laufende
 # Sitzung umgeraeumt), ob WayVR sie im Portal-Dialog anbietet, ob die Arc-iGPU

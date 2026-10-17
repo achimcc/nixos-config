@@ -1837,6 +1837,15 @@ in
   # verschiebbar noch in der Größe änderbar. Unter XWayland zeichnet Mutter einen
   # echten Rahmen (_NET_FRAME_EXTENTS = 0,0,37,0, _NET_WM_ACTION_MOVE/RESIZE gesetzt).
   # Kostet hier nichts, weil alle Monitore auf Skalierung 1 laufen.
+  # GEMESSEN 2026-10-17: Wechselt die Skalierung im Betrieb (Mutter setzte den
+  # Laptop-Bildschirm auf 1,25, als vr-arbeit virtuelle Monitore anlegte;
+  # Xft.dpi 96 -> 192), zieht wezterm den Terminaltext sofort nach, die
+  # Reiterleiste (use_fancy_tab_bar) aber erst beim NÄCHSTEN Wechsel - sie
+  # hängt eine DPI-Stufe hinterher, auch Strg+Umschalt+R (Reload) hilft nicht.
+  # Abhilfe ohne Sitzungsverlust: Panes in ein neues Fenster ziehen
+  # (`wezterm cli move-pane-to-new-tab --pane-id N --new-window`, die übrigen
+  # mit `--window-id`). Die Ursache ist in modules/vr-arbeit/vr-monitore.py
+  # abgestellt (Skala wird nach dem Anlegen wiederhergestellt).
   # Rückbau, sobald wezterm unter Wayland selbst dekoriert: enable_wayland = true.
   home.file.".config/wezterm/wezterm.lua".text = ''
     local wezterm = require 'wezterm'
