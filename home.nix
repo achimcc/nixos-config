@@ -1846,6 +1846,11 @@ in
   # (`wezterm cli move-pane-to-new-tab --pane-id N --new-window`, die übrigen
   # mit `--window-id`). Die Ursache ist in modules/vr-arbeit/vr-monitore.py
   # abgestellt (Skala wird nach dem Anlegen wiederhergestellt).
+  # Ebenso der Mauszeiger: wezterm liest Xcursor.size nur beim Fensterbau und
+  # seine X-Ressourcen nur bei einem PropertyNotify auf _GTK_EDGE_CONSTRAINTS,
+  # das beim Rückweg vor dem RESOURCE_MANAGER-Update kam - das neue Fenster
+  # fror 48-px-Cursor ein (XFixes gemessen). Vor dem Umziehen deshalb
+  # `xprop -id <wezterm-X-Fenster> -f _GTK_EDGE_CONSTRAINTS 32c -set _GTK_EDGE_CONSTRAINTS 0`.
   # Rückbau, sobald wezterm unter Wayland selbst dekoriert: enable_wayland = true.
   home.file.".config/wezterm/wezterm.lua".text = ''
     local wezterm = require 'wezterm'
