@@ -12,8 +12,9 @@
 # nixpkgs-Fassungen von GTK und glibc wäre das ein Glücksspiel, und die
 # beigelegte libva fände die Treiber unter /run/opengl-driver nicht —
 # Hardware-Dekodierung ist auf dieser Maschine Pflicht. Behalten werden nur
-# die Teile, die Moonfin selbst baut (Flutter-Engine, App, Plugins, pdfium,
-# sqlite); alles andere kommt aus nixpkgs und wird von autoPatchelf verdrahtet.
+# die Teile, die Moonfin selbst baut (Flutter-Engine, App, Plugins, pdfium);
+# alles andere kommt aus nixpkgs und wird von autoPatchelf verdrahtet. Auch
+# libsqlite3.so ist im Tarball nur Ubuntus sqlite (Symlink auf .so.0.8.6).
 #
 # AUF DIE VERSION GEPINNT. Beim Anheben: neues Tarball, `nix build` des Pakets
 # — fordert ein Plugin eine neue Bibliothek an, nennt autoPatchelf sie.
@@ -44,6 +45,7 @@
 , libpulseaudio
 , alsa-lib
 , xdg-utils
+, sqlite
 , writeShellScript
 , curl
 , jq
@@ -152,7 +154,7 @@ stdenv.mkDerivation rec {
     for f in lib/*; do
       case "$(basename "$f")" in
         libapp.so | libflutter_linux_gtk.so | lib*_plugin.so \
-          | libpdfium.so | libsqlite3.so | libdartjni.so)
+          | libpdfium.so | libdartjni.so)
           cp -P "$f" $out/lib/moonfin/lib/ ;;
       esac
     done
@@ -173,7 +175,7 @@ stdenv.mkDerivation rec {
   postFixup = ''
     makeShellWrapper $out/lib/moonfin/moonfin-bin $out/bin/moonfin \
       "''${gappsWrapperArgs[@]}" \
-      --prefix LD_LIBRARY_PATH : "$out/lib/moonfin/lib:${lib.makeLibraryPath [ (lib.getLib mpv-unwrapped) libGL vulkan-loader libva ]}" \
+      --prefix LD_LIBRARY_PATH : "$out/lib/moonfin/lib:${lib.makeLibraryPath [ (lib.getLib mpv-unwrapped) (lib.getLib sqlite) libGL vulkan-loader libva ]}" \
       --prefix PATH : "${lib.makeBinPath [ xdg-utils ]}" \
       ${lib.optionalString (serverUrl != null) "--run ${serverEintragen}"}
   '';
