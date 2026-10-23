@@ -43,8 +43,8 @@ let
   # modules/mcp-nixos.nix.
   server = builtins.toJSON {
     type = "stdio";
-    command = "/run/current-system/sw/bin/firecrawl-mcp-sops";
-    args = [ ];
+    command = "/run/current-system/sw/bin/mcp-ohne-schluessel";
+    args = [ "/run/current-system/sw/bin/firecrawl-mcp-sops" ];
     env = { };
   };
 in

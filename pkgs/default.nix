@@ -59,6 +59,19 @@
           disabledTests = (old.disabledTests or [ ]) ++ [ "test_multiple_wait" ];
         })
         else pyprev.pytest-subprocess;
+
+      # reuse 6.2.0 ohne `man`-Output (2026-10-22, nixpkgs 02c087f / nixos-unstable
+      # vom 20.10.): Der sphinx-Hook liest die Builder mit
+      # `eval "__sphinxBuilders=($sphinxBuilders)"`. Seit das Paket mit
+      # __structuredAttrs gebaut wird, ist sphinxBuilders ein Bash-Array, und
+      # `$sphinxBuilders` liefert nur das erste Element `html` - der man-Builder
+      # laeuft nie, der Bau endet mit "failed to produce output path for output
+      # 'man'". Hydras letzter reuse-Bau stammt vom 15.10., der Cache hat die
+      # neue Derivation nicht; amberol (home.nix) zieht reuse herein. Als
+      # String kommt die Liste durch den eval wieder als zwei Builder an.
+      # Entfernen, sobald der Hook upstream mit Arrays umgeht (Belege:
+      # Bau-Log von 04dwwb5j…-python3.14-reuse-6.2.0.drv, setup-hook Zeile 34).
+      reuse = pyprev.reuse.overridePythonAttrs (_: { sphinxBuilders = "html man"; });
     })
   ];
 }

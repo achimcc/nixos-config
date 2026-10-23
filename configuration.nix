@@ -31,7 +31,8 @@
     ./modules/mcp-firecrawl.nix
     ./modules/claude-obsidian.nix
     ./modules/claude-plugins.nix
-    ./modules/claude-caveman.nix
+    # claude-caveman.nix entfernt (Audit 4, B175); eigene Skill-Kopien (B235):
+    ./modules/claude-skills.nix
     ./modules/claude-graphify.nix
     ./modules/claude-werkbank.nix
     ./modules/claude-savvy.nix
@@ -43,6 +44,7 @@
     ./modules/mcp-playwright.nix
     ./modules/mcp-filesystem.nix
     ./modules/mcp-git.nix
+    ./modules/mcp-huelle.nix
     ./modules/vr-arbeit.nix
   ];
 
@@ -105,7 +107,10 @@
     "i915.enable_psr=0" # PSR komplett deaktivieren (SF Crashes verhindern)
     # Falls weiterhin Crashes: "i915.enable_dc=0" als nächste Eskalation
 
-    # PROBE 2026-10-15: GPU von i915 an den xe-Treiber geben.
+    # ENTSCHEIDUNG (Probe 2026-10-15, bestanden 2026-10-17): GPU von i915 an
+    # den xe-Treiber geben. Ergebnis der Probe unter xe (Gen 674, derselbe
+    # Kernel 6.12.112): 0 Semaphor-Timeouts statt 206, Render-Kachel zu 97 %
+    # ausgelastet statt 80 % im Leerlauf, Zahnraeder laut Achim fluessig.
     # Anlass: VR (WiVRn 26.6.2) ruckelt auf diesem Laptop unbrauchbar. Gemessen
     # mit xrgears als einziger OpenXR-App (WayVR nachweislich beendet): 2,7 fps,
     # 206 "Waiting on client semaphore > 100ms" in 40 s, Render-Kachel dabei zu
@@ -247,7 +252,9 @@
     libsecret
     nano # Für EDITOR Variable in nushell
     vim
-    python3
+    # Mit dem Agent-SDK aus nixpkgs (Audit 4, B233): security-guidance installiert
+    # es sonst ohne Version und Hash per pip (s. modules/claude-plugins.nix).
+    (python3.withPackages (p: [ p.claude-agent-sdk ]))
 
     # CLI Tools
     ripgrep # Schnelles grep (rg)
@@ -401,8 +408,14 @@
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     auto-optimise-store = true;
-    max-jobs = "auto";
-    cores = 0; # Alle Kerne nutzen
+    # Nicht mehr "auto" / 0 (18 Bauten zugleich, jeder mit allen 18 Kernen):
+    # Am 2026-10-16 trieb EIN Homeserver-Systembau die Maschine so auf Load 110
+    # und 35 GB Swap, und das einkernige LTO des Ryot-Backends (upstream
+    # codegen-units = 1) brauchte 5,5 h statt der 3 h auf leerer Maschine.
+    # 4 x 6 = 24 Threads: ein grosser Bau bekommt seine Kerne, kleine laufen
+    # weiter zu viert (docs/2026-10-16-bau-stau-ideen.md im homeserver-Repo).
+    max-jobs = 4;
+    cores = 6;
 
     # Aufraeumen WAEHREND eines Baus, nicht erst woechentlich.
     # Am 2026-09-03 lief die Platte mitten im 'nixos-rebuild switch' voll

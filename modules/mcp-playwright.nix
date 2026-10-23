@@ -26,8 +26,9 @@
 let
   server = builtins.toJSON {
     type = "stdio";
-    command = "/run/current-system/sw/bin/playwright-mcp";
+    command = "/run/current-system/sw/bin/mcp-ohne-schluessel";
     args = [
+      "/run/current-system/sw/bin/playwright-mcp"
       "--headless"
       "--output-dir"
       "/home/${id.username}/.local/share/playwright-mcp"

@@ -4,6 +4,24 @@
 { config, pkgs, pkgs-unstable, llm-agents, rcu, lib, id, ... }:
 
 let
+  # Audit 4, B163: `gh` mit dem Token aus /run/secrets/github-token, nur fuer
+  # diesen einen Prozess. symlinkJoin statt writeShellScriptBin, damit
+  # Vervollstaendigung und Manpages bleiben; mainProgram fuer lib.getExe im
+  # home-manager-Modul. Auch octo.nvim (modules/home/neovim.nix) nimmt ihn.
+  ghMitToken = pkgs.symlinkJoin {
+    name = "gh-mit-token-${pkgs.gh.version}";
+    paths = [ pkgs.gh ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram $out/bin/gh --run '
+        if [ -z "''${GH_TOKEN:-}" ] && [ -r /run/secrets/github-token ]; then
+          GH_TOKEN=$(${pkgs.coreutils}/bin/tr -d "[:space:]" < /run/secrets/github-token)
+          export GH_TOKEN
+        fi'
+    '';
+    meta.mainProgram = "gh";
+  };
+
   easyeffects-presets = pkgs.stdenv.mkDerivation {
     name = "easyeffects-presets-jackhack96";
     src = pkgs.fetchFromGitHub {
@@ -1292,6 +1310,11 @@ in
   # --- GITHUB CLI ---
   programs.gh = {
     enable = true;
+    # Audit 4, B163 (E-1 Schritt 2): gh liest das fine-grained Token je Aufruf
+    # aus sops statt aus einer GH_TOKEN-Variable der ganzen Sitzung. Ein
+    # gesetztes GH_TOKEN gewinnt weiter (Issues-Token-Muster aus CLAUDE.md:
+    # `GH_TOKEN=$(cat /run/secrets/github-token-issues) gh issue create`).
+    package = ghMitToken;
     settings = {
       git_protocol = "ssh";
       prompt = "enabled";
@@ -2007,10 +2030,10 @@ in
         with-env { ANTHROPIC_API_KEY: (open /run/secrets/anthropic-api-key | str trim) } { ^aider ...$rest }
       }
 
-      # GitHub Token aus sops Secret laden (für gh CLI, octo.nvim)
-      if ("/run/secrets/github-token" | path exists) {
-        $env.GH_TOKEN = (open /run/secrets/github-token | str trim)
-      }
+      # GH_TOKEN steht NICHT mehr in der Umgebung (Audit 4, B163, E-1 Schritt 2):
+      # Er vererbte sich an jede Claude-Sitzung, jeden Hook und jeden MCP-Server.
+      # `gh` liest das Token jetzt je Aufruf selbst aus /run/secrets/github-token
+      # (Wrapper `ghMitToken` in home.nix, programs.gh.package).
 
       # managarr — die TUI/CLI ueber Radarr, Sonarr und Lidarr des Servers.
       #

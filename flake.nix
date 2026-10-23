@@ -47,7 +47,7 @@
     # gestalt - JSON-Form ohne Werte (modules/gestalt.nix). Auf den TAG gepinnt:
     # ein Zweig liefe bei jedem `flake update` still weiter.
     gestalt = {
-      url = "github:achimcc/gestalt/v0.1.0";
+      url = "github:achimcc/gestalt/v0.4.2";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -62,7 +62,7 @@
     # caveat - blendet die Lehre aus caveats/ ein, wenn ihr Meldungstext auftaucht
     # (modules/caveat.nix). Auf den TAG gepinnt wie lotse.
     caveat = {
-      url = "github:achimcc/caveat/v0.3.0";
+      url = "github:achimcc/caveat/v0.4.1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

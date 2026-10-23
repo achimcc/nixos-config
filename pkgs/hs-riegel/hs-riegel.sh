@@ -22,7 +22,11 @@
 #      (inhalt.py): flake.lock nur Revs, Workflows nur `uses:`, Images nur
 #      Tag/Digest, Cargo nur Versionen. Ein neuer flake.lock-Rev muss auf dem
 #      Zweig des Originals liegen (GitHub liefert auch Commits aus Forks unter
-#      dem Namen des Originals aus).
+#      dem Namen des Originals aus). Seit Audit 4 (B185) NUR VORWAERTS: der
+#      neue Rev muss Nachfahre des alten sein (lokaler Klon, sonst gh api
+#      compare), lastModified und Cargo-Versionen duerfen nicht sinken, und
+#      eine Action nur auf eine volle SHA, die auf dem Tag ihres Kommentars
+#      liegt.
 #   c) Jeder eigene Flake-Eingang (achimcc), dessen Rev sich aendert: alle
 #      Commits alt..neu im lokalen Klon ~/Projects/<repo> von UNS signiert —
 #      ohne GitHub-Ausnahme.
@@ -44,6 +48,9 @@
 #   HS_RIEGEL_GITHUB_SCHLUESSEL / HS_RIEGEL_GITHUB_FPR   (web-flow, gepinnt)
 #   HS_RIEGEL_HERKUNFT     Programm <owner> <repo> <ref> <rev> -> 0 auf dem
 #                          Zweig, 1 nicht, sonst Fehler (gh api compare)
+#   HS_RIEGEL_VORWAERTS    Programm <owner> <repo> <alt> <neu> -> 0 Nachfahre,
+#                          1 nicht, sonst Fehler (gh api compare; B185) — ein
+#                          lokaler Klon unter HS_RIEGEL_KLONE geht vor
 
 RENOVATE_NAME='renovate[bot]'
 RENOVATE_MAIL='29139614+renovate[bot]@users.noreply.github.com'
@@ -295,7 +302,7 @@ renovate_pruefen() {
   rc=$?
   [ "$rc" -ge 2 ] && return 2
   if [ "$rc" -ne 0 ]; then
-    grep -v '^HERKUNFT' <<<"$aus" >"$tmp/grund"
+    grep -v -E '^(HERKUNFT|VORWAERTS)' <<<"$aus" >"$tmp/grund"
     return 1
   fi
   local o r ref rev
@@ -311,7 +318,50 @@ renovate_pruefen() {
       return 2
     fi
   done < <(grep '^HERKUNFT' <<<"$aus")
+  # B185: nur vorwaerts — der neue Rev muss ein Nachfahre des alten sein.
+  local alt neu
+  while IFS=$'\t' read -r _ o r alt neu; do
+    [ -n "$neu" ] || continue
+    vorwaerts "$o" "$r" "$alt" "$neu"
+    rc=$?
+    if [ "$rc" -eq 1 ]; then
+      echo "$o/$r: ${neu:0:12} ist kein Nachfahre von ${alt:0:12} — Rueckschritt oder Seitenzweig" >"$tmp/grund"
+      return 1
+    elif [ "$rc" -ne 0 ]; then
+      echo "hs-riegel: Richtung von $o/$r ${alt:0:12} -> ${neu:0:12} nicht pruefbar." >&2
+      return 2
+    fi
+  done < <(grep '^VORWAERTS' <<<"$aus")
   return 0
+}
+
+# Ist <neu> ein Nachfahre von <alt> in <owner>/<repo>? (Audit 4, B185)
+# 0 ja, 1 nein, 2 nicht pruefbar. Liegen beide Commits in einem lokalen Klon
+# unter $klone/<repo>, entscheidet `git merge-base --is-ancestor` ohne Netz —
+# Commit-IDs sind global, ein Klon mit beiden Commits hat die richtige
+# Geschichte. Sonst GitHubs compare <alt>...<neu>: `ahead` heisst Nachfahre.
+vorwaerts() {
+  local o=$1 r=$2 alt=$3 neu=$4 status k
+  k="${klone:-${HS_RIEGEL_KLONE:-$HOME/Projects}}/$r"
+  if git -C "$k" cat-file -e "$alt^{commit}" 2>/dev/null \
+    && git -C "$k" cat-file -e "$neu^{commit}" 2>/dev/null; then
+    git -C "$k" merge-base --is-ancestor "$alt" "$neu" && return 0
+    return 1
+  fi
+  if [ -n "${HS_RIEGEL_VORWAERTS:-}" ]; then
+    "$HS_RIEGEL_VORWAERTS" "$o" "$r" "$alt" "$neu"
+    return $?
+  fi
+  api() {
+    gh api "$1" --jq "$2" 2>/dev/null \
+      || curl -fsS --max-time 30 -H 'Accept: application/vnd.github+json' "https://api.github.com/$1" 2>/dev/null | jq -er "$2"
+  }
+  status=$(api "repos/$o/$r/compare/$alt...$neu" .status) || return 2
+  case "$status" in
+    ahead | identical) return 0 ;;
+    behind | diverged) return 1 ;;
+    *) return 2 ;;
+  esac
 }
 
 # Liegt <rev> auf dem Zweig <ref> (oder dem Standardzweig) von <owner>/<repo>?

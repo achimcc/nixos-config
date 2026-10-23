@@ -6,6 +6,8 @@
 # WAS DER SERVER SIEHT, UND WAS NICHT: Ein MCP-Ergebnis landet ROH im Chat,
 # an gestalt vorbei. Metriken tragen hier keine Geheimnisse, Logzeilen schon
 # (leakwatch hat Schluessel in Journalen gefunden). Deshalb:
+#   (Logzeilen liest man seit leakwatch 0.3.0 ueber ssh und `| leakwatch sieve`,
+#   das jeden bekannten Wert durch <REDACTED:name> ersetzt — 2026-10-23)
 #   --disable-loki, --disable-runpanelquery, keine Logzeilen, auch nicht ueber
 #   --disable-api                            ein Panel mit Loki-Abfrage oder
 #                                            grafana_api_request (der ginge ueber
@@ -29,13 +31,19 @@
 # EINGETRAGEN wird der Server nicht hier, sondern in `.mcp.json` des
 # homeserver-Repos (project scope): Er soll nur dort starten, wo es um den
 # Homeserver geht, und in jedem Worktree.
-{ pkgs, ... }:
+{ pkgs, id, ... }:
 
 let
   wrapper = pkgs.writeShellApplication {
     name = "grafana-mcp-homeserver";
     runtimeInputs = with pkgs; [ curl jq sops git openssh util-linux coreutils procps ];
     text = ''
+      # Audit 4, B171: keine Sitzungsschluessel in der Umgebung des Servers (s. mcp-huelle.nix).
+      # Der Tunnel (ssh) braucht den Agenten - die TPM-Schluessel gibt es nur
+      # dort, ohne ihn scheitert jeder Start ohne stehenden Tunnel (2026-10-17).
+      # Der MCP-Server selbst bekommt ihn nicht (B171).
+      agent=''${SSH_AUTH_SOCK:-}
+      unset GH_TOKEN GITHUB_TOKEN SOPS_AGE_KEY_FILE SSH_AUTH_SOCK
       repo=''${HOMESERVER_REPO:-$HOME/Projects/homeserver}
       api=http://127.0.0.1:3000
       konto=claude-mcp
@@ -47,7 +55,7 @@ let
       ablauf="$dir/ablauf"
 
       # Der Tunnel meldet sich auf stdout — das ist hier der MCP-Kanal.
-      "$repo/scripts/grafana-tunnel.sh" auf >&2 || {
+      SSH_AUTH_SOCK=$agent "$repo/scripts/grafana-tunnel.sh" auf >&2 || {
         echo "grafana-mcp: kein Tunnel zu obs-01." >&2; exit 1; }
 
       gueltig() {
@@ -66,7 +74,10 @@ let
         arbeit=$(mktemp -d "$dir/lauf.XXXXXX")
         trap 'rm -rf "$arbeit"' RETURN
         geheim=$("$repo/scripts/geheim-pfad.sh" "$repo")
-        sops -d --extract '["grafana-admin-password"]' "$geheim/secrets/obs.yaml" > "$arbeit/pw"
+        # TPM-Identitaet nur fuer diesen Aufruf - das unset oben (B171) nimmt
+        # SOPS_AGE_KEY_FILE, und die sops-Vorgabe keys.txt gibt es hier nicht.
+        SOPS_AGE_KEY_FILE=/home/${id.username}/.config/sops/age/tpm-identity.txt \
+          sops -d --extract '["grafana-admin-password"]' "$geheim/secrets/obs.yaml" > "$arbeit/pw"
         jq -nc --rawfile p "$arbeit/pw" '{user:"admin", password:($p|rtrimstr("\n"))}' > "$arbeit/rumpf"
         rm -f "$arbeit/pw"
         curl -sS --max-time 15 -c "$arbeit/keks" -X POST "$api/login" \

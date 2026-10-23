@@ -18,6 +18,14 @@ eingestellten 1. Gemessen: Laptop-Bildschirm sprang auf 1,25, XWayland auf
 Deshalb merkt sich dieses Skript die Lage und Skala der echten Bildschirme,
 bevor es die virtuellen anlegt, und setzt sie danach wieder so
 (ApplyMonitorsConfig, voruebergehend); die virtuellen kommen rechts daneben.
+
+Leerlauf (2026-10-17 gemessen, viermal): Wer die Brille traegt, tippt nicht am
+Laptop. Nach idle-delay (300 s) blendet GNOME ab, und beim Abblenden sperrt
+die Shell den Fernzugriff - Mutter schliesst dabei JEDE Aufnahme- und
+Fernzugriffssitzung: die virtuellen Monitore verschwinden ("Removed virtual
+monitor"), WayVRs Portal-Aufnahme bricht, Xwaylands Eingabekanal (EIS) auch.
+Deshalb haelt dieses Skript bei gnome-session einen Inhibitor gegen den
+Leerlauf (Flag 8), solange es laeuft; er faellt mit der D-Bus-Verbindung.
 """
 
 import os
@@ -188,6 +196,18 @@ def main():
         return GLib.SOURCE_REMOVE
 
     vorher = lage_der_bildschirme(anzeige_zustand(bus))
+
+    # Leerlauf-Inhibitor (siehe Kopf): Flag 8 = "Sitzung nicht als untaetig
+    # werten". Scheitert er, laufen die Monitore trotzdem - nur bis zum
+    # naechsten Abblenden, und das steht dann im Journal.
+    try:
+        ruf(
+            bus, "/org/gnome/SessionManager", "org.gnome.SessionManager", "Inhibit",
+            GLib.Variant("(susu)", ("vr-monitore", 0, "VR-Sitzung: virtuelle Monitore", 8)),
+            "(u)", name="org.gnome.SessionManager",
+        )
+    except GLib.Error as fehler:
+        print(f"vr-monitore: kein Leerlauf-Inhibitor: {fehler}", file=sys.stderr)
 
     for _ in range(anzahl):
         (sitzung,) = ruf(

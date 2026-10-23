@@ -30,10 +30,13 @@
 #    ~/nixos-config. Erlaubt ist also, wo die Sitzung gestartet wurde.
 #    Die Liste gilt nur noch fuer einen Client, der keine Roots meldet.
 #
-#    NICHT GEMESSEN, aber dieselbe Mechanik: Eine Sitzung, die in $HOME
-#    startet, meldet vermutlich $HOME als Root — dann laegen ~/.ssh, ~/.config
-#    und ~/.claude offen, und der Ausschluss oben waere keiner. Vor einer
-#    solchen Sitzung `list_allowed_directories` fragen.
+#    GEMESSEN (Audit 4, 2026-10-15, B239): Eine Sitzung in $HOME meldet
+#    /home/achim als Root, eine Root `/` gibt alles frei - ~/.ssh, ~/.config
+#    und ~/.claude liegen dann offen, und der Ausschluss oben ist keiner. Die
+#    Liste `verzeichnisse` ist also KEINE Grenze; die Grenze ist allein der
+#    Startort der Sitzung. Offen (Achims Entscheidung, Plan P10): den Server
+#    projektlokal eintragen oder ganz entfernen - er kann nichts, was
+#    Read/Edit nicht koennen, und seine Ergebnisse laufen an gestalt vorbei.
 #
 #  - Der Hook an den beiden Schreibwerkzeugen greift (gemessen am 2026-10-11):
 #    Eine kaputte .nix-Datei meldete `nix-parse: … parst nicht` nach
@@ -51,8 +54,8 @@ let
 
   server = builtins.toJSON {
     type = "stdio";
-    command = "/run/current-system/sw/bin/mcp-server-filesystem";
-    args = verzeichnisse;
+    command = "/run/current-system/sw/bin/mcp-ohne-schluessel";
+    args = [ "/run/current-system/sw/bin/mcp-server-filesystem" ] ++ verzeichnisse;
     env = { };
   };
 in

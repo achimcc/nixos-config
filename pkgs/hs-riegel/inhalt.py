@@ -5,7 +5,10 @@
 # Ausgabe: je Befund eine Zeile "<pfad>: <grund>"; je geaendertem GitHub-Knoten
 # im flake.lock eine Zeile "HERKUNFT\t<owner>\t<repo>\t<ref|->\t<rev>" — die
 # prueft der Aufrufer (liegt der neue Rev auf dem Zweig des Originals, oder nur
-# irgendwo im Fork-Netz?).
+# irgendwo im Fork-Netz?). Seit Audit 4 (B185) dazu je gewechseltem Rev eine
+# Zeile "VORWAERTS\t<owner>\t<repo>\t<alt>\t<neu>" (ist <neu> ein Nachfahre von
+# <alt>?) und je gepinnter Action eine HERKUNFT-Zeile mit ihrem Tag als <ref>
+# (liegt die SHA auf dem Tag, den der Kommentar nennt?).
 # Exit 0: alles erlaubt. 1: mindestens ein Befund. 2: Werkzeugfehler.
 #
 # DIE ERLAUBNISLISTE IST ABSICHTLICH ENG. Was sie nicht kennt, ist nicht ok —
@@ -14,6 +17,15 @@
 # sich aendert und der NAME bleibt: Ein gestohlenes Token darf keinen Eingang
 # auf ein fremdes Repo, kein Image auf eine fremde Registry und keine Action
 # auf einen fremden Autor umbiegen.
+#
+# UND NUR VORWAERTS (Audit 4, B185): Bis dahin liess die Liste jeden
+# Rueckschritt durch — nixpkgs auf einen alten Rev desselben Zweigs, eine Crate
+# auf eine alte Version, eine Action auf irgendeine SHA (Probe LK-6, V1-V3
+# rc=0). Ein Token-Dieb haette damit bekannt verwundbare Staende „gruen"
+# signiert. Jetzt: lastModified darf nicht sinken, der neue Rev muss Nachfahre
+# des alten sein (prueft der Aufrufer), Cargo-Versionen duerfen nicht sinken,
+# und eine Action nur auf eine volle SHA mit Tag-Kommentar, dessen Version
+# nicht sinkt und auf dessen Geschichte die SHA liegt.
 
 import difflib
 import json
@@ -43,6 +55,30 @@ def befund(pfad, grund):
     befunde.append(f"{pfad}: {grund}")
 
 
+# --- Versionen vergleichen (B185) ---------------------------------------------
+VERSION = re.compile(r"v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?")
+
+
+def version(text):
+    """'1.2.3', '=1.2', '^0.4', 'v4.1.0', '>=1, <2' -> vergleichbares Tupel
+    (major, minor, patch, 1=Release/0=Vorabfassung); None, wenn es keine
+    erkennbare Version ist. Bei mehreren Vergleichern zaehlt der erste."""
+    t = str(text).split(",")[0].strip().lstrip("=^~<> ").strip()
+    m = VERSION.fullmatch(t)
+    if not m:
+        return None
+    return (int(m.group(1)), int(m.group(2) or 0), int(m.group(3) or 0), 0 if m.group(4) else 1)
+
+
+def nicht_rueckwaerts(pfad, was, alt, neu):
+    """Befund, wenn <neu> aelter ist als <alt> oder nicht vergleichbar."""
+    va, vn = version(alt), version(neu)
+    if va is None or vn is None:
+        befund(pfad, f"{was}: Version nicht vergleichbar ({alt} -> {neu})")
+    elif vn < va:
+        befund(pfad, f"{was}: Rueckschritt {alt} -> {neu}")
+
+
 # --- Zeilenweise Regeln -------------------------------------------------------
 def zeilenpaare(pfad, a, b):
     """Nur ERSETZTE Zeilen, paarweise. Eingefuegte oder geloeschte Zeilen sind
@@ -62,13 +98,35 @@ def zeilenpaare(pfad, a, b):
 USES = re.compile(r"^(\s*-?\s*uses:\s*)([^@\s#]+)@([^\s#]+)(\s*#.*)?$")
 
 
+SHA = re.compile(r"[0-9a-f]{40}")
+TAG_KOMMENTAR = re.compile(r"#\s*(\S+)\s*$")
+
+
 def workflow(pfad, a, b):
     for x, y in zeilenpaare(pfad, a, b) or []:
         mx, my = USES.match(x), USES.match(y)
         if not (mx and my):
             befund(pfad, "geaenderte Zeile ist keine uses:-Zeile")
-        elif mx.group(1) != my.group(1) or mx.group(2) != my.group(2):
+            continue
+        if mx.group(1) != my.group(1) or mx.group(2) != my.group(2):
             befund(pfad, f"uses: wechselt die Action ({mx.group(2)} -> {my.group(2)})")
+            continue
+        # B185: nur auf eine volle SHA mit Tag-Kommentar, nur vorwaerts.
+        name, ref_a, ref_b = my.group(2), mx.group(3), my.group(3)
+        teile = name.split("/")
+        if len(teile) < 2 or ":" in name:
+            befund(pfad, f"uses: {name} ist keine GitHub-Action")
+            continue
+        tag_b = TAG_KOMMENTAR.search(my.group(4) or "")
+        if not SHA.fullmatch(ref_b) or not tag_b:
+            befund(pfad, f"uses: {name}@{ref_b[:12]} ist keine volle SHA mit Tag-Kommentar")
+            continue
+        tag_a = TAG_KOMMENTAR.search(mx.group(4) or "")
+        alt_tag = tag_a.group(1) if tag_a else ref_a
+        nicht_rueckwaerts(pfad, f"uses: {name}", alt_tag, tag_b.group(1))
+        herkunft.append(f"HERKUNFT\t{teile[0]}\t{teile[1]}\t{tag_b.group(1)}\t{ref_b}")
+        if ref_a != ref_b:
+            herkunft.append(f"VORWAERTS\t{teile[0]}\t{teile[1]}\t{ref_a}\t{ref_b}")
 
 
 # Dasselbe Muster wie der customManager in renovate.json des homeserver-Repos.
@@ -126,8 +184,18 @@ def flake_lock(pfad, a, b):
         if lob.get("type") != "github" or not re.fullmatch(r"[0-9a-f]{40}", str(rev_b or "")):
             befund(pfad, f"Knoten {name}: Rev-Wechsel nur fuer type=github mit voller Rev")
             continue
+        # B185: lastModified darf nicht sinken (ohne Netz pruefbar); dass der
+        # neue Rev ein Nachfahre des alten ist, prueft der Aufrufer (VORWAERTS).
+        lm_a, lm_b = na[name]["locked"].get("lastModified"), nb[name]["locked"].get("lastModified")
+        if lm_a is not None and (not isinstance(lm_b, int) or lm_b < lm_a):
+            befund(pfad, f"Knoten {name}: lastModified sinkt ({lm_a} -> {lm_b}) — Rueckschritt")
+            continue
+        if not re.fullmatch(r"[0-9a-f]{40}", str(rev_a or "")):
+            befund(pfad, f"Knoten {name}: alter Rev fehlt, Richtung nicht pruefbar")
+            continue
         ref = (nb[name].get("original") or {}).get("ref") or "-"
         herkunft.append(f"HERKUNFT\t{lob['owner']}\t{lob['repo']}\t{ref}\t{rev_b}")
+        herkunft.append(f"VORWAERTS\t{lob['owner']}\t{lob['repo']}\t{rev_a}\t{rev_b}")
 
 
 # --- Cargo ------------------------------------------------------------------
@@ -149,6 +217,19 @@ def cargo_lock(pfad, a, b):
         quelle = p.get("source")
         if quelle is not None and quelle not in CRATES_IO:
             befund(pfad, f"Paket {p.get('name')} aus fremder Quelle")
+    # B185: je Crate darf die hoechste Version nicht sinken.
+    def hoechste(lock):
+        h = {}
+        for p in lock.get("package", []):
+            v = version(p.get("version", ""))
+            n = p.get("name")
+            if v is not None and (n not in h or v > h[n][0]):
+                h[n] = (v, p.get("version"))
+        return h
+    ha, hb = hoechste(la), hoechste(lb)
+    for n in sorted(set(ha) & set(hb)):
+        if hb[n][0] < ha[n][0]:
+            befund(pfad, f"Paket {n}: Rueckschritt {ha[n][1]} -> {hb[n][1]}")
 
 
 ABHAENGIGKEITEN = {"dependencies", "dev-dependencies", "build-dependencies"}
@@ -177,6 +258,26 @@ def cargo_norm(obj, oben=None):
     return aus
 
 
+def cargo_versionen(obj, weg="", oben=None):
+    """Dieselben Stellen wie cargo_norm, aber als {weg: version} (B185)."""
+    aus = {}
+    if not isinstance(obj, dict):
+        return aus
+    for k, v in obj.items():
+        w = f"{weg}.{k}" if weg else k
+        if k in ABHAENGIGKEITEN and isinstance(v, dict):
+            for n, d in v.items():
+                if isinstance(d, str):
+                    aus[f"{w}.{n}"] = d
+                elif isinstance(d, dict) and isinstance(d.get("version"), str):
+                    aus[f"{w}.{n}"] = d["version"]
+        elif k == "version" and oben == "package" and isinstance(v, str):
+            aus[w] = v
+        else:
+            aus.update(cargo_versionen(v, w, k))
+    return aus
+
+
 def cargo_toml(pfad, a, b):
     try:
         ta, tb = tomllib.loads(a), tomllib.loads(b)
@@ -185,6 +286,11 @@ def cargo_toml(pfad, a, b):
         return
     if cargo_norm(ta) != cargo_norm(tb):
         befund(pfad, "mehr als Versionsangaben geaendert")
+        return
+    va, vb = cargo_versionen(ta), cargo_versionen(tb)
+    for w in sorted(set(va) & set(vb)):
+        if va[w] != vb[w]:
+            nicht_rueckwaerts(pfad, w, va[w], vb[w])
 
 
 def regel(pfad):

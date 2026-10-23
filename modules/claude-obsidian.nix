@@ -3,13 +3,17 @@
 #
 # ZWEI TEILE, und der zweite ist der, an dem es sonst scheitert:
 #
-#  1. Der Marktplatz-Eintrag. Das Projekt ist ein Claude-Code-Plugin MIT
-#     eigenem Marktplatz (`.claude-plugin/marketplace.json`, Name
-#     `agricidaniel-claude-obsidian`, Plugin `claude-obsidian`). Der globale
-#     Hebel dafuer sind `extraKnownMarketplaces` und `enabledPlugins` in
-#     ~/.claude/settings.json — dieselbe Stelle, an der `thedotmack` schon
-#     steht. Claude Code klont den Marktplatz daraufhin selbst nach
-#     ~/.claude/plugins/marketplaces/.
+#  1. Das Plugin, GEPINNT (Audit 4, B174/E-2, 2026-10-15). Bis dahin stand
+#     hier ein Marktplatz-Eintrag (`agricidaniel-claude-obsidian`), und Claude
+#     Code zog bei jeder `/plugin`-Auffrischung den HEAD eines Einzelpflegers —
+#     samt SessionStart-Hook (Python), der mit dem ssh-Agenten laeuft. Jetzt
+#     dieselbe Bauart wie modules/claude-savvy.nix: `fetchFromGitHub` mit Rev
+#     und Hash, eine schreibbare Kopie unter ~/.local/share/claude-mods/,
+#     eingebunden ueber `env.CLAUDE_CODE_PLUGIN_DIRS`. Der Rev ist der Commit,
+#     der bis dahin installiert war und im Audit gelesen wurde (2.2.0; Baum
+#     gleich dem Marktplatz-Klon). Wer den Rev hebt, liest vorher den Diff von
+#     hooks/ und scripts/. Den alten Marktplatz-Eintrag samt Plugin raeumt
+#     modules/claude-plugins.nix ab (Liste `entfernen`).
 #
 #  2. DER VAULT, und ohne ihn tut das Plugin NICHTS. Es loest seinen Vault aus
 #     `CLAUDE_OBSIDIAN_VAULT`, der naechsten `.claude-obsidian.json` oder einem
@@ -27,7 +31,8 @@
 # WARUM EIN AKTIVIERUNGSSKRIPT UND KEIN SYMLINK: ~/.claude/settings.json
 # schreibt Claude Code selbst (Modellwahl, Plugin-Schalter). Als Link in den
 # Store waere sie schreibgeschuetzt und `/model` schluege fehl. Das Skript setzt
-# deshalb genau ZWEI Schluessel — idempotent, alles andere bleibt unberuehrt.
+# deshalb nur `env.CLAUDE_CODE_PLUGIN_DIRS` — idempotent, alles andere bleibt
+# unberuehrt.
 # Eine Datei, die kein gueltiges JSON ist, fasst es nicht an. Dieselbe Bauart
 # wie der lotse-Hook in modules/lotse.nix und der Servereintrag in
 # modules/mcp-nixos.nix.
@@ -38,21 +43,20 @@
 # Aktivierungsskript liefe sie bei JEDEM Rebuild gegen einen Vault, der per Git
 # auf obsi-01 synchronisiert wird. Einmalig von Hand, nicht hier.
 #
-# WIE WEIT „deklarativ" TRAEGT: Diese Datei legt fest, WELCHER Marktplatz,
-# WELCHES Plugin und WELCHER Vault. Den Plugin-CODE holt Claude Code selbst von
-# GitHub und aktualisiert ihn eigenstaendig — wie bei superpowers und
-# claude-mem auch. Eine Auswertung dieses Repos stellt die Eintraege wieder
-# her, nicht eine bestimmte Plugin-Fassung.
+# WIE WEIT „deklarativ" TRAEGT: seit B174 bis zur Fassung — Rev und Hash
+# stehen hier, ein Auto-Update gibt es nicht mehr. Die Kopie wird NUR erneuert,
+# wenn sich der Store-Pfad aendert (eine laufende Sitzung beobachtet den Ordner).
 { pkgs, id, ... }:
 
 let
   vault = "/home/${id.username}/Dokumente/Obsidian";
 
-  marktplatz = builtins.toJSON {
-    source = {
-      source = "github";
-      repo = "AgriciDaniel/claude-obsidian";
-    };
+  # B174: gepinnt statt Marktplatz. Rev = bis 2026-10-15 installierter Commit.
+  quelle = pkgs.fetchFromGitHub {
+    owner = "AgriciDaniel";
+    repo = "claude-obsidian";
+    rev = "32ac5a02c4e082e4a5628ca810776375e134708e";
+    hash = "sha256-GwVTOKtbSUOKYgpx7LZSIRNqw8EL3/PsPK4ucOsyRu4=";
   };
 in
 {
@@ -63,16 +67,29 @@ in
   home-manager.users.${id.username} =
     { lib, ... }:
     {
-      home.activation.claudeObsidianPlugin = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      # Nach claudeOfficialPlugins, das den alten Marktplatz-Eintrag abraeumt.
+      home.activation.claudeObsidianPlugin = lib.hm.dag.entryAfter [ "writeBoundary" "claudeOfficialPlugins" ] ''
         datei="$HOME/.claude/settings.json"
+        basis="$HOME/.local/share/claude-mods"
+        ziel="$basis/claude-obsidian"
+        marke="$basis/claude-obsidian.quelle"
         if [ ! -e "$datei" ]; then
           run mkdir -p "$HOME/.claude"
           run sh -c 'printf "{}\n" > "$1"' _ "$datei"
         fi
+        if [ "$(${pkgs.coreutils}/bin/cat "$marke" 2>/dev/null || true)" != "${quelle}" ] \
+          || [ ! -e "$ziel/.claude-plugin/plugin.json" ]; then
+          run ${pkgs.coreutils}/bin/mkdir -p "$basis"
+          run ${pkgs.coreutils}/bin/rm -rf "$ziel"
+          run ${pkgs.coreutils}/bin/cp -r --no-preserve=mode,ownership "${quelle}" "$ziel"
+          run sh -c 'printf "%s\n" "$1" > "$2"' _ "${quelle}" "$marke"
+        fi
         neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
-        if ${pkgs.jq}/bin/jq --argjson markt ${lib.escapeShellArg marktplatz} '
-              .extraKnownMarketplaces["agricidaniel-claude-obsidian"] = $markt
-              | .enabledPlugins["claude-obsidian@agricidaniel-claude-obsidian"] = true
+        if ${pkgs.jq}/bin/jq --arg ziel "$ziel" '
+              .env.CLAUDE_CODE_PLUGIN_DIRS = (
+                ((.env.CLAUDE_CODE_PLUGIN_DIRS // "") | split(":") | map(select(length > 0)))
+                + [ $ziel ] | unique | join(":")
+              )
             ' "$datei" > "$neu"; then
           run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
           run ${pkgs.coreutils}/bin/mv "$neu" "$datei"

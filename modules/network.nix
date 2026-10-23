@@ -356,14 +356,14 @@ in
   '';
 
   # WORKAROUND: YouTube direkt mit IPv4 in /etc/hosts (umgeht IPv6-DNS-Problem)
-  # WORKAROUND: rusty-vault.de direkt zur Origin (umging 2026 den ProtonVPN-Resolver
-  # 10.2.0.1, der DNSSEC nicht sauber unterstützte, solange die GUI proton0 mit
-  # Domain=~. setzte). Seit der WireGuard-Umstellung (2026-09-13) ohne Anlass —
-  # Entfernen erst nach Messung: resolvectl query rusty-vault.de mit Tunnel.
+  # `rusty-vault.de` -> 77.42.71.141 STAND HIER BIS ZUM 2026-10-14 (ein alter
+  # Umweg am ProtonVPN-Resolver vorbei). Die Adresse war der Hetzner-VPS; der
+  # ist abgebaut, und seither lief die Apex von dieser Workstation ins Leere,
+  # waehrend jeder andere Name ging. Ohne den Eintrag loest die Apex ueber
+  # Blocky (Router bzw. MagicDNS) auf Caddy auf, wie alle Heimnamen.
   networking.hosts = {
     "108.177.96.93" = [ "youtube.com" "www.youtube.com" "m.youtube.com" ];
     "142.250.185.46" = [ "googlevideo.com" ];
-    "77.42.71.141" = [ "rusty-vault.de" ];
   };
 
   # ==========================================

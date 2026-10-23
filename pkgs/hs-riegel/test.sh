@@ -4,7 +4,10 @@
 #   - ein SSH-Schluessel ist UNSER Anker, ein zweiter ist fremd,
 #   - ein GPG-Schluessel spielt GitHubs web-flow-Schluessel,
 #   - die Herkunftspruefung (gh api compare) ersetzt ein Skript, das eine
-#     Liste von „Fork-Revs" kennt.
+#     Liste von „Fork-Revs" kennt,
+#   - die Richtungspruefung (B185, gh api compare alt...neu) ein Skript, das
+#     eine Liste von „Rueckwaerts-Revs" kennt; fuer eigene Eingaenge entscheidet
+#     der lokale Klon (git merge-base --is-ancestor) ohne Stub.
 # Dazu die Hook-Regel (deny/allow) und der ssh_config-Filter von hs-deploy.
 set -uo pipefail
 t=$(mktemp -d)
@@ -23,10 +26,13 @@ gpg --batch --armor --export "$ghfpr" >"$t/gh.asc"
 printf '#!%s\ngrep -qx "$4" "%s" && exit 1\nexit 0\n' "$BASH" "$t/fork_revs" >"$t/herkunft"
 chmod +x "$t/herkunft"
 : >"$t/fork_revs"
+printf '#!%s\ngrep -qx "$4" "%s" && exit 1\nexit 0\n' "$BASH" "$t/rueck_revs" >"$t/vorwaerts"
+chmod +x "$t/vorwaerts"
+: >"$t/rueck_revs"
 
 export HS_RIEGEL_ANKER="$t/anker" HS_RIEGEL_KLONE="$t/klone" \
   HS_RIEGEL_GITHUB_SCHLUESSEL="$t/gh.asc" HS_RIEGEL_GITHUB_FPR="$ghfpr" \
-  HS_RIEGEL_HERKUNFT="$t/herkunft"
+  HS_RIEGEL_HERKUNFT="$t/herkunft" HS_RIEGEL_VORWAERTS="$t/vorwaerts"
 
 neu_repo() {
   git init -q -b main "$1"
@@ -55,13 +61,13 @@ github() { # <repo> <autor> <text> [git commit ...]
 }
 RENOVATE='renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>'
 
-lock() { # <repo> <werkzeug-rev> <nixpkgs-owner> <nixpkgs-rev> [narHash]
+lock() { # <repo> <werkzeug-rev> <nixpkgs-owner> <nixpkgs-rev> [narHash] [lastModified]
   cat >"$1/flake.lock" <<EOF
 {
   "nodes": {
     "nixpkgs": {
       "locked": {
-        "lastModified": 1700000000,
+        "lastModified": ${6:-1700000000},
         "narHash": "${5:-sha256-alt}",
         "owner": "$3",
         "repo": "nixpkgs",
@@ -85,6 +91,8 @@ rev1=1111111111111111111111111111111111111111
 rev2=2222222222222222222222222222222222222222
 revfork=3333333333333333333333333333333333333333
 echo "$revfork" >"$t/fork_revs"
+revrueck=5555555555555555555555555555555555555555
+echo "$revrueck" >"$t/rueck_revs"
 dig1=sha256:$(printf 'a%.0s' {1..64})
 dig2=sha256:$(printf 'b%.0s' {1..64})
 
@@ -219,6 +227,52 @@ github "$r" "$RENOVATE" "chore(deps): serde"
 erwarte 1 "Renovate-Commit macht aus der Version eine git-Quelle"
 zurueck
 
+# --- b2) nur vorwaerts (Audit 4, B185; die Probe LK-6 V1-V3 gab rc=0) ------------
+lock "$r" "$w1" NixOS "$rev2" sha256-neu 1700000100
+github "$r" "$RENOVATE" "chore(deps): nixpkgs"
+erwarte 0 "Renovate hebt nixpkgs, lastModified steigt"
+zurueck
+
+lock "$r" "$w1" NixOS "$rev2" sha256-neu 1600000000
+github "$r" "$RENOVATE" "chore(deps): nixpkgs"
+erwarte 1 "V1: Renovate setzt nixpkgs zurueck (lastModified sinkt)"
+zurueck
+
+lock "$r" "$w1" NixOS "$revrueck" sha256-neu
+github "$r" "$RENOVATE" "chore(deps): nixpkgs"
+erwarte 1 "V1b: neuer nixpkgs-Rev ist kein Nachfahre des alten"
+zurueck
+
+sed -i 's|serde = "1.0.1"|serde = "=1.0.0"|' "$r/pkgs/p/Cargo.toml"
+github "$r" "$RENOVATE" "chore(deps): serde"
+erwarte 1 "V2: Renovate setzt eine Crate auf eine alte Version"
+zurueck
+
+sed -i 's|^version = "0.1.0"|version = "0.0.9"|' "$r/pkgs/p/Cargo.toml"
+github "$r" "$RENOVATE" "chore(deps): p"
+erwarte 1 "V2b: Paketversion sinkt"
+zurueck
+
+sed -i "s|checkout@v4 # v4.0.0|checkout@$revfork # v4.1.0|" "$r/.github/workflows/ci.yml"
+github "$r" "$RENOVATE" "chore(deps): checkout"
+erwarte 1 "V3: Action auf eine SHA, die nicht auf ihrem Tag liegt"
+zurueck
+
+sed -i 's|checkout@v4 # v4.0.0|checkout@0123456789abcdef0123456789abcdef01234567 # v3.0.0|' "$r/.github/workflows/ci.yml"
+github "$r" "$RENOVATE" "chore(deps): checkout"
+erwarte 1 "V3b: Action-Tag sinkt"
+zurueck
+
+sed -i 's|checkout@v4 # v4.0.0|checkout@0123456789abcdef0123456789abcdef01234567|' "$r/.github/workflows/ci.yml"
+github "$r" "$RENOVATE" "chore(deps): checkout"
+erwarte 1 "V3c: Action-SHA ohne Tag-Kommentar"
+zurueck
+
+sed -i 's|checkout@v4 # v4.0.0|checkout@v5 # v5.0.0|' "$r/.github/workflows/ci.yml"
+github "$r" "$RENOVATE" "chore(deps): checkout"
+erwarte 1 "V3d: Action auf einen Tag statt einer SHA"
+zurueck
+
 lock "$r" "$w1" NixOS "$rev2" sha256-neu
 echo '{ }' >"$r/flake.nix"
 github "$r" "$RENOVATE" "chore(deps): nixpkgs"
@@ -286,6 +340,15 @@ w4=$(git -C "$t/klone/werkzeug" rev-parse HEAD)
 lock "$r" "$w4" NixOS "$rev1"
 github "$r" "$RENOVATE" "chore(deps): werkzeug"
 erwarte 0 "Renovate hebt eigenen Eingang auf signierten Rev"
+zurueck
+
+# B185 ueber den lokalen Klon (ohne Stub): w4 steht, Renovate will zurueck auf w1.
+lock "$r" "$w4" NixOS "$rev1"
+eigen "$r" "Eingang auf w4"
+b4=$(git -C "$r" rev-parse HEAD)
+lock "$r" "$w1" NixOS "$rev1"
+github "$r" "$RENOVATE" "chore(deps): werkzeug"
+erwarte 1 "Renovate setzt eigenen Eingang zurueck (Klon: kein Nachfahre)" "$b4"
 zurueck
 
 # Ein Abruf, der haengt, haelt den Riegel nicht auf (2026-10-01). Der Klon

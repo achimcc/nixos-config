@@ -51,6 +51,24 @@ let
     cp ${webflow} $out
   '';
 
+  # gh mit Token: GH_TOKEN steht seit Audit 4 (B163) nicht mehr in der
+  # Umgebung, das nackte gh meldete „The token in default is invalid", und
+  # herkunft/vorwaerts fielen auf anonymes curl zurueck (60 Anfragen je
+  # Stunde, ohne lokalen Klon eines privaten Repos rc 2). Wie ghMitToken in
+  # home.nix: je Aufruf aus /run/secrets/github-token, ein gesetztes GH_TOKEN
+  # gewinnt.
+  ghMitToken = writeShellApplication {
+    name = "gh";
+    runtimeInputs = [ coreutils ];
+    text = ''
+      if [ -z "''${GH_TOKEN:-}" ] && [ -r /run/secrets/github-token ]; then
+        GH_TOKEN=$(tr -d "[:space:]" < /run/secrets/github-token)
+        export GH_TOKEN
+      fi
+      exec ${lib.getExe gh} "$@"
+    '';
+  };
+
   sshFilter = writeShellApplication {
     name = "hs-deploy-ssh-filter";
     runtimeInputs = [ gawk ];
@@ -67,7 +85,7 @@ let
       coreutils
       gnugrep
       gnused
-      gh
+      ghMitToken
       curl
       python3
     ];

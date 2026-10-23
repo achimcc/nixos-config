@@ -91,12 +91,28 @@ let
     add rule inet filter heim_out ip daddr ${secondLocalNetwork.subnet} udp dport { ${toString syncthingPorts.quic}, ${toString syncthingPorts.discovery} } accept
   '';
 
+  # Profil "flint-labor" (Kabel an lan5 des Flint 2, Notfallnetz 192.168.60.0/24,
+  # homeserver H19/B5): nur SSH zum Router, damit `ssh router-direkt` die
+  # Oberflaeche der USV-Karte tunneln kann, wenn der Server aus ist. Am
+  # 2026-10-18 scheiterte genau dieser Weg hier — der Kill-Switch liess ausser
+  # DHCP nichts ins Notfallnetz.
+  heimFlintLabor = pkgs.writeText "heim-flint-labor.nft" ''
+    flush chain inet filter heim_in
+    flush chain inet filter heim_out
+
+    add rule inet filter heim_out ip daddr 192.168.60.1 tcp dport 22 accept
+  '';
+
   heimnetzSetzen = pkgs.writeShellScript "firewall-heimnetz" ''
     # Vor dem NM-Start (Boot) scheitert nmcli → kein Heimnetz → leere Chains.
     aktiv=$(${pkgs.networkmanager}/bin/nmcli -t -f NAME connection show --active 2>/dev/null || true)
     if printf '%s\n' "$aktiv" | ${pkgs.gnugrep}/bin/grep -qx 'Greenside4'; then
       echo "Heimnetz Greenside4 aktiv: Freigaben gesetzt"
       exec ${pkgs.nftables}/bin/nft -f ${heimGreenside}
+    fi
+    if printf '%s\n' "$aktiv" | ${pkgs.gnugrep}/bin/grep -qx 'flint-labor'; then
+      echo "Notfallkabel flint-labor aktiv: SSH zum Router freigegeben"
+      exec ${pkgs.nftables}/bin/nft -f ${heimFlintLabor}
     fi
     echo "kein Heimnetz aktiv: heim_in/heim_out leer"
     exec ${pkgs.nftables}/bin/nft -f ${heimLeer}

@@ -10,6 +10,13 @@
 # Aktivierung unten RAEUMT den alten globalen Eintrag aus ~/.claude.json ab,
 # statt ihn zu setzen (Migration, idempotent).
 #
+# SEIT 2026-10-22 SCHREIBT DIESES MODUL DIE `.mcp.json` DES STEUER-REPOS
+# (home.file, Symlink in den Store; `force`, weil bis dahin eine von Hand
+# angelegte Datei dort lag). Sie enthaelt zwei Server: elster und paperless -
+# die Steuererklaerung braucht die Belege aus Paperless (Tag steuer-<Jahr>),
+# der Eintrag kommt aus mcp-paperless-server.nix. Die Datei ist im Steuer-Repo
+# gitignored; nach dem Rebuild braucht es eine neue Claude-Sitzung.
+#
 # WAS DAS WERKZEUG DARF, bevor man es schaltet: Es meldet sich mit dem
 # ELSTER-Zertifikat an. `elster_ustva_confirm` klickt „Absenden" — das ist eine
 # abgegebene Umsatzsteuer-Voranmeldung und nicht rueckholbar. EUeR und ESt
@@ -55,6 +62,11 @@
 #     Server also in dem Repo, in dem gerade eine Sitzung laeuft, und von dort
 #     einen `git add -A` vom oeffentlichen Commit entfernt.
 #
+# SPERRE (Audit 4, B173): `elster_ustva_confirm` steht in `permissions.deny`
+# (modules/claude-riegel.nix) und laeuft in keiner Sitzung, auch nicht im
+# Bypass-Modus. Eine Voranmeldung schickt Achim im Portal selbst ab, oder er
+# nimmt den Eintrag fuer genau diese Sitzung bewusst heraus.
+#
 # WAS MAN WISSEN MUSS: `elster_config_show` verdeckt nur das Passwort.
 # Steuernummer und Anschrift gibt es an das Modell zurueck, und die
 # Fortschrittsmeldungen der Sitzungen nennen die Steuernummer ebenfalls.
@@ -65,6 +77,8 @@ let
     name = "elster-mcp-sops";
     runtimeInputs = [ pkgs.jq pkgs.coreutils ];
     text = ''
+      # Audit 4, B171: keine Sitzungsschluessel in der Umgebung des Servers (s. mcp-huelle.nix).
+      unset GH_TOKEN GITHUB_TOKEN SOPS_AGE_KEY_FILE SSH_AUTH_SOCK
       zertifikat=${config.sops.secrets."elster-zertifikat".path}
       passwort=${config.sops.secrets."elster-passwort".path}
       person=${config.sops.secrets."elster-steuerpflichtiger".path}
@@ -80,7 +94,28 @@ let
       fi
 
       umask 077
-      lauf="$XDG_RUNTIME_DIR/elster-mcp"
+      # Audit 4, B173: Zertifikat und Passwort lagen dauerhaft entschluesselt in
+      # $XDG_RUNTIME_DIR/elster-mcp. Jetzt je Prozess ein eigener Ordner, den
+      # ein trap beim Ende loescht - eigener Ordner, damit das Ende EINER
+      # Sitzung einer zweiten nicht das Zertifikat unter dem Browser wegzieht.
+      # Was ein SIGKILL zuruecklaesst, raeumt der naechste Start ab (Ordner,
+      # deren Prozess nicht mehr lebt), ebenso die Dateien der alten Bauart.
+      basis="$XDG_RUNTIME_DIR/elster-mcp"
+      mkdir -p "$basis"
+      chmod 700 "$basis"
+      rm -f "$basis/zertifikat.pfx" "$basis/config.json"
+      for alt in "$basis"/*/; do
+        [ -d "$alt" ] || continue
+        pid=$(basename "$alt")
+        case "$pid" in *[!0-9]*) continue ;; esac
+        kill -0 "$pid" 2>/dev/null || rm -rf "$alt"
+      done
+      lauf="$basis/$$"
+      kind=
+      # Inline statt als Funktion: shellcheck (SC2329) sieht einen Namen in
+      # trap nicht als Aufruf und bricht den Bau ab.
+      trap 'rm -rf "$lauf"' EXIT
+      trap '[ -n "$kind" ] && kill -TERM "$kind" 2>/dev/null; exit 143' TERM INT HUP
       daten="''${XDG_DATA_HOME:-$HOME/.local/share}/elster-mcp"
       mkdir -p "$lauf" "$daten/downloads" "$daten/screenshots"
       chmod 700 "$lauf" "$daten"
@@ -114,7 +149,15 @@ let
       fi
 
       export ELSTER_CONFIG_PATH="$lauf/config.json"
-      exec ${pkgs.elster-mcp-server}/bin/elster-mcp-server "$@"
+      # Kein exec (B173): Der trap braucht die Shell bis zum Ende des Servers.
+      # Im Hintergrund, damit TERM sofort ankommt und weitergereicht wird;
+      # `<&0`, weil ein Hintergrundjob sonst /dev/null als stdin bekaeme - und
+      # stdin ist der MCP-Kanal.
+      ${pkgs.elster-mcp-server}/bin/elster-mcp-server "$@" <&0 &
+      kind=$!
+      rc=0
+      wait "$kind" || rc=$?
+      exit "$rc"
     '';
   };
 
@@ -140,6 +183,21 @@ in
   home-manager.users.${id.username} =
     { lib, ... }:
     {
+      home.file."Dokumente/Steuer/.mcp.json" = {
+        force = true;
+        text = builtins.toJSON {
+          mcpServers = {
+            elster = {
+              type = "stdio";
+              command = "/run/current-system/sw/bin/elster-mcp-sops";
+              args = [ ];
+              env = { };
+            };
+            paperless = import ./mcp-paperless-server.nix;
+          };
+        };
+      };
+
       # Den alten globalen Eintrag aus ~/.claude.json ENTFERNEN (bis 2026-10-15
       # setzte diese Stelle ihn). Idempotent: Fehlt er, aendert jq nichts, und
       # die Datei wird nicht angefasst; ist sie kein gueltiges JSON, bleibt sie

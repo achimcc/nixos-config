@@ -61,8 +61,8 @@ let
   # legen es fest, statt uns auf einen Vorgabewert zu verlassen.
   server = builtins.toJSON {
     type = "stdio";
-    command = "/run/current-system/sw/bin/mcp-nixos";
-    args = [ ];
+    command = "/run/current-system/sw/bin/mcp-ohne-schluessel";
+    args = [ "/run/current-system/sw/bin/mcp-nixos" ];
     env = { };
   };
 in

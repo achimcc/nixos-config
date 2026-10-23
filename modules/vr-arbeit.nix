@@ -27,7 +27,7 @@
 # unter Vulkan-Dauerlast stabil bleibt (desktop.nix fuehrt drei GPU-Haenger),
 # und der `am start`-Aufruf.
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, id, ... }:
 
 let
   wivrnPort = 9757;
@@ -244,9 +244,19 @@ in
   # WERKZEUGE
   # ==========================================
 
-  # KEIN uinput fuer WayVR: Getippt wird auf der Tastatur des Laptops, der
-  # Zeiger wandert in GNOME von selbst ueber die virtuellen Monitore. Ein
-  # Nutzerprozess mit Schreibrecht auf /dev/uinput koennte Eingaben faelschen.
+  # uinput fuer WayVR (Achims Entscheidung 2026-10-17): Bis dahin stand hier
+  # "KEIN uinput", weil ein Nutzerprozess mit Schreibrecht auf /dev/uinput
+  # Eingaben faelschen koennte. Ohne uinput meldet WayVR bei jedem Start
+  # "Could not create uinput provider. Keyboard/Mouse input will not work!",
+  # und die VR-Controller koennen in den Fenstern weder tippen noch klicken;
+  # Tastatur und Maus des Laptops wirken trotzdem auf allen Schirmen.
+  # Die Option laedt das Modul, legt die Gruppe uinput an und gibt
+  # /dev/uinput 0660 root:uinput. Die Gruppe greift erst nach einer neuen
+  # Anmeldung (Gruppen werden beim Login zugeteilt), WayVR laeuft im
+  # Nutzerdienst wivrn.service mit den Gruppen der Sitzung.
+  hardware.uinput.enable = true;
+  users.users.${id.username}.extraGroups = [ "uinput" ];
+
   environment.systemPackages = [
     vr-arbeit
     vr-monitore

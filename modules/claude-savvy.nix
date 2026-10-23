@@ -10,7 +10,7 @@
 # nur savvy-flow. Ohne den Skill bliebe der Balken leer.
 #
 # WARUM GEPINNT UND NICHT UEBER DEN MARKTPLATZ (anders als
-# modules/claude-caveman.nix): Ein Mod ist ein Hooks-Modul (`hooks/register.tsx`),
+# dem frueheren modules/claude-caveman.nix, B175): Ein Mod ist ein Hooks-Modul (`hooks/register.tsx`),
 # das IM PROZESS von Claude Code laeuft und jeden Werkzeugaufruf und jede
 # Modellantwort sieht. Der Marktplatz zoege jede neue Fassung eines fremden
 # Repos ungesehen nach. Hier steht ein Rev mit Hash; die Fassung 272a877 ist

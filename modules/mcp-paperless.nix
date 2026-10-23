@@ -26,6 +26,24 @@
 # des Homeservers abwarten oder `systemctl -M papier-01 restart
 # paperless-verwalter` auf dem Server.
 #
+# SEIT 2026-10-15 NICHT MEHR GLOBAL (Audit 4, B164): Der Server laedt nur noch
+# in ~/Dokumente/Papiere ueber dessen `.mcp.json` (project scope), die dieses
+# Modul per home.file schreibt. Global lag er mit Superuser-Token in jeder
+# Sitzung jedes Repos neben Web-Werkzeugen, und ein Dokument mit einer
+# Anweisung haette dort `share_link_create` oder `user_create` ausloesen
+# koennen. Die Aktivierung unten RAEUMT den alten globalen Eintrag ab
+# (Migration wie bei mcp-elster.nix). Die schreibenden Werkzeuge sperrte bis
+# 2026-10-22 `permissions.deny` in modules/claude-riegel.nix; seitdem ist auf
+# Achims Wunsch nur noch `trash_action` (Papierkorb leeren) gesperrt, s. dort.
+# Offen in HR: eigenes Viewer-Konto statt des Superuser-Tokens.
+#
+# SEIT 2026-10-22 AUCH IN ~/Dokumente/Steuer: Die Steuererklaerung lebt von
+# den Belegen in Paperless (Tag steuer-<Jahr>), ohne den Server musste Achim
+# jede Rechnung von Hand exportieren. Die `.mcp.json` des Steuer-Repos schreibt
+# mcp-elster.nix (Elster + Paperless); den Eintrag selbst liefert
+# mcp-paperless-server.nix, damit es ihn nur einmal gibt. Die Sperre aus
+# claude-riegel.nix gilt dort genauso.
+#
 # TEMPORAERE DOWNLOADS: Der Server legt je Prozess ein Verzeichnis unter
 # $TMPDIR an und loescht es beim Beenden. TMPDIR zeigt deshalb ebenfalls in
 # den Laufzeitordner — Dokumente liegen so nie auf der Platte.
@@ -58,7 +76,11 @@ let
           echo "paperless-mcp: $geheim/secrets/papier.yaml fehlt." >&2
           return 1
         fi
-        sops -d --extract '["paperless-mcp-token"]' "$geheim/secrets/papier.yaml" \
+        # Die TPM-Identitaet nur fuer diesen sops-Aufruf: mcp-ohne-schluessel
+        # nimmt SOPS_AGE_KEY_FILE aus der Umgebung (B171), und ohne sie sucht
+        # sops die Vorgabe keys.txt, die es hier nicht gibt.
+        SOPS_AGE_KEY_FILE=/home/${id.username}/.config/sops/age/tpm-identity.txt \
+          sops -d --extract '["paperless-mcp-token"]' "$geheim/secrets/papier.yaml" \
           | tr -d '\n' > "$token.neu"
         if ! grep -qE '^[0-9a-f]{40}$' "$token.neu"; then
           rm -f "$token.neu"
@@ -92,14 +114,7 @@ let
     '';
   };
 
-  # Pfad ueber /run/current-system statt Store-Pfad — Begruendung in
-  # modules/mcp-nixos.nix.
-  server = builtins.toJSON {
-    type = "stdio";
-    command = "/run/current-system/sw/bin/paperless-mcp-homeserver";
-    args = [ ];
-    env = { };
-  };
+  server = import ./mcp-paperless-server.nix;
 in
 {
   environment.systemPackages = [ wrapper ];
@@ -107,23 +122,28 @@ in
   home-manager.users.${id.username} =
     { lib, ... }:
     {
-      # Server in ~/.claude.json (user scope, s. mcp-nixos.nix). Idempotent;
-      # eine Datei, die kein gueltiges JSON ist, bleibt unberuehrt.
+      # Audit 4, B164: project scope statt user scope. Die .mcp.json des
+      # Papiere-Projekts kommt von hier (Symlink in den Store, nur lesbar);
+      # beim ersten Start dort fragt Claude Code einmal nach der Freigabe.
+      home.file."Dokumente/Papiere/.mcp.json".text = builtins.toJSON {
+        mcpServers.paperless = server;
+      };
+
+      # Den alten globalen Eintrag aus ~/.claude.json ENTFERNEN (bis 2026-10-15
+      # setzte diese Stelle ihn). Idempotent: Fehlt er, aendert jq nichts, und
+      # die Datei wird nicht angefasst; ist sie kein gueltiges JSON, bleibt sie
+      # unberuehrt.
       home.activation.claudeMcpPaperless = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         datei="$HOME/.claude.json"
-        if [ ! -e "$datei" ]; then
-          run sh -c 'printf "{}\n" > "$1"' _ "$datei"
-          run ${pkgs.coreutils}/bin/chmod 600 "$datei"
-        fi
-        neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
-        if ${pkgs.jq}/bin/jq --argjson server ${lib.escapeShellArg server} '
-              .mcpServers = ((.mcpServers // {}) + { paperless: $server })
-            ' "$datei" > "$neu"; then
-          run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
-          run ${pkgs.coreutils}/bin/mv "$neu" "$datei"
-        else
-          ${pkgs.coreutils}/bin/rm -f "$neu"
-          echo "mcp-paperless: $datei ist kein gueltiges JSON — der Server wurde NICHT eingetragen." >&2
+        if [ -e "$datei" ] && ${pkgs.jq}/bin/jq -e '.mcpServers.paperless' "$datei" >/dev/null 2>&1; then
+          neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
+          if ${pkgs.jq}/bin/jq 'del(.mcpServers.paperless)' "$datei" > "$neu"; then
+            run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
+            run ${pkgs.coreutils}/bin/mv "$neu" "$datei"
+          else
+            ${pkgs.coreutils}/bin/rm -f "$neu"
+            echo "mcp-paperless: $datei ist kein gueltiges JSON — alter Eintrag NICHT entfernt." >&2
+          fi
         fi
       '';
     };

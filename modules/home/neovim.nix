@@ -19,7 +19,7 @@
       pkgs-unstable.rustfmt
       pkgs-unstable.clippy
       pkgs.vscode-extensions.vadimcn.vscode-lldb.adapter # codelldb für Rust-Debugging
-      pkgs.gh # GitHub CLI für octo.nvim
+      config.programs.gh.package # GitHub CLI für octo.nvim; Wrapper mit Token je Aufruf (Audit 4, B163)
     ];
 
     plugins = with pkgs.vimPlugins; [

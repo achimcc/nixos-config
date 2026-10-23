@@ -221,16 +221,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1791048084,
-        "narHash": "sha256-gCaaz90hUtfMnU8ZQVLSIjqHnIJ6TWJnIYA6EwPuMOI=",
+        "lastModified": 1792746301,
+        "narHash": "sha256-cF7UGHqrdhRCM607R0wh8YO7lRCsCrqf5Z2GQ45DsMw=",
         "owner": "achimcc",
         "repo": "gestalt",
-        "rev": "4d5972112acad83345cfbc7466821c932398dbe7",
+        "rev": "0f13b6d0a9c1eddc5cad7f18de2cad8e8e588dbd",
         "type": "github"
       },
       "original": {
         "owner": "achimcc",
-        "ref": "v0.3.1",
+        "ref": "v0.4.2",
         "repo": "gestalt",
         "type": "github"
       }

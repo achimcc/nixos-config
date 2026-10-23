@@ -81,8 +81,26 @@ let
               '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $grund}}'
           fi
           ;;
+        web-sperre)
+          # Audit 4, B163/B159 (E-1 Schritt 1): In homeserver-Sitzungen kein
+          # Weg nach draussen ueber WebFetch, WebSearch und firecrawl. Massgeblich
+          # ist das Projekt der Sitzung (CLAUDE_PROJECT_DIR) UND das aktuelle
+          # Verzeichnis (`cwd` im Hook-JSON) - trifft eines, wird gesperrt.
+          # homeserver-* deckt die Worktrees und homeserver-secrets.
+          wo=$(jq -r '.cwd // empty' <<<"$eingabe")
+          for d in "''${CLAUDE_PROJECT_DIR:-}" "$wo"; do
+            case "$d" in
+              "$HOME"/Projects/homeserver|"$HOME"/Projects/homeserver/*|"$HOME"/Projects/homeserver-*)
+                werkzeug=$(jq -r '.tool_name // "?"' <<<"$eingabe")
+                jq -n --arg grund "web-sperre: $werkzeug ist in homeserver-Sitzungen gesperrt (Audit 4, B163: privater Zugriff, fremder Inhalt und Weg nach draussen nicht in einem Prozess). Webrecherche in einer Sitzung ausserhalb des Repos." \
+                  '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $grund}}'
+                exit 0
+                ;;
+            esac
+          done
+          ;;
         *)
-          echo "Aufruf: claude-riegel nix-parse|json-roh (JSON des Hooks auf stdin)" >&2
+          echo "Aufruf: claude-riegel nix-parse|json-roh|web-sperre (JSON des Hooks auf stdin)" >&2
           exit 2
           ;;
       esac
@@ -145,6 +163,59 @@ let
       }
     ];
   };
+  # Audit 4, B163/B159: WebFetch, WebSearch und firecrawl in homeserver-
+  # Sitzungen sperren. `permissions.deny` in ~/.claude/settings.json kennt
+  # keinen Pfadbezug (eine Regel gilt in JEDER Sitzung), und die
+  # Projektvariante `.claude/settings.json` im homeserver-Repo waere
+  # Codeausfuehrung je Commit (B165) - deshalb ein globaler Hook, der nach
+  # dem Verzeichnis entscheidet. GRENZE: fail-open wie alle Hooks hier.
+  #
+  # AUFGEHOBEN AM 2026-10-18 (Achims Entscheidung): Ohne Webrecherche fehlt der
+  # Sitzung, was sie fuer Geraete und Firmware braucht (Anlass: AP9630). B163
+  # ist damit wieder offen. Die Aktivierung unten traegt den Hook nur noch AUS
+  # `settings.json` aus; `webSperre` und der Zweig `web-sperre` bleiben stehen,
+  # damit ein Zurueck eine Zeile ist (`+ [$web]`).
+  webSperre = builtins.toJSON {
+    matcher = "WebFetch|WebSearch|mcp__firecrawl__.*";
+    hooks = [
+      {
+        type = "command";
+        command = "/run/current-system/sw/bin/claude-riegel web-sperre";
+        timeout = 5;
+      }
+    ];
+  };
+
+  # Audit 4: Werkzeuge, die in KEINER Sitzung laufen sollen - `permissions.deny`
+  # gilt auch im Bypass-Modus und ist nicht fail-open wie ein Hook. Exakte
+  # Werkzeugnamen, gelesen an den Werkzeuglisten der ausgerollten Server
+  # (Audit 4, MC.md MC-1); ein neues Werkzeug derselben Art faellt NICHT von
+  # selbst darunter.
+  denyListe =
+    # B173: `elster_ustva_confirm` klickt "Absenden" - nicht rueckholbar.
+    [ "mcp__elster__elster_ustva_confirm" ]
+    # B241: firecrawl-Monitore mit webhookUrl/email sind ein dauerhafter
+    # Abfluss; interact und agent fuehren fremden Code bzw. eigene Recherche aus.
+    ++ map (w: "mcp__firecrawl__firecrawl_${w}") [
+      "monitor_create" "monitor_update" "monitor_delete" "monitor_run"
+      "interact" "agent"
+    ]
+    # B240: die schreibenden git-Werkzeuge gehen an den Bash-Riegeln vorbei
+    # (`git_add ["."]` an block-git-add-alles); git ueber Bash hat sie.
+    ++ map (w: "mcp__git__git_${w}") [
+      "add" "commit" "reset" "checkout" "create_branch"
+    ]
+    # B164 (2026-10-15) sperrte alles, was in Paperless schreibt, loescht,
+    # Konten/Freigaben/Mailkonten/Ablaeufe anlegt oder Dokumente hinausschickt.
+    # Seit 2026-10-22 auf Achims ausdruecklichen Wunsch AUFGEHOBEN: Die
+    # Steuerarbeit braucht Bearbeiten, Umtaggen, Notizen, Loeschen, Hochladen
+    # und das Anlegen von Schlagworten/Korrespondenten aus der Sitzung heraus;
+    # er traegt das Risiko, dass ein Dokument mit eingebetteter Anweisung ueber
+    # den OCR-Text Freigaben oder Konten anlegt. Einzige verbliebene Sperre:
+    # den Papierkorb leeren - der einzige Schritt ohne Rueckweg (Loeschen
+    # landet im Papierkorb, Paperless behaelt es dort 30 Tage).
+    ++ map (w: "mcp__paperless__${w}") [ "trash_action" ];
+  deny = builtins.toJSON denyListe;
 in
 {
   environment.systemPackages = [ riegel regeln ];
@@ -160,13 +231,16 @@ in
         fi
         neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
         if ${pkgs.jq}/bin/jq --argjson parse ${lib.escapeShellArg nixParse} --argjson roh ${lib.escapeShellArg jsonRoh} \
-              --argjson regelnBash ${lib.escapeShellArg regelnBash} --argjson regelnPrompt ${lib.escapeShellArg regelnPrompt} '
+              --argjson regelnBash ${lib.escapeShellArg regelnBash} --argjson regelnPrompt ${lib.escapeShellArg regelnPrompt} \
+              --argjson web ${lib.escapeShellArg webSperre} --argjson deny ${lib.escapeShellArg deny} '
               def ohne($e; $muster): ((.hooks[$e] // [])
                 | map(select(((.hooks // []) | any((.command // "") | test($muster))) | not)));
               .hooks.PostToolUse = (ohne("PostToolUse"; "claude-riegel nix-parse") + [$parse])
               | .hooks.PreToolUse = (ohne("PreToolUse"; "claude-riegel json-roh") + [$roh])
               | .hooks.PreToolUse = (ohne("PreToolUse"; "claude-regeln hook") + [$regelnBash])
               | .hooks.UserPromptSubmit = (ohne("UserPromptSubmit"; "claude-regeln hook") + [$regelnPrompt])
+              | .hooks.PreToolUse = ohne("PreToolUse"; "claude-riegel web-sperre")
+              | .permissions.deny = (((.permissions.deny // []) + $deny) | unique)
             ' "$datei" > "$neu"; then
           run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
           run ${pkgs.coreutils}/bin/mv "$neu" "$datei"

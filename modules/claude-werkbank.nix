@@ -10,7 +10,7 @@
 # Der Weg: `env.CLAUDE_CODE_PLUGIN_DIRS` in ~/.claude/settings.json. Claude
 # Code liest die Variable aus dem `env`-Block der NUTZER-Einstellungen und
 # laedt jeden genannten Ordner wie ein `--plugin-dir`. Dieselbe Bauart wie
-# modules/claude-caveman.nix: Das Aktivierungsskript setzt genau einen
+# modules/claude-obsidian.nix: Das Aktivierungsskript setzt genau einen
 # Schluessel, idempotent; fremde Ordner in der Liste bleiben stehen, und eine
 # Datei, die kein gueltiges JSON ist, fasst es nicht an.
 #

@@ -3,7 +3,8 @@
 #
 # WARUM NICHT DAS PLUGIN `github@claude-plugins-official`: Dessen .mcp.json
 # setzt `Authorization: Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}`. Die Variable
-# gibt es hier nicht (nushell exportiert GH_TOKEN, home.nix), der Kopf wird zu
+# gibt es hier nicht (seit Audit 4, B163, auch kein GH_TOKEN mehr: `gh` liest
+# sein Token je Aufruf, home.nix `ghMitToken`), der Kopf wird zu
 # `Bearer ` und der Server antwortet beim Start jeder Sitzung mit
 # „Authorization header is badly formatted" (2026-09-28 gemessen). Die Datei
 # liegt im Plugin-Cache und wird bei jedem Update ueberschrieben — dort ist
