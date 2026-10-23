@@ -8,3 +8,6 @@ secrets/*.plaintext
 
 # Von Claude Code erzeugte Typen je Mod (schreibt die Engine beim Laden)
 mods/*/.claude-plugin/types/
+
+# Python-Bytecode (entsteht beim lokalen Ausführen von Skripten wie vr-monitore.py)
+__pycache__/
