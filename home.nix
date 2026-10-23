@@ -29,6 +29,7 @@ in
   imports = [
     ./modules/home/gnome-settings.nix
     ./modules/home/keyboard-layout-auto.nix
+    ./modules/home/moonfin.nix
     ./modules/home/neovim.nix
     ./modules/home/obsidian.nix
     ./modules/home/sway.nix
@@ -47,7 +48,6 @@ in
     remotes = [
       {
         name = "flathub";
-    ./modules/home/moonfin.nix
         location = "https://dl.flathub.org/repo/flathub.flatpakrepo";
       }
     ];
@@ -268,6 +268,7 @@ in
     amberol
     delfin # Vorhandener Jellyfin-Client
     jellyfin-media-player # Neu hinzugefügt
+    # moonfin - eigenes Paket, Server vorbelegt (modules/home/moonfin.nix)
     # feishin - via Firejail in modules/network.nix (Server-Vorgaben dort)
     kodi # Neu hinzugefügt (Plugin-Installation erfolgt in Kodi)
     libva-utils
@@ -286,7 +287,6 @@ in
     apostrophe # Markdown-Editor für GNOME
     # logseq - via Firejail in modules/network.nix
     # obsidian - via Firejail in modules/network.nix (Plugins: modules/home/obsidian.nix)
-    # moonfin - eigenes Paket, Server vorbelegt (modules/home/moonfin.nix)
 
     # --- RUST ENTWICKLUNG ---
     # Deklarative Rust-Toolchain aus unstable (Rust 1.92+)
