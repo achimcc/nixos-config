@@ -167,8 +167,11 @@ stdenv.mkDerivation rec {
   # Upstreams Startskript (moonfin) prüft nur per ldd, ob Bibliotheken fehlen;
   # das ersetzt der Wrapper. LD_LIBRARY_PATH: Dart lädt sqlite und libmpv per
   # dlopen über den Namen, nicht über den RUNPATH.
+  # makeShellWrapper statt makeWrapper: wrapGAppsHook3 zieht makeBinaryWrapper
+  # herein, dann ist makeWrapper der C-Wrapper, und der kennt kein --run
+  # ("makeCWrapper: Unknown argument --run", nrs am 2026-10-23).
   postFixup = ''
-    makeWrapper $out/lib/moonfin/moonfin-bin $out/bin/moonfin \
+    makeShellWrapper $out/lib/moonfin/moonfin-bin $out/bin/moonfin \
       "''${gappsWrapperArgs[@]}" \
       --prefix LD_LIBRARY_PATH : "$out/lib/moonfin/lib:${lib.makeLibraryPath [ (lib.getLib mpv-unwrapped) libGL vulkan-loader libva ]}" \
       --prefix PATH : "${lib.makeBinPath [ xdg-utils ]}" \
