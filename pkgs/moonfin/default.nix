@@ -44,7 +44,59 @@
 , libpulseaudio
 , alsa-lib
 , xdg-utils
+, writeShellScript
+, curl
+, jq
+, coreutils
+  # Server, den der Start in Moonfins Serverliste einträgt, falls er fehlt
+  # (z. B. "https://jellyfin.example.org"); null = keine Vorgabe.
+, serverUrl ? null
 }:
+
+let
+  # Moonfin hält seine Serverliste als JSON-Zeichenkette unter
+  # `authentication_store_json` in shared_preferences (lib/auth/store/
+  # authentication_store.dart, Format-Version 2), Schlüssel jedes Eintrags ist
+  # die Server-ID von Jellyfin. Die ID steht nicht im Repo, sondern wird beim
+  # Start von /System/Info/Public geholt — nur wenn der Eintrag fehlt. Ohne
+  # Netz (Kill-Switch) startet Moonfin einfach ohne Vorgabe; kein Abbruch.
+  # Vorhandene Einträge und Anmeldungen bleiben unberührt.
+  serverEintragen = writeShellScript "moonfin-server-eintragen" ''
+    set -u
+    PATH=${lib.makeBinPath [ coreutils ]}:$PATH
+    adresse=${lib.escapeShellArg serverUrl}
+    prefs="''${XDG_DATA_HOME:-$HOME/.local/share}/org.moonfin.linux/shared_preferences.json"
+    jq=${lib.getExe jq}
+
+    if [ -s "$prefs" ] && "$jq" -e --arg a "$adresse" '
+        (.["flutter.authentication_store_json"] // "{}" | fromjson | .servers // {})
+        | to_entries | any(.value.address | rtrimstr("/") == ($a | rtrimstr("/")))
+      ' "$prefs" >/dev/null 2>&1; then
+      exit 0
+    fi
+
+    info=$(${lib.getExe curl} -sf --max-time 5 "$adresse/System/Info/Public") || {
+      echo "moonfin: $adresse nicht erreichbar, Server nicht vorbelegt" >&2
+      exit 0
+    }
+
+    mkdir -p "$(dirname "$prefs")"
+    [ -s "$prefs" ] || echo '{}' > "$prefs"
+    jetzt=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
+    neu=$("$jq" --arg a "$adresse" --arg t "$jetzt" --argjson info "$info" '
+      .["flutter.authentication_store_json"] |= (
+        (. // "" | try fromjson catch null) as $s
+        | (if $s != null and $s.version == 2 then $s else { version: 2, servers: {} } end)
+        | .servers[$info.Id] = {
+            name: $info.ServerName, address: $a, version: $info.Version,
+            serverType: "jellyfin", loginDisclaimer: null,
+            splashscreenEnabled: false, setupCompleted: true,
+            dateAdded: $t, dateLastAccessed: $t
+          }
+        | tojson)
+    ' "$prefs") && printf '%s\n' "$neu" > "$prefs.neu" && mv "$prefs.neu" "$prefs"
+  '';
+in
 
 stdenv.mkDerivation rec {
   pname = "moonfin";
@@ -119,7 +171,8 @@ stdenv.mkDerivation rec {
     makeWrapper $out/lib/moonfin/moonfin-bin $out/bin/moonfin \
       "''${gappsWrapperArgs[@]}" \
       --prefix LD_LIBRARY_PATH : "$out/lib/moonfin/lib:${lib.makeLibraryPath [ (lib.getLib mpv-unwrapped) libGL vulkan-loader libva ]}" \
-      --prefix PATH : "${lib.makeBinPath [ xdg-utils ]}"
+      --prefix PATH : "${lib.makeBinPath [ xdg-utils ]}" \
+      ${lib.optionalString (serverUrl != null) "--run ${serverEintragen}"}
   '';
 
   meta = {

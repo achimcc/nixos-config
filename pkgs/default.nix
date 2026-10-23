@@ -6,6 +6,7 @@
   hs-riegel = pkgs.callPackage ./hs-riegel { };
   elster-mcp-server = pkgs.callPackage ./elster-mcp-server { };
   paperless-ngx-mcp = pkgs.callPackage ./paperless-ngx-mcp { };
+  moonfin = pkgs.callPackage ./moonfin { };
 
   # WiVRn auf 26.6.2 festgehalten (2026-10-12) - dieselbe Version wie vr-01 auf
   # dem Homeserver, damit EIN Client auf der Quest beide Server bedient.

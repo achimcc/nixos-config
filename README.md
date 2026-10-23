@@ -676,6 +676,7 @@ nrs  → Skript: sudo -v (FIDO2-PIN sofort), dann nixos-rebuild switch --flake .
 
 - **Spotify**: Musik-Streaming (Firejail)
 - **Feishin**: Musik-Client für den eigenen Koel (Firejail, Subsonic-Schnittstelle) -- Server-Typ, -Name und -URL sind über `SERVER_*` im Wrapper vorbelegt und gesperrt; Anmeldung einmalig in der App. Die App-Einstellungen selbst (MPRIS, Tray, Wiedergabe-Engine) liegen im Renderer-Speicher und sind nicht deklarierbar
+- **Moonfin**: Jellyfin-Client für den eigenen Jellyfin (`modules/home/moonfin.nix`, Paket `pkgs/moonfin`: Release-Bau von upstream, Bibliotheken aus nixpkgs) -- `https://jellyfin.rusty-vault.de` wird beim Start in die Serverliste eingetragen, falls er fehlt (braucht beim ersten Start VPN); Anmeldung einmalig in der App
 - **Amberol**: GNOME Musik-Player für lokale Audiodateien
 - **Shortwave**: Internet-Radio (radio-browser.info)
 - **Celluloid**: GTK-Frontend für mpv (Video)
