@@ -1740,6 +1740,25 @@ in
       #
       # Gelesen wird die Datei beim START — nach dem Ausrollen muss
       # LibreWolf einmal geschlossen und neu geoeffnet werden.
+      # --- Die eigenen Dienste behalten ihre Cookies (2026-10-24) -----------
+      #
+      # LibreWolf loescht beim Beenden Cookies und Speicher ALLER Seiten:
+      # `privacy.clearOnShutdown_v2.cookiesAndStorage = true` ab Werk
+      # (`browser/omni.ja`, 158.0-1). Die Schalter `privacy.clearOnShutdown.*`
+      # weiter oben tragen die ALTEN Namen und wirken seit der Umstellung auf
+      # `_v2` (Firefox 128) nicht mehr — das Profil ist migriert
+      # (`privacy.sanitize.cpd.hasMigratedToNewPrefs3`). Folge: Nach jedem
+      # Neustart war die Authentik-Sitzung weg, und Stasharr bekam von `lager`
+      # nur 302 zur Anmeldung („Scene not found", Caddy-Log 2026-10-24).
+      #
+      # Achims Wahl: nur die eigene Domain ausnehmen, alles andere wird
+      # weiter geloescht. Eine Cookie-Berechtigung gilt fuer die Domain samt
+      # Subdomains (auth., lager., archiv. …).
+      Cookies = {
+        Allow = [ "https://rusty-vault.de" ];
+        Locked = false;
+      };
+
       SearchEngines.Add = [
         {
           Name = "Karakeep";
