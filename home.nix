@@ -1538,7 +1538,14 @@ in
       "privacy.resistFingerprinting.letterboxing" = true; # Fenster-Größe normalisieren
       "privacy.resistFingerprinting.block_mozAddonManager" = true;
       "privacy.spoof_english" = 2; # Englisch vortäuschen (häufigste Sprache)
-      "privacy.firstparty.isolate" = true; # Strikte Cookie-Isolation
+      # AUS seit 2026-10-24 (Achim): Die strikte First-Party-Isolation trennte
+      # auch die Anfragen von Violentmonkey (Userscript Stasharr) von der
+      # Authentik-Sitzung — jede Anfrage an `lager` endete mit 302 zur
+      # Anmeldung, gemessen im Caddy-Log. Ohne sie, mit Total Cookie
+      # Protection (`cookieBehavior = 5` unten), gingen dieselben Anfragen mit
+      # 200 durch. Cookies von Drittseiten bleiben je Seite getrennt; das ist
+      # Firefoxs heutige Isolation, FPI die aeltere aus dem Tor-Browser.
+      "privacy.firstparty.isolate" = false;
       "privacy.trackingprotection.fingerprinting.enabled" = true;
       "privacy.trackingprotection.cryptomining.enabled" = true;
       "privacy.trackingprotection.enabled" = true;
@@ -1750,6 +1757,29 @@ in
           installation_mode = "force_installed";
           install_url = "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi";
           granted_optional_permissions = [ "nativeMessaging" ];
+        };
+        # Violentmonkey (MIT) fuer das Userscript Stasharr: auf stashdb.org
+        # Szenen per Knopf an Whisparr (`lager`), Anzeige „schon in Stash"
+        # (`archiv`). Achim, 2026-10-24 (homeserver
+        # `docs/2026-10-24-velvarr-alternativen-ideen.md` Nr. 1).
+        #
+        # DAS USERSCRIPT, NICHT DIE STASHARR-ERWEITERUNG: Die Erweiterung
+        # ruft `fetch` ohne `credentials` (`src/background/http.ts`, Zweig
+        # `extension`) — aus dem Hintergrundskript gehen damit keine Cookies
+        # mit, und Authentiks Forward-Auth vor `lager` leitet jede Anfrage auf
+        # die Anmeldung um. Das Userscript nimmt `GM_xmlhttpRequest` ohne
+        # `anonymous` (v2.11.6, gelesen 2026-10-24); der Manager schickt die
+        # Sitzungs-Cookies der Zieladresse mit, eine Ausnahme an der
+        # Forward-Auth braucht es nicht.
+        #
+        # Das Skript selbst installiert ein Klick auf
+        # https://github.com/enymawse/stasharr/releases/latest/download/stasharr.user.js
+        # (Violentmonkey kennt keine Policy fuer Skripte), danach aktualisiert
+        # es sich ueber `@updateURL`. Whisparr-Adresse und API-Schluessel
+        # traegt man einmal im Menue des Skripts ein.
+        "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}" = {
+          installation_mode = "force_installed";
+          install_url = "https://addons.mozilla.org/firefox/downloads/latest/violentmonkey/latest.xpi";
         };
       };
     };
