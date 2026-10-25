@@ -31,14 +31,25 @@ let
     "securing-ai-systems"
     "vetting-agent-extensions"
   ];
+
+  # Eigene Skills dieses Repos, unter modules/claude-skills/eigene/<name>.
+  # speicherplatz-freigeben: aus der Plattenanalyse vom 2026-10-25 (94 % belegt).
+  eigene = [
+    "speicherplatz-freigeben"
+  ];
+
+  verweise = dir: names: map
+    (name: {
+      name = ".claude/skills/${name}";
+      value.source = dir + "/${name}";
+    })
+    names;
 in
 {
   home-manager.users.${id.username} = {
     home.file = lib.listToAttrs (
-      map (name: {
-        name = ".claude/skills/${name}";
-        value.source = ./claude-skills/secskills + "/${name}";
-      }) secskills
+      verweise ./claude-skills/secskills secskills
+      ++ verweise ./claude-skills/eigene eigene
     );
   };
 }
