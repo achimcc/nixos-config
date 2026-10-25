@@ -48,7 +48,27 @@ let
   # `installCheckPhase`, nicht `checkPhase`: buildPythonApplication benennt
   # das um (an der Derivation gemessen: doCheck leer, doInstallCheck = 1) —
   # ein überschriebenes `checkPhase` liefe nie.
-  mcp-nixos = inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (_: {
+  #
+  # ENDLOSREKURSION seit nixpkgs 3ec6363 (flake.lock vom 2026-10-25): nixpkgs
+  # fuehrt jetzt selbst mcp 2.2.0 und mcp-types, und mcp-types holt seine
+  # Version per `inherit (mcp) version` aus dem ENDSTAND des Pakets. Die
+  # fastmcp4-Erweiterung von mcp-nixos v3.1.0 (nix/fastmcp4.nix, `keepMcp`)
+  # entscheidet ueber `mcp` aber gerade anhand von `pyPrev.mcp-types.version`
+  # — die Version haengt also an sich selbst ("infinite recursion encountered"
+  # in mcp-types/default.nix:17). Abhilfe: In einem Scope NUR fuer mcp-nixos
+  # bekommt mcp-types das `mcp` der Vorstufe; dessen Version ist ein Literal.
+  # Damit gilt keepMcp, und mcp-nixos nimmt mcp 2.2.0 aus nixpkgs. Gebaut
+  # wird ueber `lib.mkMcpNixos` mit dem System-pkgs statt ueber
+  # `packages.default`, das ein eigenes nixpkgs samt set-weitem Overlay
+  # auswertet. Entfernen, sobald upstream keepMcp ohne mcp-types entscheidet.
+  pythonFuerMcpNixos = pkgs.python3Packages.overrideScope (_: pyprev: {
+    mcp-types = pyprev.mcp-types.override { mcp = pyprev.mcp; };
+  });
+
+  mcp-nixos = (inputs.mcp-nixos.lib.mkMcpNixos {
+    inherit pkgs;
+    python3Packages = pythonFuerMcpNixos;
+  }).overrideAttrs (_: {
     installCheckPhase = ''
       pytest tests/ -m unit \
         --deselect tests/test_env_file_safety.py::test_startup_survives_non_utf8_dotenv
