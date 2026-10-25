@@ -78,13 +78,13 @@ let
     dontBuild = true;
     installPhase = ''
       runHook preInstall
-      mkdir -p $out/bin $out/skill
+      mkdir -p $out/bin $out/share/claude-skills/stock-analyzer
       for skript in analyze-stock analyze-value analyze-earnings; do
         { echo "#!${pythonAnalyzer}/bin/python3"; tail -n +2 "$skript"; } > "$out/bin/$skript"
         chmod +x "$out/bin/$skript"
       done
-      cp SKILL.md METHODOLOGY.md $out/skill/
-      substituteInPlace $out/skill/SKILL.md \
+      cp SKILL.md METHODOLOGY.md $out/share/claude-skills/stock-analyzer/
+      substituteInPlace $out/share/claude-skills/stock-analyzer/SKILL.md \
         --replace-fail '# 确保依赖已安装' '# Bereits per Nix installiert (~/nixos-config/modules/claude-aktien-skills.nix):' \
         --replace-fail 'pip install yahooquery' '# analyze-stock, analyze-value und analyze-earnings stehen im PATH, yahooquery ist dabei.' \
         --replace-fail '# 添加到 PATH' '# Kein pip, kein PATH-Eintrag noetig.' \
@@ -136,7 +136,7 @@ let
     dontBuild = true;
     installPhase = ''
       runHook preInstall
-      mkdir -p $out/bin $out/share/stock-analysis $out/skill
+      mkdir -p $out/bin $out/share/stock-analysis $out/share/claude-skills/stock-analysis
       # Beide Dateien in EIN Verzeichnis: analyze_stock.py importiert
       # `portfolio` aus dem eigenen Ordner.
       cp scripts/analyze_stock.py scripts/portfolio.py $out/share/stock-analysis/
@@ -146,8 +146,8 @@ let
       makeWrapper ${pythonAnalysis}/bin/python3 $out/bin/stock-portfolio \
         --add-flags $out/share/stock-analysis/portfolio.py \
         --run ${lib.escapeShellArg zustand}
-      cp SKILL.md $out/skill/
-      substituteInPlace $out/skill/SKILL.md \
+      cp SKILL.md $out/share/claude-skills/stock-analysis/
+      substituteInPlace $out/share/claude-skills/stock-analysis/SKILL.md \
         --replace-fail 'metadata: {"clawdbot":{"emoji":"📈","requires":{"bins":["uv"],"env":[]},"install":[{"id":"uv-brew","kind":"brew","formula":"uv","bins":["uv"],"label":"Install uv (brew)"}]}}' "" \
         --replace-fail 'uv run {baseDir}/scripts/analyze_stock.py' 'stock-analysis' \
         --replace-fail 'uv run {baseDir}/scripts/portfolio.py' 'stock-portfolio' \
@@ -187,8 +187,8 @@ in
         stockAnalyzer
         stockAnalysis
       ];
-      home.file.".claude/skills/stock-analyzer".source = "${stockAnalyzer}/skill";
-      home.file.".claude/skills/stock-analysis".source = "${stockAnalysis}/skill";
+      home.file.".claude/skills/stock-analyzer".source = "${stockAnalyzer}/share/claude-skills/stock-analyzer";
+      home.file.".claude/skills/stock-analysis".source = "${stockAnalysis}/share/claude-skills/stock-analysis";
 
       # Nach claudeOfficialPlugins, das den alten Marktplatz-Eintrag abraeumt.
       home.activation.claudeUsStockAnalysis = lib.hm.dag.entryAfter [ "writeBoundary" "claudeOfficialPlugins" ] ''
