@@ -34,6 +34,7 @@
     # claude-caveman.nix entfernt (Audit 4, B175); eigene Skill-Kopien (B235):
     ./modules/claude-skills.nix
     ./modules/claude-aktien-skills.nix
+    ./modules/claude-context-diet.nix
     ./modules/claude-graphify.nix
     ./modules/claude-werkbank.nix
     ./modules/claude-savvy.nix

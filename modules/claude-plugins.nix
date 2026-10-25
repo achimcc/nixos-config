@@ -24,7 +24,8 @@
 # claude-obsidian (modules/claude-obsidian.nix, Rev und Hash), savvy
 # (modules/claude-savvy.nix), werkbank (eigen), graphify (nixpkgs) und die
 # acht gebrauchten secskills als eigene Kopie (modules/claude-skills.nix, B235),
-# us-stock-analysis (modules/claude-aktien-skills.nix, seit 2026-10-25).
+# us-stock-analysis (modules/claude-aktien-skills.nix) und context-diet
+# (modules/claude-context-diet.nix), beide seit 2026-10-25.
 #
 # Die offiziellen Plugins holt Claude Code weiter selbst aus Anthropics
 # Marktplatz und haelt sie aktuell; deren Review und Pins auf externe Repos
@@ -118,6 +119,8 @@ let
     "claude-obsidian@agricidaniel-claude-obsidian"
     # 2026-10-25: gepinnt in modules/claude-aktien-skills.nix
     "us-stock-analysis@invest-skill"
+    # 2026-10-25: gepinnt in modules/claude-context-diet.nix
+    "context-diet@context-diet"
   ];
 
   # Marktplaetze von Dritten, die ganz verschwinden (E-2: 6 -> 0).
@@ -132,6 +135,7 @@ let
     # claude-for-financial-services (nie ein Plugin daraus installiert).
     "invest-skill"
     "claude-for-financial-services"
+    "context-diet" # 2026-10-25, Plugin jetzt gepinnt
   ];
 
   anVoll = map (p: "${p}@claude-plugins-official") an;
