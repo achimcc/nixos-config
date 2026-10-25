@@ -156,14 +156,70 @@ let
       runHook postInstall
     '';
   };
+  # --- us-stock-analysis (Plugin) ----------------------------------------------
+  #
+  # github.com/yennanliu/InvestSkill, Unterordner plugins/us-stock-analysis,
+  # Fassung 1.14.0, MIT. Bis 2026-10-25 von Hand per `/plugin install
+  # us-stock-analysis@invest-skill` aus einem fremden Marktplatz — den raeumt
+  # modules/claude-plugins.nix jetzt ab (`entfernen`, `marktplaetzeWeg`), und
+  # ohne diesen Eintrag schaltete jeder Rebuild das Plugin aus (B232).
+  # Bauart wie modules/claude-savvy.nix: gepinnt, schreibbare Kopie unter
+  # ~/.local/share/claude-mods/, eingebunden ueber CLAUDE_CODE_PLUGIN_DIRS.
+  # GELESEN 2026-10-25 (der Baum ist gleich dem bis dahin installierten
+  # Marktplatz-Cache): 38 Skills, NUR SKILL.md — keine Hooks, kein MCP, keine
+  # Skripte, kein `allowed-tools`, keine Anweisung zum Abruf von URLs. Links
+  # nur auf die Doku des Autors (yennanliu.github.io) und SEC; die HTML-Vorlage
+  # in report-generator laedt chart.js und Google Fonts von CDNs — das betrifft
+  # erzeugte Berichte, wenn man sie im Browser oeffnet, nicht die Sitzung.
+  # Kosten: 38 Skills mehr in jeder Sitzung. Wer den Rev hebt, liest den Diff.
+  quelleInvest = pkgs.fetchFromGitHub {
+    owner = "yennanliu";
+    repo = "InvestSkill";
+    rev = "cba40eebdfcca95f0ccbde7afadd96014dfe685d";
+    hash = "sha256-VSlJjWZltVPzA/TU/xgokE40Pabm7ZV1cohYnhkFsFs=";
+  };
 in
 {
-  home-manager.users.${id.username} = {
-    home.packages = [
-      stockAnalyzer
-      stockAnalysis
-    ];
-    home.file.".claude/skills/stock-analyzer".source = "${stockAnalyzer}/skill";
-    home.file.".claude/skills/stock-analysis".source = "${stockAnalysis}/skill";
-  };
+  home-manager.users.${id.username} =
+    { lib, ... }:
+    {
+      home.packages = [
+        stockAnalyzer
+        stockAnalysis
+      ];
+      home.file.".claude/skills/stock-analyzer".source = "${stockAnalyzer}/skill";
+      home.file.".claude/skills/stock-analysis".source = "${stockAnalysis}/skill";
+
+      # Nach claudeOfficialPlugins, das den alten Marktplatz-Eintrag abraeumt.
+      home.activation.claudeUsStockAnalysis = lib.hm.dag.entryAfter [ "writeBoundary" "claudeOfficialPlugins" ] ''
+        datei="$HOME/.claude/settings.json"
+        basis="$HOME/.local/share/claude-mods"
+        ziel="$basis/us-stock-analysis"
+        marke="$basis/us-stock-analysis.quelle"
+        if [ ! -e "$datei" ]; then
+          run mkdir -p "$HOME/.claude"
+          run sh -c 'printf "{}\n" > "$1"' _ "$datei"
+        fi
+        if [ "$(${pkgs.coreutils}/bin/cat "$marke" 2>/dev/null || true)" != "${quelleInvest}" ] \
+          || [ ! -e "$ziel/.claude-plugin/plugin.json" ]; then
+          run ${pkgs.coreutils}/bin/mkdir -p "$basis"
+          run ${pkgs.coreutils}/bin/rm -rf "$ziel"
+          run ${pkgs.coreutils}/bin/cp -r --no-preserve=mode,ownership "${quelleInvest}/plugins/us-stock-analysis" "$ziel"
+          run sh -c 'printf "%s\n" "$1" > "$2"' _ "${quelleInvest}" "$marke"
+        fi
+        neu="$(${pkgs.coreutils}/bin/mktemp "$datei.XXXXXX")"
+        if ${pkgs.jq}/bin/jq --arg ziel "$ziel" '
+              .env.CLAUDE_CODE_PLUGIN_DIRS = (
+                ((.env.CLAUDE_CODE_PLUGIN_DIRS // "") | split(":") | map(select(length > 0)))
+                + [ $ziel ] | unique | join(":")
+              )
+            ' "$datei" > "$neu"; then
+          run ${pkgs.coreutils}/bin/chmod --reference="$datei" "$neu"
+          run ${pkgs.coreutils}/bin/mv "$neu" "$datei"
+        else
+          ${pkgs.coreutils}/bin/rm -f "$neu"
+          echo "us-stock-analysis: $datei ist kein gueltiges JSON — der Eintrag wurde NICHT gesetzt." >&2
+        fi
+      '';
+    };
 }

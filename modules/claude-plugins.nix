@@ -23,7 +23,8 @@
 # Was von Dritten bleibt, laeuft GEPINNT ausserhalb des Marktplatzes:
 # claude-obsidian (modules/claude-obsidian.nix, Rev und Hash), savvy
 # (modules/claude-savvy.nix), werkbank (eigen), graphify (nixpkgs) und die
-# acht gebrauchten secskills als eigene Kopie (modules/claude-skills.nix, B235).
+# acht gebrauchten secskills als eigene Kopie (modules/claude-skills.nix, B235),
+# us-stock-analysis (modules/claude-aktien-skills.nix, seit 2026-10-25).
 #
 # Die offiziellen Plugins holt Claude Code weiter selbst aus Anthropics
 # Marktplatz und haelt sie aktuell; deren Review und Pins auf externe Repos
@@ -115,6 +116,8 @@ let
     "agentic-actions-auditor@trailofbits"
     "secskills-core@secskills-marketplace"
     "claude-obsidian@agricidaniel-claude-obsidian"
+    # 2026-10-25: gepinnt in modules/claude-aktien-skills.nix
+    "us-stock-analysis@invest-skill"
   ];
 
   # Marktplaetze von Dritten, die ganz verschwinden (E-2: 6 -> 0).
@@ -125,6 +128,10 @@ let
     "secskills-marketplace"
     "agricidaniel-claude-obsidian"
     "superpowers-marketplace"
+    # 2026-10-25 von Hand hinzugefuegt: invest-skill (Plugin jetzt gepinnt),
+    # claude-for-financial-services (nie ein Plugin daraus installiert).
+    "invest-skill"
+    "claude-for-financial-services"
   ];
 
   anVoll = map (p: "${p}@claude-plugins-official") an;
