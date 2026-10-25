@@ -33,7 +33,24 @@
 { pkgs, id, ... }:
 
 let
+  # FASSUNG GEHOBEN 2026-10-25: nixpkgs 3ec6363 fuehrt mcp 2.2.0, sein
+  # mcp-server-git 2026.8.31 verlangt aber `mcp<2` (pythonRuntimeDepsCheck rot)
+  # und benutzt die Dekorator-API (`@server.list_tools()`), die es in mcp 2
+  # nicht mehr gibt — `pythonRelaxDeps` braeche zur Laufzeit. Upstream ist seit
+  # 15c8b0c6 auf mcp 2 portiert; 2026.10.18 (38fdee2402) verlangt `mcp>=2.2`,
+  # das naechste (2026.10.19) schon >=2.3. Neu dabei: jsonschema, und die
+  # Tests laufen mit pytest-asyncio. Die Patch-Zeile steht dort unveraendert
+  # (server.py:217). Zurueck auf das nixpkgs-Paket, sobald es >= 2026.10.18 ist.
   mcp-server-git = pkgs.mcp-server-git.overridePythonAttrs (alt: {
+    version = "2026.10.18";
+    src = pkgs.fetchFromGitHub {
+      owner = "modelcontextprotocol";
+      repo = "servers";
+      rev = "38fdee2402c6f30592aefe700f276814c86b2eeb";
+      hash = "sha256-ZiylSx6Gl4d02ukojjT0V+5stfBJ9E9daJwNu3sMpMg=";
+    };
+    dependencies = (alt.dependencies or [ ]) ++ [ pkgs.python3Packages.jsonschema ];
+    nativeCheckInputs = (alt.nativeCheckInputs or [ ]) ++ [ pkgs.python3Packages.pytest-asyncio ];
     postPatch = (alt.postPatch or "") + ''
       substituteInPlace src/mcp_server_git/server.py \
         --replace-fail 'commit = repo.index.commit(message)' \
