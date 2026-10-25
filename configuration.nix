@@ -37,6 +37,7 @@
     ./modules/claude-context-diet.nix
     ./modules/claude-graphify.nix
     ./modules/claude-werkbank.nix
+    ./modules/claude-nixd-lsp.nix
     ./modules/claude-savvy.nix
     ./modules/mcp-github.nix
     ./modules/claude-riegel.nix
