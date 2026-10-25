@@ -8,7 +8,17 @@ T=${T:-240}            # Sekunden je Messung
 P=${PROJECTS:-$HOME/Projects}
 
 abschnitt() { printf '\n========== %s ==========\n' "$1"; }
-groesse() { timeout "$T" du -xsh "$@" 2>/dev/null | sort -rh; }
+
+# Je Pfad ein eigenes du mit eigener Zeitgrenze: ein einziges du ueber alle
+# brach am 2026-10-25 unter Last mittendrin ab und liess .local und .config
+# stillschweigend aus. Wer die Grenze reisst, steht als "> Zeitgrenze" da.
+groesse() {
+  local p
+  for p in "$@"; do
+    [ -e "$p" ] || continue
+    timeout "$T" du -xsh "$p" 2>/dev/null || printf '>%ss\t%s (Zeitgrenze)\n' "$T" "$p"
+  done | sort -rh
+}
 
 abschnitt "Dateisystem"
 df -h -x tmpfs -x devtmpfs -x efivarfs -x fuse.sshfs
@@ -17,7 +27,7 @@ abschnitt "Laeufe (lotse status)"
 command -v lotse >/dev/null && lotse status 2>&1 | head -20 || echo "lotse fehlt im PATH"
 
 abschnitt "Home, oberste Ebene"
-timeout "$T" du -xh --max-depth=1 "$HOME" 2>/dev/null | sort -rh | head -25
+groesse "$HOME"/* "$HOME"/.[!.]* | head -25
 
 abschnitt "Caches"
 groesse "$HOME"/.cache/* "$HOME"/.npm/_cacache "$HOME"/.cargo/registry \
@@ -48,8 +58,7 @@ ls -ld --time-style=+%F /nix/var/nix/profiles/system-*-link 2>/dev/null | awk '{
 abschnitt "Nix: GC-Wurzeln nach Herkunft"
 timeout "$T" nix-store --gc --print-roots 2>/dev/null | grep -v '^/proc' | grep -v censored \
   | awk '{print $1}' | tr -d '"' \
-  | sed -E "s#^$HOME/Projects/([^/]+)/([^/]+)/.*#Projects/\1/* (\2…)#; s#^$HOME/Projects/([^/]+)/.*#Projects/\1#; s#^/tmp/claude-1000/.*#/tmp/claude-1000 (Scratchpads)#; s#^/tmp/.*#/tmp (sonstige)#; s#^/nix/var/nix/profiles/.*#Profile#; s#^$HOME/([^/]+).*#~/\1#" \
-  | sed -E 's#^(Projects/[^/]+)/\* \(.*#\1/* (Worktrees)#' \
+  | sed -E "s#^$HOME/Projects/([^/]+-worktrees)/.*#Projects/\1/*#; s#^$HOME/Projects/([^/]+)/.*#Projects/\1#; s#^/tmp/claude-1000/.*#/tmp/claude-1000 (Scratchpads)#; s#^/tmp/.*#/tmp (sonstige)#; s#^/nix/var/nix/profiles/.*#Profile#; s#^$HOME/([^/]+).*#~/\1#" \
   | sort | uniq -c | sort -rn | head -20
 
 abschnitt "Nix: tote Pfade (was nix-store --gc loeschen wuerde)"

@@ -83,7 +83,7 @@ ein `nix-collect-garbage` ohne vorheriges Abräumen der Wurzeln bringt wenig.
    root und damit den FIDO2-Stick — das macht der Nutzer selbst (Befehl unten). Die laufende
    und die Boot-Generation bleiben immer.
 6. `~/.cache/nix` (2,3 GB: Eval-Cache, Tarballs der Flake-Inputs) ist löschbar, die nächste
-   Auswertung dauert dann länger. `~/.local/share/nix/root` (9 GB) ist ein **Chroot-Store**
+   Auswertung dauert dann länger. `~/.local/share/nix/root` (am 2026-10-25 erst 9 GB, nach dem Aufräumen 0,8 GB) ist ein **Chroot-Store**
    eines Nix-Laufs ohne Zugriff auf `/nix` — erst klären, welches Werkzeug ihn angelegt hat
    (Datum, Inhalt von `root/nix/store`), dann löschen.
 
