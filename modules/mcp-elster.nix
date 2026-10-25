@@ -70,11 +70,17 @@
 # WAS MAN WISSEN MUSS: `elster_config_show` verdeckt nur das Passwort.
 # Steuernummer und Anschrift gibt es an das Modell zurueck, und die
 # Fortschrittsmeldungen der Sitzungen nennen die Steuernummer ebenfalls.
+#
+# ZWEITER SERVER ZUM TEST (2026-10-25): `elsterneu` startet den Fork
+# pkgs/elster-mcp-infraviored (Formulare per Kennzahl statt Klick) mit
+# denselben Secrets ueber `elster-mcp-sops-neu`. Beide Server stehen in der
+# .mcp.json; nach dem Test einen davon entfernen, nicht beide behalten.
+# Fuer `elsterneu` gibt es auf Achims Wunsch keine Sperre (claude-riegel.nix).
 { config, pkgs, id, ... }:
 
 let
-  wrapper = pkgs.writeShellApplication {
-    name = "elster-mcp-sops";
+  mkWrapper = name: server: pkgs.writeShellApplication {
+    inherit name;
     runtimeInputs = [ pkgs.jq pkgs.coreutils ];
     text = ''
       # Audit 4, B171: keine Sitzungsschluessel in der Umgebung des Servers (s. mcp-huelle.nix).
@@ -153,7 +159,7 @@ let
       # Im Hintergrund, damit TERM sofort ankommt und weitergereicht wird;
       # `<&0`, weil ein Hintergrundjob sonst /dev/null als stdin bekaeme - und
       # stdin ist der MCP-Kanal.
-      ${pkgs.elster-mcp-server}/bin/elster-mcp-server "$@" <&0 &
+      ${server}/bin/elster-mcp-server "$@" <&0 &
       kind=$!
       rc=0
       wait "$kind" || rc=$?
@@ -178,7 +184,10 @@ in
   sops.secrets."elster-passwort" = geheim;
   sops.secrets."elster-steuerpflichtiger" = geheim;
 
-  environment.systemPackages = [ wrapper ];
+  environment.systemPackages = [
+    (mkWrapper "elster-mcp-sops" pkgs.elster-mcp-server)
+    (mkWrapper "elster-mcp-sops-neu" pkgs.elster-mcp-infraviored)
+  ];
 
   home-manager.users.${id.username} =
     { lib, ... }:
@@ -190,6 +199,12 @@ in
             elster = {
               type = "stdio";
               command = "/run/current-system/sw/bin/elster-mcp-sops";
+              args = [ ];
+              env = { };
+            };
+            elsterneu = {
+              type = "stdio";
+              command = "/run/current-system/sw/bin/elster-mcp-sops-neu";
               args = [ ];
               env = { };
             };

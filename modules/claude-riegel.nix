@@ -194,6 +194,15 @@ let
   denyListe =
     # B173: `elster_ustva_confirm` klickt "Absenden" - nicht rueckholbar.
     [ "mcp__elster__elster_ustva_confirm" ]
+    # `elsterneu` (Fork pkgs/elster-mcp-infraviored, 2026-10-25): auf Achims
+    # ausdruecklichen Wunsch KEINE Sperre. Bekannt und hingenommen:
+    # form_handoff oeffnet ein sichtbares Chromium bis kurz vor „Absenden"
+    # (den Klick macht der Nutzer); form_new legt ein Formular an, ohne nach
+    # einem Entwurf zu fragen; edaten_fetch/datenuebernahme_list oeffnen
+    # jedesmal ein neues ESt-Formular und hinterlassen einen
+    # Wiederherstellungsstand; beleg_upload/form_attach laden Dateien ins
+    # ELSTER-Konto; submission_archive schreibt in ein frei waehlbares
+    # Verzeichnis. Verhaltensregeln dazu: ~/Dokumente/Steuer/CLAUDE.md.
     # B241: firecrawl-Monitore mit webhookUrl/email sind ein dauerhafter
     # Abfluss; interact und agent fuehren fremden Code bzw. eigene Recherche aus.
     ++ map (w: "mcp__firecrawl__firecrawl_${w}") [

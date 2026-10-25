@@ -48,6 +48,7 @@
     ./modules/mcp-git.nix
     ./modules/mcp-huelle.nix
     ./modules/vr-arbeit.nix
+    ./modules/tr-steuerdokumente.nix
   ];
 
   # ==========================================
