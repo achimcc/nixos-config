@@ -58,6 +58,18 @@
 #  - secskills-core (B235, E-7): 10 von 30 Skills wiesen an, URLs ueber
 #    defuddle.md zu holen; gebraucht wurden 8 — die liegen jetzt als eigene
 #    Kopie ohne diese Zeile unter modules/claude-skills/secskills/.
+#  - context-mode@context-mode (2026-10-25, von Hand installiert, am selben
+#    Tag verworfen): Hooks auf jedem Werkzeugaufruf, Prompt und Sitzungsstart
+#    (14 MB gebuendeltes JS), `npm install better-sqlite3` zur Laufzeit, und
+#    es REPARIERT SICH SELBST in fremde Dateien hinein: setzt sich in
+#    settings.json wieder auf eingeschaltet, schreibt installed_plugins.json
+#    und die Shell-Snapshots von Claude Code um und legt einen globalen
+#    SessionStart-Hook (~/.claude/hooks/context-mode-cache-heal.mjs) an, der
+#    auch ohne das Plugin weiterlaeuft — alles per nicht-atomarem
+#    writeFileSync. Gepinnt haette es sechs Patches gebraucht, die bei jedem
+#    Update neu zu pruefen waeren. Den Kern (grosse Ausgaben kuerzen) deckt
+#    context-diet ab (modules/claude-context-diet.nix). Was es hinterliess,
+#    raeumt die Aktivierung unten ab.
 #  - claude-obsidian@agricidaniel-claude-obsidian (B174): nicht weg, sondern
 #    gepinnt — die Marktplatz-Fassung wird durch die aus
 #    modules/claude-obsidian.nix ersetzt.
@@ -121,6 +133,8 @@ let
     "us-stock-analysis@invest-skill"
     # 2026-10-25: gepinnt in modules/claude-context-diet.nix
     "context-diet@context-diet"
+    # 2026-10-25 verworfen, siehe unten (WARUM WELCHES PLUGIN WEG IST)
+    "context-mode@context-mode"
   ];
 
   # Marktplaetze von Dritten, die ganz verschwinden (E-2: 6 -> 0).
@@ -136,6 +150,7 @@ let
     "invest-skill"
     "claude-for-financial-services"
     "context-diet" # 2026-10-25, Plugin jetzt gepinnt
+    "context-mode" # 2026-10-25 verworfen
   ];
 
   anVoll = map (p: "${p}@claude-plugins-official") an;
@@ -228,6 +243,24 @@ in
         # B175: was caveman ausserhalb seines Plugin-Ordners hinterliess.
         for o in "$HOME/.claude/.caveman-active" "$HOME/.claude/.caveman-mode-log.jsonl" \
                  "$HOME/.claude/.caveman-sessions" "$HOME/.config/caveman"; do
+          if [ -e "$o" ]; then
+            run ${pkgs.coreutils}/bin/rm -rf "$o"
+          fi
+        done
+
+        # context-mode (2026-10-25): sein globaler SessionStart-Hook samt
+        # Skript, seine Sitzungsdatenbanken (Werkzeugausgaben im Klartext)
+        # und sein Datenordner. Der Hook-Eintrag geht nur, wenn er auf das
+        # Skript zeigt; ein leeres SessionStart verschwindet mit.
+        json_setzen "$datei" '
+          if (.hooks.SessionStart | type) == "array" then
+            .hooks.SessionStart |= map(select(
+              (.hooks // []) | any(.command // "" | contains("context-mode-cache-heal")) | not))
+            | if .hooks.SessionStart == [] then del(.hooks.SessionStart) else . end
+          else . end
+        '
+        for o in "$HOME/.claude/hooks/context-mode-cache-heal.mjs" "$HOME/.claude/hooks/context-mode-cache-heal.sh" \
+                 "$HOME/.claude/context-mode" "$plugins/data/context-mode-context-mode"; do
           if [ -e "$o" ]; then
             run ${pkgs.coreutils}/bin/rm -rf "$o"
           fi
