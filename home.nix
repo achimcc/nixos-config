@@ -2027,6 +2027,11 @@ in
 
   programs.nushell = {
     enable = true;
+    # Ab home.stateVersion 26.11 Vorgabe `true` (laedt home.sessionVariables in
+    # nu). Bis dahin bewusst das bisherige Verhalten festgeschrieben — das
+    # schaltet die Warnung ab und aendert nichts. Wer umstellen will: `true`
+    # setzen und pruefen, dass sich keine Variable doppelt oder anders ergibt.
+    loadSessionVariables = false;
     shellAliases = {
       # Modern Unix Aliase
       ls = "eza --icons";

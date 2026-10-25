@@ -27,10 +27,36 @@
 # unter Vulkan-Dauerlast stabil bleibt (desktop.nix fuehrt drei GPU-Haenger),
 # und der `am start`-Aufruf.
 
-{ config, lib, pkgs, id, ... }:
+{ config, lib, pkgs, id, modulesPath, ... }:
 
 let
   wivrnPort = 9757;
+
+  # Das WiVRn-Modul von nixpkgs (3ec6363, 2026-10-25) setzt noch
+  # `services.avahi.publish.enable` und `.userServices`, die das Avahi-Modul
+  # inzwischen nur noch mit einer Warnung annimmt — bei jeder Auswertung, obwohl
+  # Avahi hier ohnehin aus ist (unten, mkForce). Statt des Originals laedt
+  # dieses Modul eine Kopie ohne den publish-Block; `enable = true` bleibt, wie
+  # es war. Ohne IFD: readFile + replaceStrings + toFile zur Auswertungszeit.
+  # Aendert upstream die Stelle (vermutlich der Fix), schlaegt das `assert`
+  # an — dann diesen Block, `disabledModules` und `imports` wieder entfernen.
+  # Wörtlich mit Einrückung — ein ''-String schnitte sie ab.
+  wivrnAvahiAlt = lib.concatMapStrings (z: z + "\n") [
+    "      avahi = {"
+    "        enable = true;"
+    "        publish = {"
+    "          enable = true;"
+    "          userServices = true;"
+    "        };"
+    "      };"
+  ];
+  wivrnAvahiNeu = "      avahi.enable = true;\n";
+  wivrnModulOriginal = builtins.readFile (modulesPath + "/services/video/wivrn.nix");
+  wivrnModulOhneAltlast = builtins.replaceStrings [ wivrnAvahiAlt ] [ wivrnAvahiNeu ] wivrnModulOriginal;
+  wivrnModul =
+    assert lib.assertMsg (wivrnModulOhneAltlast != wivrnModulOriginal)
+      "vr-arbeit.nix: der avahi.publish-Block im WiVRn-Modul von nixpkgs ist nicht mehr da, wo er war — Umgehung entfernen (siehe Kommentar)";
+    builtins.toFile "wivrn.nix" wivrnModulOhneAltlast;
 
   # Typelibs und GStreamer-Plugins kommen ueber den Wrapper: Ein Nutzerdienst
   # erbt die Sitzungsvariablen der GNOME-Shell nicht verlaesslich.
@@ -189,6 +215,10 @@ let
   };
 in
 {
+  # Das WiVRn-Modul ohne die veralteten avahi.publish-Zeilen, siehe wivrnModul.
+  disabledModules = [ "services/video/wivrn.nix" ];
+  imports = [ wivrnModul ];
+
   # ==========================================
   # WIVRN
   # ==========================================

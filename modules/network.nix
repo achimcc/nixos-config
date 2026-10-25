@@ -916,7 +916,7 @@ in
 
       # LibreOffice - Office-Suite mit Sandbox
       libreoffice = {
-        executable = "${pkgs.libreoffice-fresh}/bin/libreoffice";
+        executable = "${pkgs.libreoffice}/bin/libreoffice";
         profile = "${pkgs.firejail}/etc/firejail/libreoffice.profile";
         extraArgs = [
           "--whitelist=/home/${id.username}/Downloads"
@@ -941,7 +941,7 @@ in
     spotify
     thunderbird
     pkgs-unstable.vscodium  # VSCodium aus unstable (für aktuelle Version)
-    libreoffice-fresh  # Office-Suite (Firejail-wrapped)
+    libreoffice  # Office-Suite (Firejail-wrapped); libreoffice-fresh ist seit 2026-08 ein Alias auf -stable
     pan  # NNTP-Newsreader (Firejail-wrapped)
     feishin  # Musik-Client für Koel (Firejail-wrapped)
   ];
