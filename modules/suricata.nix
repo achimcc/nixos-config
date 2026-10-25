@@ -140,6 +140,10 @@
   systemd.services.suricata = {
     serviceConfig.RestartSec = "30s";
     serviceConfig.ExecReload = "${pkgs.coreutils}/bin/kill -USR2 $MAINPID";
+    # Der Konfigurationstest (ExecStartPre `suricata -T`) laedt den ganzen
+    # Regelsatz: unbelastet 17 s, waehrend eines Rebuild-Switch ueber 90 s —
+    # die Vorgabe brach ihn ab, und `nrs` endete mit Status 4 (2026-10-25).
+    serviceConfig.TimeoutStartSec = "5min";
     startLimitBurst = 5;
     startLimitIntervalSec = 300;
   };
