@@ -326,6 +326,7 @@ in
 
     # --- NODE.JS ---
     nodejs_22 # Enthält npm für globale Pakete
+    bun # context-mode-Plugin (Claude Code) laeuft damit 3-5x schneller als unter node
 
     # --- FHS COMPATIBILITY ---
     steam-run # FHS-Umgebung für nicht-NixOS Binaries
