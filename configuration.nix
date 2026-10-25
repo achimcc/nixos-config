@@ -152,8 +152,9 @@
   # LUKS Verschlüsselung
   # ==========================================
 
-  # Systemd in Initrd (für TPM2-LUKS-Entsperrung)
-  boot.initrd.systemd.enable = true;
+  # Systemd in Initrd (für TPM2-LUKS-Entsperrung): seit nixpkgs 3ec6363
+  # (flake.lock vom 2026-10-25) gibt es nur noch das systemd-Initrd, die Option
+  # `boot.initrd.systemd.enable` ist entfernt und als Definition ein Fehler.
 
   # TPM 2.0 für zusätzliche Boot-Sicherheit
   boot.initrd.systemd.tpm2.enable = true;
