@@ -18,8 +18,8 @@
 # Werkzeugs zurueck.
 #
 # `--replace-fail`: Aendert upstream die Zeile, wird der Bau rot statt still
-# wieder unsigniert. `preCheck` gibt den Tests eine Identitaet — `git commit`
-# verlangt eine, GitPythons eigener Commit erfand sich eine.
+# wieder unsigniert. `preCheck` gibt den Tests eine Identitaet als Rueckfall —
+# `git commit` verlangt eine, GitPythons eigener Commit erfand sich eine.
 #
 # WAS MAN TROTZDEM KENNEN MUSS: `git_reset` nimmt den GANZEN Index zurueck,
 # `git_checkout` wechselt den Zweig eines Worktrees — auch unter einer
@@ -56,10 +56,29 @@ let
         --replace-fail 'commit = repo.index.commit(message)' \
                        'repo.git.commit("-m", message); commit = repo.head.commit'
     '';
+    # Identitaet als GLOBALE Git-Konfiguration, nicht als GIT_AUTHOR_*: Die
+    # Tests ab 2026.10.18 setzen in ihren Repos `Test User` und vergleichen
+    # darauf; Umgebungsvariablen gingen jeder Konfiguration vor (9 Tests rot,
+    # 2026-10-25), die globale Datei nur dort, wo das Repo nichts setzt.
     preCheck = (alt.preCheck or "") + ''
-      export GIT_AUTHOR_NAME=probe GIT_AUTHOR_EMAIL=probe@example.invalid
-      export GIT_COMMITTER_NAME=probe GIT_COMMITTER_EMAIL=probe@example.invalid
+      export GIT_CONFIG_GLOBAL="$TMPDIR/gitconfig-probe"
+      printf '[user]\n\tname = probe\n\temail = probe@example.invalid\n' > "$GIT_CONFIG_GLOBAL"
     '';
+    disabledTests = (alt.disabledTests or [ ]) ++ [
+      # Erwartet GitPythons Commit-Nachricht ohne Zeilenende ("add new"); der
+      # Patch oben laesst `git commit` fahren, und Git schliesst jede Nachricht
+      # mit "\n" ab. Genau die gewollte Abweichung.
+      "test_git_commit_records_staged_changes"
+      # Erwartet die Fehlermeldung mit `cmdline: git add …`; nixpkgs' gitpython
+      # ruft git ueber den absoluten Store-Pfad auf.
+      "test_git_add_nonexistent_file_is_git_error"
+      # Erwartet das Verhalten von mcp >= 2.3 (kein leeres `experimental: {}`);
+      # nixpkgs fuehrt 2.2.0, das diese Fassung ausdruecklich zulaesst.
+      "test_initialize_reports_package_version_as_server_version"
+      # Sucht das Konsolenskript neben sys.executable des Test-Pythons; im
+      # Nix-Bau liegt es in $out/bin, nicht dort.
+      "test_console_script_nonexistent_repository_exits_with_one_line_error"
+    ];
   });
 
   server = builtins.toJSON {
